@@ -2,8 +2,6 @@ import tkinter as tk
 
 from PIL import ImageTk
 
-from controllers import controller
-
 class RectTracker:
     def __init__(self, rectangles):
         self._rectangles = rectangles
@@ -14,7 +12,7 @@ class RectTracker:
         """Draw the rectangle"""
         return self.canvas.create_rectangle(*(start + end), **opts)
 
-    def autodraw(self, canvas, **opts):
+    def auto_draw(self, canvas, **opts):
         """Setup automatic drawing; supports command option"""
         self.canvas = canvas
         self.start = None
@@ -32,29 +30,30 @@ class RectTracker:
             return
         if self.item is not None:
             self.canvas.delete(self.item)
-        # todo: keep a dictionary of items (rectangles)
+        # todo: keep a dictionary of items (requests)
         self.item = self.draw(self.start, (event.x, event.y), **self.rectopts)
         self._command(self.start, (event.x, event.y))
 
     def _stop(self, event):
         self.start = None
         # self.canvas.delete(self.item)
-        #todo: add rectangle to rectangles collection, specifying coordinates
+        #todo: add rectangle to requests collection, specifying coordinates
         # and item_id
         coords = self.canvas.coords(self.item)
-        print("Coords", coords)
         clicked = tk.StringVar()
-        # todo: retrieve label types from rectangles class, and populate option menu
         # todo: add other option buttons to the rectangle, like add child etc.
-        self._rectangles.add_rectangle(self.item, coords)
+        # todo: add drag capabilities
+        self._rectangles.add_rectangle(self.item, tuple(map(int, coords)))
         self._entry = e1 = tk.OptionMenu(self.canvas, clicked, *self._rectangles.get_label_types())
         # e1.pack()
         w = self.canvas.create_window(coords[0], coords[1], window=e1)
-        print("Bounds", self.canvas.bbox(w))
+        #todo: place window such that it is within the canvas
+        #todo: need a place for grabbing the rectangle so that we can drag the rectangle
+        print("Bounds", self.canvas.bbox(self.item))
 
-class MappingTool(controller.Controller):
-    # area capture state (use for capturing positional data)
-    def __init__(self, id_, container, rectangles):
+class MappingTool(object):
+    # area capture state (use for capturing positional rectangle)
+    def __init__(self, container, rectangles):
         """
 
         Parameters
@@ -62,17 +61,33 @@ class MappingTool(controller.Controller):
         container
         rectangles: models.rectangles.Rectangles
         """
-        super(MappingTool, self).__init__(id_)
         self._img = None
         self._container = container
         self._rectangles = rectangles
         self._img_item = None
         self._canvas = None
         self._root = None
+        self._position = [0, 0]
+        self._height = 0
+        self._width = 0
+        self._aborted = False
 
         self._tracker = RectTracker(rectangles)
 
+    @property
+    def position(self):
+        return tuple(self._position)
+
+    @property
+    def height(self):
+        return self._height
+
+    @property
+    def width(self):
+        return self._width
+
     def start(self, image):
+        # todo: need absolute coordinates of the main window...
         self._root = root = tk.Toplevel(self._container)
         # root = self._manager.main_frame
         self._canvas = canv = tk.Canvas(root, width=500, height=500)
@@ -82,17 +97,18 @@ class MappingTool(controller.Controller):
         root.update()
         print("ABS", root.winfo_rootx(), root.winfo_rooty())
 
+        root.bind("<Configure>", self._on_drag)
         root.protocol("WM_DELETE_WINDOW", self._on_close)
         rect = self._tracker
-        # # draw some base rectangles
+        # # draw some base requests
         # rect.draw([50, 50], [250, 150], fill='red', tags=('red', 'box'))
         # rect.draw([300, 300], [400, 450], fill='green', tags=('gre', 'box'))
 
         # put gif image on canvas
         # pic's upper left corner (NW) on the canvas is at x=50 y=10
-        img = ImageTk.PhotoImage(image)
-        self._img_item = canv.create_image(0, 0, image=img, anchor=tk.NW)
-        canv.config(width=img.width(), height=img.height())
+        # img = ImageTk.PhotoImage(image)
+        self._img_item = canv.create_image(0, 0, image=image, anchor=tk.NW)
+        canv.config(width=image.width(), height=image.height())
 
         # just for fun
         x, y = None, None
@@ -120,15 +136,21 @@ class MappingTool(controller.Controller):
             #         canv.itemconfig(x, fill='blue')
             pass
 
-        rect.autodraw(canv, fill="", width=1, command=onDrag)
+        rect.auto_draw(canv, fill="", width=1, command=onDrag)
+
+    def stop(self):
+        self._aborted = True
 
     def _on_close(self):
         self._root.destroy()
         self._root = None
         self._canvas = None
+        #submit all added rectangles
+        if not self._aborted:
+            self._rectangles.submit()
 
-    def handle_data(self, data, emitter):
-        if self._canvas:
-            if self._img_item:
-                self._canvas.delete(self._img_item)
-            self._img_item = self._canvas.create_image(0, 0, tk.PhotoImage(data), anchor=tk.NW)
+    def _on_drag(self, event):
+        self._position[0] = self._root.winfo_rootx()
+        self._position[1] = self._root.winfo_rooty()
+        self._width = self._root.winfo_width()
+        self._height = self._root.winfo_height()

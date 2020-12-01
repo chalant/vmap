@@ -34,7 +34,7 @@ class StoreManager(models.Model):
         pass
 
     def open_file(self):
-        # todo: notify observers => load and display data
+        # todo: notify observers => load and display rectangle
         pass
 
     def _events(self):

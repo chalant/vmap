@@ -9,7 +9,7 @@ class Model(ABC):
 
     def add_observer(self, observer, event):
         if event in self._observers:
-            self._observers[event][observer.id] = observer
+            self._observers[event][observer] = observer
         else:
             raise NotImplementedError("{} doesn't broadcast {} events".format(type(self), event))
 

@@ -16,7 +16,6 @@ games_types = Table(
     Column("game_type", String, primary_key=True)
 )
 
-#todo: we need settings for bets as-well (poker settings)
 # from settings we can pre-build labels in database => necessary in new project
 settings = Table(
     "settings",
@@ -52,7 +51,7 @@ labels = Table(
 
 
 rectangles = Table(
-    "rectangles",
+    "requests",
     meta,
     Column("rectangle_id", String, primary_key=True),
     Column("height", Float(32), nullable=False),
@@ -64,7 +63,7 @@ rectangle_instances = Table(
     meta,
     Column("instance_id", String, primary_key=True),
     #rectangle has multiple instances
-    Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id"), nullable=False),
+    Column("rectangle_id", String, ForeignKey("requests.rectangle_id"), nullable=False),
     Column("ul_x", Float(32), nullable=False),
     Column("ul_y", Float(32), nullable=False)
 )
@@ -80,7 +79,7 @@ label_instances = Table(
     #multiple label_instances can share the same rectangle
 )
 
-#label instances can map to multiple rectangles and vice-versa
+#label instances can map to multiple requests and vice-versa
 label_rectangle_instances = Table(
     "label_rectangle_instances",
     meta,
@@ -91,7 +90,8 @@ label_rectangle_instances = Table(
 images = Table(
     "images",
     meta,
-    # one image per label
-    Column("instance_id", String, ForeignKey('label_instances.instance_id'), primary_key=True),
+    Column("image_id", String, primary_key=True),
+    #multiple images per rectangle instance
+    Column("rectangle_instance_id", String, ForeignKey("rectangle_instances.instance_id"), nullable=False),
     Column("image_path", String, nullable=False)
 )

@@ -88,7 +88,7 @@ class Interface(controller.Controller):
         if self._metadata != None:
             self._metadata.destroy()
         fr = tk.LabelFrame(self._container)
-        # todo: load metadata parameters from data-base
+        # todo: load metadata parameters from rectangle-base
         fr.config(text="Metadata")
         fr.grid(row=1, column=0)
         tk.Label(fr, text="Name").grid(row=0, column=0)
