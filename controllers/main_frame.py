@@ -84,7 +84,7 @@ class MainFrame(object):
         self.template_image = None
 
         self.mapping_tool = mapping.MappingTool(container, rectangles)
-        self.capture_tool = ct = image_capture.ImageCaptureTool(ds.DisplayFactory(editor), 60)
+        self.capture_tool = ct = image_capture.ImageCaptureTool(ds.DisplayFactory(editor), 30)
 
         #create image_handlers. each display is bound to a rectangle
         self._rectangles = rectangles

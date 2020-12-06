@@ -22,24 +22,83 @@ _SELECT_LABEL_TYPES = text(
 _SELECT_RECTANGLES = text(
     """
     SELECT *
-    FROM requests
+    FROM rectangles
     """
 )
 
-#todo
-_ADD_LABEL = text(
+_ADD_RECTANGLE = text(
     """
-    INSERT
+    INSERT INTO rectangles(rectangle_id, height, width, project_name, label_id)
+    VALUES (:rectangle_id, :height, :width, :project_name, :label_id)
     """
 )
+
+_ADD_RECTANGLE_INSTANCE = text(
+    """
+    INSERT INTO rectangles_instances(rectangle_id, left, top)
+    VALUES (:rectangle_id, :left, :top)
+    """
+)
+
+_GET_LABEL_TYPES = text(
+    """
+    SELECT *
+    FROM label_types
+    """
+)
+
+class RectangleInstance(object):
+    def __init__(self, rectangle, left, top):
+        """
+
+        Parameters
+        ----------
+        rectangle: Rectangle
+        left: Int
+        top: Int
+        """
+
+        self._left = left
+        self._top = top
+
+        self._rectangle = rectangle
+
+    @property
+    def coordinates(self):
+        x1 = self._left
+        y1 = self._top
+        r = self._rectangle
+        return (x1, y1, x1 + r.width, y1 + r.height)
+
+    @coordinates.setter
+    def coordinates(self, value):
+        self._left = value[0]
+        self._top = value[1]
+
+    def submit(self, connection):
+        connection.execute(
+            _ADD_RECTANGLE_INSTANCE,
+            rectangle_id=self._rectangle.id,
+            left=self._left,
+            top=self._top)
 
 class Rectangle(object):
-    def __init__(self, coordinates, id_, canvas_id=None):
+    def __init__(self, coordinates, id_, label_id, canvas_id=None):
         self._coordinates = coordinates
         self._canvas_id = canvas_id
         self._id = id_
+        self._project_name = "test"
+
+        self._label_id = label_id
+
         x1, y1, x2, y2 = coordinates
+
         self._center = ((x1 + x2)/2, y2), (x1, (y1 + y2)/2)
+
+        self._width = x2 - x1
+        self._height = y2 - y1
+
+        self._instances = []
 
     @property
     def id(self):
@@ -54,6 +113,24 @@ class Rectangle(object):
         self._coordinates = value
 
     @property
+    def width(self):
+        return self._width
+
+    @width.setter
+    def width(self, value):
+        for instance in self._instances:
+            instance.width = value
+
+    @property
+    def height(self):
+        return self._height
+
+    @height.setter
+    def height(self, value):
+        for instance in self._instances:
+            instance.height = value
+
+    @property
     def canvas_id(self):
         return self._canvas_id
 
@@ -65,11 +142,22 @@ class Rectangle(object):
     def center(self):
         return self._center
 
-    def set_label_instance(self, instance):
-        pass
+    def add_instance(self, x, y):
+        instance = RectangleInstance(self._id, x, y)
+        self._instances.append(instance)
+        return instance
 
     def submit(self, connection):
-        pass
+        connection.execute(
+            _ADD_RECTANGLE,
+            rectangle_id=self._id,
+            height=self._height,
+            width=self._width,
+            project_name=self._project_name,
+            label_id=self._label_id)
+
+        for instance in self._instances:
+            instance.submit(connection)
 
 class Rectangles(models.Model):
     def __init__(self):
@@ -87,6 +175,9 @@ class Rectangles(models.Model):
         self._rectangles.append(rect)
         self._updated = True
         return rect
+
+    def get_rectangle_by_label(self, label):
+        pass
 
     #we can change the position of a rectangle within the canvas
     def update_rectangle(self, canvas_id, coordinates):

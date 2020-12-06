@@ -2,18 +2,25 @@ import tkinter as tk
 
 from PIL import ImageTk
 
-class RectTracker:
+class RectSelected(object):
+    # when a rectangle is selected, we can modify its dimensions, or drag it
+    # when changing its dimensions, the all instances of the base triangle are
+    # updated and redrawn. Also, all instances of the base are highlighted as-well.
+
+    # if we click outside a rectangle, we move back to drawing state
+    pass
+
+class RectDrawer(object):
     def __init__(self, rectangles):
         self._rectangles = rectangles
         self.item = None
         self._entry = None
 
-    def draw(self, start, end, **opts):
+    def _draw(self, start, end, **opts):
         """Draw the rectangle"""
         return self.canvas.create_rectangle(*(start + end), **opts)
 
-    def auto_draw(self, canvas, **opts):
-        """Setup automatic drawing; supports command option"""
+    def start(self, canvas, **opts):
         self.canvas = canvas
         self.start = None
         self.canvas.bind("<Button-1>", self._update, '+')
@@ -23,15 +30,20 @@ class RectTracker:
         self._command = opts.pop('command', lambda *args: None)
         self.rectopts = opts
 
+    def stop(self, canvas):
+        canvas.unbind("<Button-1>")
+        canvas.unbind("<B1-Motion>")
+        canvas.unbind("<ButtonRelease-1>")
+
     def _update(self, event):
 
         if not self.start:
             self.start = (event.x, event.y)
             return
-        if self.item is not None:
-            self.canvas.delete(self.item)
+        # if self.item is not None:
+        #     self.canvas.delete(self.item)
         # todo: keep a dictionary of items (requests)
-        self.item = self.draw(self.start, (event.x, event.y), **self.rectopts)
+        self.item = self._draw(self.start, (event.x, event.y), **self.rectopts)
         self._command(self.start, (event.x, event.y))
 
     def _stop(self, event):
@@ -51,6 +63,78 @@ class RectTracker:
         #todo: need a place for grabbing the rectangle so that we can drag the rectangle
         print("Bounds", self.canvas.bbox(self.item))
 
+class Editing(object):
+    def __init__(self, manager):
+        self._manager = manager
+
+        self._options = m = tk.Menu(self._manager.canvas)
+        m.add_command(label="Done", command=self._on_done)
+
+    def on_right_click(self, event):
+        self._manager.canvas.create_window(event.x, event.y, self._options)
+
+    def _on_done(self):
+        self._manager.state = self._manager.initial
+
+    def update(self):
+        pass
+
+class Drawing(object):
+    def __init__(self, manager):
+        self._drawer = RectDrawer(manager.rectangles)
+        self._manager = manager
+
+        self._options = m = tk.Menu(self._manager.canvas)
+        m.add_command(label="Done", command=self._on_done)
+
+    def on_right_click(self, event):
+        self._manager.canvas.create_window(event.x, event.y, self._options)
+
+    def _on_done(self):
+        canv = self._manager.canvas
+
+        canv.unbind('<Motion>')
+        self._drawer.stop(canv)
+        self._manager.state = self._manager.initial
+
+    def update(self):
+        canv = self._manager.canvas
+
+        def cool_design(event):
+            kill_xy()
+
+            dashes = [3, 2]
+            x = canv.create_line(event.x, 0, event.x, 1000, dash=dashes, tags='no')
+            y = canv.create_line(0, event.y, 1000, event.y, dash=dashes, tags='no')
+
+        def kill_xy(event=None):
+            canv.delete('no')
+
+        canv.bind('<Motion>', cool_design, '+')
+
+        self._drawer.start(canv, fill="", width=1)
+
+class Initial(object):
+    def __init__(self, manager):
+        self._manager = manager
+
+        self._options = m = tk.Menu(self._manager.canvas)
+
+        m.add_command(label="Draw", command=self._on_draw)
+        m.add_command(label="Edit", command=self._on_edit)
+
+    def on_right_click(self, event):
+        self._manager.canvas.create_window(event.x, event.y, self._options)
+
+    def _on_draw(self):
+        self._manager.state = self._manager.drawing
+
+    def _on_edit(self):
+        self._manager.state = self._manager.editing
+
+    def update(self):
+        pass
+
 class MappingTool(object):
     # area capture state (use for capturing positional rectangle)
     def __init__(self, container, rectangles):
@@ -63,16 +147,29 @@ class MappingTool(object):
         """
         self._img = None
         self._container = container
-        self._rectangles = rectangles
+        self.rectangles = rectangles
         self._img_item = None
-        self._canvas = None
+        self.canvas = None
         self._root = None
         self._position = [0, 0]
         self._height = 0
         self._width = 0
         self._aborted = False
 
-        self._tracker = RectTracker(rectangles)
+        self.modifying = Editing(self)
+        self.drawing = Drawing(self)
+        self.initial = Initial(self)
+
+        self._state = self.initial
+
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        self._state = value
+        value.update()
 
     @property
     def position(self):
@@ -99,7 +196,6 @@ class MappingTool(object):
 
         root.bind("<Configure>", self._on_drag)
         root.protocol("WM_DELETE_WINDOW", self._on_close)
-        rect = self._tracker
         # # draw some base requests
         # rect.draw([50, 50], [250, 150], fill='red', tags=('red', 'box'))
         # rect.draw([300, 300], [400, 450], fill='green', tags=('gre', 'box'))
@@ -109,21 +205,6 @@ class MappingTool(object):
         # img = ImageTk.PhotoImage(image)
         self._img_item = canv.create_image(0, 0, image=image, anchor=tk.NW)
         canv.config(width=image.width(), height=image.height())
-
-        # just for fun
-        x, y = None, None
-
-        def cool_design(event):
-            kill_xy()
-
-            dashes = [3, 2]
-            x = canv.create_line(event.x, 0, event.x, 1000, dash=dashes, tags='no')
-            y = canv.create_line(0, event.y, 1000, event.y, dash=dashes, tags='no')
-
-        def kill_xy(event=None):
-            canv.delete('no')
-
-        canv.bind('<Motion>', cool_design, '+')
 
         # command
         def onDrag(start, end):
@@ -136,8 +217,6 @@ class MappingTool(object):
             #         canv.itemconfig(x, fill='blue')
             pass
 
-        rect.auto_draw(canv, fill="", width=1, command=onDrag)
-
     def stop(self):
         self._aborted = True
 
@@ -147,7 +226,7 @@ class MappingTool(object):
         self._canvas = None
         #submit all added rectangles
         if not self._aborted:
-            self._rectangles.submit()
+            self.rectangles.submit()
 
     def _on_drag(self, event):
         self._position[0] = self._root.winfo_rootx()

@@ -7,13 +7,13 @@ _ENGINE = engine.create_engine() #todo: engine should be created in main script!
 _UPDATE_PARENT = text(
     """
     UPDATE label_instances SET has_child = :has_child
-    WHERE instance_id = :parent_id;
+    WHERE instance_id = :parent_type;
     """)
 
 _ADD_LABEL_INSTANCE_TO_PARENT = text(
     """
-    INSERT INTO label_instances(instance_id, parent_id) VALUES (:instance_id, :parent_id)
-    ON CONFLICT(instance_id) DO UPDATE SET parent_id=:parent_id; 
+    INSERT INTO label_instances(instance_id, parent_type) VALUES (:instance_id, :parent_type)
+    ON CONFLICT(instance_id) DO UPDATE SET parent_type=:parent_type; 
     """)
 
 _ADD_LABEL_INSTANCE = text(
@@ -32,7 +32,7 @@ _SELECT_LABEL_INSTANCE_OF_PARENT = text(
     """
     SELECT *
     FROM label_instances
-    WHERE instance_id=:instance_id AND parent_id=:parent_id
+    WHERE instance_id=:instance_id AND parent_type=:parent_type
     """)
 
 _SELECT_LABEL_INSTANCE_IS_CHILD = text(
@@ -46,7 +46,7 @@ _SELECT_LABEL_INSTANCE_PARENT =  text(
     """
     SELECT *
     FROM label_instances
-    WHERE label_instances.parent_id = :parent_id
+    WHERE label_instances.parent_type = :parent_type
     """)
 
 def _get_root(engine):
@@ -75,10 +75,12 @@ def get_instance_id(name):
             _ENGINE,
             row["instance_id"],
             row["label_id"],
-            row["parent_id"],
+            row["parent_type"],
             row["has_child"])
 
-class _Label(object):
+
+
+class Label(object):
     __slots__ = ["_engine", "_label_id", "_label_name", "_label_type", "_total", "_max"]
 
     def __init__(self, engine, label_id, label_name, label_type, total, max=None):
@@ -151,7 +153,7 @@ class _LabelInstance(object):
         with self._engine.begin() as conn:
             parent_id = self._instance_id
             instance_id = uuid4().hex
-            # will set this node as the parent_id of instance_id "instance_id"
+            # will set this node as the parent_type of instance_id "instance_id"
             conn.execute(_UPDATE_PARENT, has_child=True, parent_id=parent_id)
             conn.execute(
                 _ADD_LABEL_INSTANCE_TO_PARENT,
@@ -169,7 +171,7 @@ class _LabelInstance(object):
                     self._engine,
                     row["instance_id"],
                     row["label_id"],
-                    row["parent_id"],
+                    row["parent_type"],
                     row["has_child"]
                 )
             return
@@ -192,7 +194,7 @@ class _LabelInstance(object):
                     self._engine,
                     row["instance_id"],
                     row["label_id"],
-                    row["parent_id"],
+                    row["parent_type"],
                     row["has_child"])
             return
 
@@ -201,7 +203,7 @@ class _LabelInstance(object):
         parent_id = self._parent_id
         engine = self._engine
         with engine.begin() as conn:
-            # returns all the children of parent_id
+            # returns all the children of parent_type
             for row in conn.execute(_SELECT_LABEL_INSTANCE_PARENT, parent_id=parent_id):
                 yield _LabelInstance(
                     engine,

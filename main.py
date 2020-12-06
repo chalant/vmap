@@ -2,12 +2,9 @@ import tkinter as tk
 from tkinter import filedialog
 
 from controllers import main_frame
-from controllers import display
 
-from models import images
+from models import settings as itf
 from models import rectangles
-
-from data import interface as itf
 
 PATH = 'poker_table.png'
 FONT = ("Mono", 11)
