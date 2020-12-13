@@ -51,6 +51,9 @@ class ImageHandlerFactory(ABC):
     def __init__(self):
         self._handlers  = {}
 
+    def clear(self):
+        self._handlers.clear()
+
     def get_handler(self, rectangle):
         if rectangle.id not in self._handlers:
             handler = self._create_handler(rectangle)
@@ -67,6 +70,13 @@ class ImageHandlerFactory(ABC):
 
 class ImageCaptureTool(object):
     def __init__(self, handler_factory, fps=None):
+        """
+
+        Parameters
+        ----------
+        handler_factory: ImageHandlerFactory
+        fps
+        """
         self._stop_evt = threading.Event()
         self._stop = False
         self._spf = fps if not fps else 1/fps
@@ -153,9 +163,13 @@ class ImageCaptureTool(object):
             for r in rectangles:
                 self._handlers.append(self._handler_factory.get_handler(r))
 
+    def clear(self):
+        with self._lock:
+            self._handlers.clear()
+            self._handler_factory.clear()
+
     def stop(self):
         self._elapsed = 0
         self._total_frames = 0
         self._stop = True
         self._stop_evt.set() #trigger event in case the loop is sleeping
-        print("Stopped Capturing")

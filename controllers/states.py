@@ -1,5 +1,3 @@
-import threading
-
 import xdo
 
 from controllers import display as ds
@@ -33,12 +31,11 @@ class Initial(State):
         self._img = None
         self._img_item = None
 
+
     def on_capture(self):
         self._manager.capture_state.on_capture()
 
     def on_window_selection(self):
-        self._manager.next_button["state"] = "disabled"
-        self._manager.prev_button["state"] = "disabled"
         self._manager.container["cursor"] = "target"
         self._manager.container.grab_set_global()
         self._manager.container.bind('<Button-1>', self._on_click)
@@ -53,16 +50,13 @@ class Initial(State):
     def update(self):
         self._manager.capture_button["state"] = "disabled"
         self._manager.capture_button["text"] = "Start Capture"
-        self._manager.next_button["state"] = "disabled"
-        self._manager.prev_button["state"] = "disabled"
 
     def _on_abort(self, event):
         self._manager.container.grab_release()
         self._manager.container["cursor"] = "arrow"
 
     def _on_click(self, event):
-        self._manager.state = st = self._manager.window_selected
-        st.update()
+        self._manager.state = self._manager.window_selected
         container = self._container
         win_id = self._xdo.get_window_at_mouse()
         self._manager.container.grab_release()
@@ -78,6 +72,8 @@ class Initial(State):
         #todo: only change state if the image was mapping_active
         self._manager.mapping_state = cst = self._manager.mapping_active
         cst.update()
+
+        self._manager.interface.on_window_selected()
 
         #todo: we need a cleaner way of setting left and top values
         self._manager.capture_tool._left = loc[0] - 10
@@ -121,9 +117,8 @@ class WindowSelected(State):
         self._manager.capture_state.on_capture()
 
     def on_window_selection(self):
-        self._manager.state = st = self._manager.initial
+        self._manager.state = self._manager.initial
         self._manager.window_selection_button["text"] = "Select Window"
-        st.update()
 
     def on_mapping(self):
         self._manager.mapping_state.on_mapping()
@@ -141,8 +136,6 @@ class WindowSelected(State):
         pass
 
     def update(self):
-        self._manager.next_button["state"] = "normal"
-        self._manager.prev_button["state"] = "normal"
         self._manager.capture_button["state"] = "normal"
         self._manager.window_selection_button["text"] = "Unbind Window"
 

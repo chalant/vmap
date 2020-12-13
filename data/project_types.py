@@ -1,51 +1,68 @@
-from data import builder
+from sqlalchemy import text
 
-with builder.build() as bld:
-    event = bld.label_type("Event")
-    button = bld.label_type("Button")
-    container = bld.label_type("Container")
+from data.base import _Element
+from data.labels import _Label
 
-    game = bld.project_type("Game")
-    cards = bld.project_type("Cards")
+ADD_PROJECT_TYPE = text(
+    """
+    INSERT INTO project_types(project_type, parent_project_type, has_child)
+    VALUES (:project_type, :parent_project_type, :has_child);
+    """
+)
 
-    card_game = game.add_child("Card Game")
-    card_game.add_component(cards)
+ADD_PROJECT_TYPE_COMPONENT = text(
+    """
+    INSERT INTO project_type_components(project_type, component_project_type)
+    VALUES (:project_type, :component_project_type);
+    """
+)
 
-    poker = card_game.add_child("Poker")
+class _ProjectType(_Element):
+    def __init__(self, name):
+        super(_ProjectType, self).__init__()
+        self.parent_type = None
+        self._name = name
+        self._labels = []
+        self._children = []
+        self._components = []
 
-    # state label where instances can be (active, inactive, ...)
-    state_label = game.add_label("State", event)
-    #label where instances are (bet, call, fold, ...)
-    action_label = game.add_label("Action", event)
-    # button action label instances are (bet, call, fold, ...)
-    button_action_label = game.add_label("Action", button)
+        self._submit_flag = False
 
-    card_label = cards.add_label("Card", container)
-    rank_label = cards.add_label("Rank", container, 13)
-    suit_label = cards.add_label("Suit", container, 4)
+    @property
+    def name(self):
+        return self._name
 
-    card_label.add_component(rank_label)
-    card_label.add_component(suit_label)
+    def add_label(self, name, type_, max_=None, capture=False):
+        lbl = _Label(self._name, name, type_.name, max_, capture)
+        self._labels.append(lbl)
+        return lbl
 
-    poker_button = poker.add_label("Button", container)
+    def add_child(self, name):
+        pt = _ProjectType(name)
+        pt.parent_type = self._name
+        self._children.append(pt)
+        return pt
 
-    position = poker.add_label("Position", container)
+    def add_component(self, project_type):
+        self._components.append(project_type)
 
-    board_label = poker.add_label("Board", container, 1)
+    def _submit(self, connection):
+        if not self._submit_flag:
+            connection.execute(
+                ADD_PROJECT_TYPE,
+                project_type=self._name,
+                parent_project_type=self.parent_type,
+                has_child=True if self._children else False)
 
-    board_label.add_component(card_label)
+            for lbl in self._labels:
+                lbl.submit(connection)
 
-    opponent = poker.add_label("Opponent", container)
+            for child in self._children:
+                child.submit(connection)
 
-    opponent.add_component(card_label)
-    opponent.add_component(action_label)
-    opponent.add_component(state_label)
-    opponent.add_component(poker_button)
-    opponent.add_component(position)
-
-    player = card_game.add_label("Player", container, 1)
-
-    player.add_component(card_label)
-    player.add_component(button_action_label)
-    player.add_component(poker_button)
-    player.add_component(position)
+            for component in self._components:
+                connection.execute(
+                    ADD_PROJECT_TYPE_COMPONENT,
+                    project_type=self._name,
+                    component_project_type=component.name)
+            self._submit_flag = True
