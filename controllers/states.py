@@ -1,4 +1,5 @@
 import xdo
+from xdo.xdo import libxdo
 
 from controllers import display as ds
 
@@ -65,6 +66,15 @@ class Initial(State):
         self._xdo.activate_window(win_id)
         self._xdo.wait_for_window_active(win_id)
         loc = self._xdo.get_window_location(win_id)
+
+        w = self._manager.width
+        h = self._manager.height
+
+        #set window size
+        if w:
+            self._xdo.set_window_size(win_id, w, h)
+            libxdo.xdo_wait_for_window_size(self._xdo._xdo, win_id, w, h, 0, 0)
+
         size = self._xdo.get_window_size(win_id)
 
         #todo: pass in ltwh instead of bbox
@@ -73,14 +83,16 @@ class Initial(State):
         self._manager.mapping_state = cst = self._manager.mapping_active
         cst.update()
 
-        self._manager.interface.on_window_selected()
+        self._manager.interface.on_window_selected(size[0], size[1], img)
 
         #todo: we need a cleaner way of setting left and top values
         self._manager.capture_tool._left = loc[0] - 10
         self._manager.capture_tool._top = loc[1] - 8
 
-        self._manager.template_image, self._img_item = ds.display(img, self._manager.canvas)
-        self._manager.canvas.config(scrollregion=(0,0, img.width, img.height), height=size[1], width=size[0])
+        self._manager.display(img)
+
+        # self._mapper.template_image, self._img_item = ds.display(img, self._mapper.canvas)
+        # self._mapper.canvas.config(scrollregion=(0,0, img.width, img.height), height=size[1], width=size[0])
 
     def _get_container(self, manager):
         return manager.container
@@ -124,11 +136,11 @@ class WindowSelected(State):
         self._manager.mapping_state.on_mapping()
 
     def on_resize(self, event):
-        # canvas = self._manager.canvas
+        # canvas = self._mapper.canvas
         # # determine the ratio of old width/height to new width/height
         # wscale = float(event.width) / canvas.winfo_width()
         # hscale = float(event.height) / canvas.winfo_height()
-        # # self._manager.template_image.resize(event.width, event.height)
+        # # self._mapper.template_image.resize(event.width, event.height)
         # # resize the canvas
         # # canvas.config(width=self.width, height=self.height)
         # # rescale all the objects tagged with the "all" tag
@@ -162,8 +174,8 @@ class Capturing(CaptureState):
     def on_capture(self):
         self._manager.capture_state = st = self._manager.not_capturing
 
-        # self._manager.next_button["state"] = "normal"
-        # self._manager.prev_button["state"] = "normal"
+        # self._mapper.next_button["state"] = "normal"
+        # self._mapper.prev_button["state"] = "normal"
         self._manager.capture_tool.stop()
         st.update()
 
@@ -187,8 +199,8 @@ class NotCapturing(CaptureState):
     def on_capture(self):
         self._manager.capture_state = st = self._manager.capturing
 
-        # self._manager.next_button["state"] = "normal"
-        # self._manager.prev_button["state"] = "normal"
+        # self._mapper.next_button["state"] = "normal"
+        # self._mapper.prev_button["state"] = "normal"
         self._manager.capture_tool.start()
         st.update()
 

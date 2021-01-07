@@ -30,7 +30,9 @@ projects = Table(
     "projects",
     meta,
     Column("project_type", String, ForeignKey("project_types.project_type"), nullable=False),
-    Column("project_name", String, primary_key=True)
+    Column("project_name", String, primary_key=True),
+    Column("height", Float(32), nullable=False),
+    Column("width", Float(32), nullable=False)
 )
 
 # these are pre-populated by admin
@@ -84,6 +86,13 @@ rectangle_instances = Table(
     Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id"), nullable=False),
     Column("left", Integer, nullable=False),
     Column("top", Integer, nullable=False)
+)
+
+rectangle_components = Table(
+    "rectangle_components",
+    meta,
+    Column("r_instance_id", String, primary_key=True),
+    Column("r_component_id", String, ForeignKey("rectangles.rectangle_id"))
 )
 
 #provided by user

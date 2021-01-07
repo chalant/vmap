@@ -1,10 +1,16 @@
-from os import path, mkdir
+from os import path
+from functools import partial
+
+from PIL import Image
 
 from sqlalchemy import text
 
 from data import engine
 from data import data
 from data import paths
+from data import io
+
+from models import rectangles
 
 data.build() #populate database
 
@@ -19,7 +25,7 @@ _GET_LEAF_PROJECT_TYPES = text(
 _ADD_PROJECT = text(
     """
     INSERT INTO projects (project_name, project_type, project_path)
-    VALUES (:name, :type_, :path_);
+    VALUES (:name, :type_, :width, :height);
     """
 )
 
@@ -65,19 +71,65 @@ _GET_PROJECT_TYPE_COMPONENTS = text(
 )
 
 class Project(object):
-    def __init__(self, name, type_):
+    def __init__(self, name, type_, width=None, height=None, is_new=True):
         self._name = name
         self._type = type_
 
+        self._width = width
+        self._height = height
+
+        self._update = False
+        self._is_new = is_new
+
         self._labels = {}
+
+        self._rectangles = rectangles.Rectangles(self)
+
+        self._template_path = path.join(paths.global_path(paths.templates()), name)
+
+        def null_callback(data):
+            pass
+
+        self._update_callback = null_callback
+        self._template_callback = null_callback
+
+    @property
+    def rectangles(self):
+        return self._rectangles
 
     @property
     def name(self):
         return self._name
 
+    @name.setter
+    def name(self, value):
+        self._name = value
+        self._update = True
+
     @property
     def project_type(self):
         return self._type
+
+    @project_type.setter
+    def project_type(self, value):
+        self._type = value
+        self._update = True
+
+    @property
+    def width(self):
+        return self._width
+
+    @width.setter
+    def width(self, value):
+        self._width = value
+
+    @property
+    def height(self):
+        return self._height
+
+    @height.setter
+    def height(self, value):
+        self._height = value
 
     def _get_labels(self, project_type, labels, con):
         row = con.execute(_GET_PROJECT_TYPE, project_type=project_type).fetchone()
@@ -126,40 +178,72 @@ class Project(object):
                 while label != None:
                     label = self._get_labels(label, labels, con)
 
+    def save(self):
+        if self._is_new:
+            with engine.connect() as con:
+                con.execute(
+                    _ADD_PROJECT,
+                    name=self.name,
+                    type_=self.project_type,
+                    width=self.width,
+                    height=self.height)
+
+    def _save(self):
+        # todo: update project name if not new
+        if self._is_new:
+            with engine.connect() as con:
+                con.execute(
+                    _ADD_PROJECT,
+                    name=self.name,
+                    type_=self.project_type,
+                    width=self.width,
+                    height=self.height)
+
+    def store_template(self, image):
+        io.execute(partial(self._store_template, image=image))
+
+    def load_template(self, callback):
+        io.execute(partial(self._load_image, callback=callback))
+
+    def template_update(self, callback):
+        self._template_callback = callback
+
+    def _load_image(self, callback):
+        try:
+            with open(self._template_path) as f:
+                callback(Image.open(f, formats=("PNG",)))
+        except FileNotFoundError:
+            pass
+
+    def _store_template(self, image):
+        with open(self._template_path, "w+") as f:
+            image.save(f, "PNG")
+            self._template_callback(image)
+
     def clear(self):
         self._labels.clear()
 
+    def on_update(self, callback):
+        self._callback = callback
+
+    def update(self):
+        self._update_callback(self.rectangles)
+
 class Projects(object):
-    def __init__(self):
-        self._project = None
-
-        self._new = False
-
-        self._callbacks = []
-
-    def on_load(self, callback):
-        self._callbacks.append(callback)
-
     def create_project(self, name, type_):
-        mkdir(path.join(paths.root(), name))
-        self._project = pjt = Project(name, type_)
-        self._new = True
-
-        for c in self._callbacks:
-            c(pjt)
+        return Project(name, type_)
 
     def open_project(self, name):
         with engine.connect() as con:
             row = con.execute(_GET_PROJECT, project_name=name).fetchone()
-
-            self._project = pjt = Project(
+            return Project(
                 row["project_name"],
-                row["project_type"])
+                row["project_type"],
+                row["width"],
+                row["height"],
+                False)
 
-            for c in self._callbacks:
-                c(pjt)
-
-    def get_projects(self):
+    def get_project_names(self):
         projects = []
 
         with engine.connect() as con:
@@ -175,14 +259,4 @@ class Projects(object):
             for row in con.execute(_GET_LEAF_PROJECT_TYPES):
                 types.append(row["project_type"])
         return types
-
-    def save(self):
-        if self._new:
-            pjt = self._project
-            #save project
-            with engine.connect() as con:
-                con.execute(_ADD_PROJECT, name=pjt.name, type_=pjt.project_type)
-
-
-
 

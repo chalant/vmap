@@ -40,7 +40,7 @@ class WindowManager(object):
 # pass-in a callback?
 class MainWindow(object):
     # window for main information about the game
-    # contains capture tools, filling forms etc.
+    # contains capture states, filling forms etc.
     # also handles opening and closing files
     def __init__(self, manager):
         """

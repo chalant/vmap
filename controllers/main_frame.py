@@ -7,7 +7,6 @@ from controllers import states
 from controllers import interface as itf
 
 from models import projects as pjt
-from models import rectangles as rec
 
 class MainFrame(object):
     """
@@ -21,8 +20,8 @@ class MainFrame(object):
     """
     def __init__(self, manager, root):
 
-        r = 4 / 3
-        mf = tk.Frame(manager.container, width=800, height=800 / r)
+        r = 4/3
+        mf = tk.Frame(manager.container, width=800, height=800*r)
         mf.grid(row=0, column=0, sticky="wens")
         mf.grid_propagate(0)
 
@@ -84,12 +83,10 @@ class MainFrame(object):
 
         self.template_image = None
 
-        self.rectangles = rectangles = rec.Rectangles()
-
         self.interface = itf.Interface(right_frame, self, pjt.Projects())
 
-        self.mapping_tool = mapping.MappingTool(container, rectangles)
-        self.capture_tool = image_capture.ImageCaptureTool(ds.DisplayFactory(self.canvas), 30)
+        self.mapping_tool = None
+        self.capture_tool = None
 
         self._mapping_btn = mb = tk.Button(
             commands,
@@ -108,21 +105,17 @@ class MainFrame(object):
         self._win_select_btn = wb = tk.Button(
             commands,
             text="Select Window",
-            command=self._on_window_selection
+            command=self._on_window_selection,
+            state="disabled"
         )
-
-        # self._prev_btn = pb = tk.Button(commands, text="Prev", state="disabled")
-        # self._next_btn = nb = tk.Button(commands, text="Next", state="disabled")
 
         wb.grid(row=0, column=0)
         cb.grid(row=0, column=1)
         mb.grid(row=0, column=2)
-        # pb.grid(row=0, column=4)
-        # nb.grid(row=0, column=5)
 
-        # self._thread = threading.Thread(target=self._display)
-        # self._thread.start()
         self._initialized = False
+        self.width = 0
+        self.height = 0
 
     @property
     def state(self):
@@ -136,14 +129,6 @@ class MainFrame(object):
     @property
     def capture_button(self):
         return self._capture_btn
-
-    # @property
-    # def next_button(self):
-    #     return self._next_btn
-    #
-    # @property
-    # def prev_button(self):
-    #     return self._prev_btn
 
     @property
     def window_selection_button(self):
@@ -176,26 +161,46 @@ class MainFrame(object):
 
     def initialize(self, project):
         if not self._initialized:
-            rectangles = self.rectangles
-            rectangles.project = project #set current project
-
             # todo: load template image if it exists
+            self.mapping_tool = mapping.MappingTool(
+                self.container,
+                project.rectangles)
 
+            self.capture_tool = image_capture.ImageCaptureTool(
+                ds.DisplayFactory(self.canvas), 30)
             # load capture areas (if any)
-            self.capture_tool.add_handlers(rectangles.get_rectangles())
+            self.capture_tool.add_handlers(project.rectangles.get_rectangles())
             # create image_handlers. each display is bound to a rectangle
-            self.state = self.initial #set state to initial
+            self._win_select_btn["state"] = "normal"
 
         else:
-            # todo need to save changes
             self.stop()
+
             if self.template_image:
-                self.canvas.delete(self.template_image) #delete image
+                self.canvas.delete(self.img_item) #delete image
+                self.template_image = None
             self.capture_tool.clear() #remove all image handlers
 
             self._initialized = False
 
-            self.initialize(project)
+            self.capture_tool.add_handlers(project.rectangles.get_rectangles())
+
+        self.state = self.initial  # set state to initial
+
+        project.load_template(self.display) #load template and display it
+        project.template_update(self.display) #gets notified on new template write
+
+    def display(self, image):
+        self.template_image, self.img_item = ds.display(image, self.canvas)
+
+        self.width = w = image.width
+        self.height = h = image.height
+
+        self.canvas.config(scrollregion=(0, 0, w, h), height=h, width=w)
+
+    def update(self, rectangles):
+        # todo: add new rectangles to the capture_tool
+        pass
 
     def stop(self):
         self._state.stop()

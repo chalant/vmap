@@ -32,12 +32,12 @@ def _to_ltwh(bbox):
 class ImageHandler(ABC):
     def __init__(self, rectangle):
         self._rectangle = rectangle
-        x0, y0, x1, y1 = self._rectangle.coordinates
+        x0, y0, x1, y1 = self._rectangle.bbox
         self._ltwh = (x0, y0, x1 - x0, y1 - y0)
 
     @property
     def bbox(self):
-        return self._rectangle.coordinates
+        return self._rectangle.bbox
 
     @property
     def ltwh(self):

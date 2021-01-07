@@ -2,8 +2,6 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
-from models import models
-
 from data import engine
 
 _SELECT_RECTANGLES = text(
@@ -23,13 +21,40 @@ _ADD_RECTANGLE = text(
 
 _ADD_RECTANGLE_INSTANCE = text(
     """
-    INSERT INTO rectangles_instances(rectangle_id, left, top)
-    VALUES (:rectangle_id, :left, :top);
+    INSERT INTO rectangle_instances(r_rectangle_id, rectangle_id, left, top)
+    VALUES (:r_rectangle_id, :rectangle_id, :left, :top);
+    """
+)
+
+_GET_RECTANGLE_INSTANCES = text(
+    """
+    SELECT *
+    FROM rectangle_instances
+    WHERE rectangle_id=:rectangle_id
+    """
+)
+
+_ADD_RECTANGLE_COMPONENT = text(
+    """
+    INSERT INTO rectangle_components(r_instance_id, r_component_id)
+    VALUES (:r_instance_id, :r_component_id);
+    """
+)
+
+_DELETE_RECTANGLE = text(
+    """
+    DELETE FROM rectangles WHERE rectangle_id=:rectangle_id
+    """
+)
+
+_DELETE_RECTANGLE_INSTANCE = text(
+    """
+    DELETE FROM rectangle_instances WHERE r_instance_id=:r_instance_id
     """
 )
 
 class RectangleInstance(object):
-    def __init__(self, id_, rectangle, left, top):
+    def __init__(self, id_, rectangle, left, top, container_id=None):
         """
 
         Parameters
@@ -42,11 +67,26 @@ class RectangleInstance(object):
         self._left = left
         self._top = top
 
-        x1, y1, x2, y2 = self.coordinates
-
-        self._center = ((x1 + x2) / 2, y2), (x1, (y1 + y2) / 2)
-
         self._rectangle = rectangle
+        self._container_id = container_id
+
+        x1, y1, x2, y2 = self.bbox
+
+        self._center = ((x2 + x1) / 2, (y2 + y1) / 2)
+
+    @property
+    def instance_id(self):
+        return self._id
+
+    @property
+    def rectangle(self):
+        return self._rectangle
+
+    @property
+    def container_id(self):
+        # returns the container rectangle if this rectangle instance
+        # todo: if none, load it from data-base, (can be none)
+        return self._container_id
 
     @property
     def label_id(self):
@@ -57,16 +97,29 @@ class RectangleInstance(object):
         self._rectangle.label_id = value
 
     @property
-    def coordinates(self):
+    def bbox(self):
         x1 = self._left
         y1 = self._top
         r = self._rectangle
         return (x1, y1, x1 + r.width, y1 + r.height)
 
-    @coordinates.setter
-    def coordinates(self, value):
-        self._left = value[0]
-        self._top = value[1]
+    @bbox.setter
+    def bbox(self, value):
+        self._left = x = value[0]
+        self._top = y = value[1]
+
+        r = self._rectangle
+
+        self._center = (x + r.width/2, y + r.height/2)
+
+    @property
+    def top_left(self):
+        return (self._left, self._top)
+
+    @property
+    def bottom_right(self):
+        r = self._rectangle
+        return (self._left + r.width, self._top + r.height)
 
     @property
     def width(self):
@@ -92,6 +145,20 @@ class RectangleInstance(object):
     def siblings(self):
         return self._rectangle.get_instances()
 
+    def get_components(self):
+        # todo: query components of instance
+        return
+
+    def delete(self, connection):
+        connection.execute(
+            _DELETE_RECTANGLE_INSTANCE,
+            r_instance_id=self._id
+        )
+        self._rectangle.delete(connection)
+
+    def create_instance(self, x, y):
+        return self._rectangle.create_instance(x, y)
+
     def submit(self, connection):
         connection.execute(
             _ADD_RECTANGLE_INSTANCE,
@@ -100,17 +167,24 @@ class RectangleInstance(object):
             left=self._left,
             top=self._top)
 
+        if self._container_id:
+            connection.execute(
+                _ADD_RECTANGLE_COMPONENT,
+                r_instance_id=self._container_id,
+                r_component_id=self._id
+            )
+
 class Rectangle(object):
-    def __init__(self, id_, project_name, height, width):
+    def __init__(self, id_, project_name, width, height):
         self._id = id_
         self._project_name = project_name
 
         self._label_id = None
 
-        self._width = height
-        self._height = width
+        self._width = width
+        self._height = height
 
-        self._instances = []
+        self._num_instances = 0
 
     @property
     def id(self):
@@ -122,17 +196,7 @@ class Rectangle(object):
 
     @label_id.setter
     def label_id(self, value):
-        for instance in self._instances:
-            instance.label_id = value
         self._label_id = value
-
-    @property
-    def coordinates(self):
-        return self._coordinates
-
-    @coordinates.setter
-    def coordinates(self, value):
-        self._coordinates = value
 
     @property
     def width(self):
@@ -140,8 +204,7 @@ class Rectangle(object):
 
     @width.setter
     def width(self, value):
-        for instance in self._instances:
-            instance.width = value
+        self._width = value
 
     @property
     def height(self):
@@ -149,16 +212,31 @@ class Rectangle(object):
 
     @height.setter
     def height(self, value):
-        for instance in self._instances:
-            instance.height = value
-
-    def add_instance(self, x, y):
-        instance = RectangleInstance(uuid4().hex, self, x, y)
-        self._instances.append(instance)
-        return instance
+        self._height = value
 
     def get_instances(self):
-        pass
+        with engine.connect() as connection:
+            for row in connection.execute(
+                _GET_RECTANGLE_INSTANCES, rectangle_id=self._id):
+                yield RectangleInstance(
+                    row["r_instance_id"],
+                    self,
+                    row["left"],
+                    row["top"])
+
+    def create_instance(self, x, y, container=None):
+        self._num_instances += 1
+        return RectangleInstance(uuid4().hex, self, x, y, container)
+
+    def delete(self, connection):
+        self._num_instances -= 1
+
+        #delete rectangle if there is no more instance
+        if self._num_instances == 0:
+            connection.execute(
+                _DELETE_RECTANGLE,
+                rectangle_id=self._id
+            )
 
     def submit(self, connection):
         connection.execute(
@@ -169,9 +247,6 @@ class Rectangle(object):
             project_name=self._project_name,
             label_id=self._label_id)
 
-        for instance in self._instances:
-            instance.submit(connection)
-
     @property
     def perimeter(self):
         return 2 * (self._width + self._height)
@@ -180,8 +255,8 @@ class Rectangle(object):
     def area(self):
         return (self._width * self._height)/2
 
-class Rectangles(models.Model):
-    def __init__(self):
+class Rectangles(object):
+    def __init__(self, project):
 
         super(Rectangles, self).__init__()
         # self._engine = engine
@@ -190,23 +265,19 @@ class Rectangles(models.Model):
         self._rectangles = {}
         self._new_rectangles = {}
 
-        self.project = None
+        self.project = project
 
-    def add_rectangle(self, coordinates):
-        x0, y0, x1, y1 = coordinates
+    def add_rectangle(self, rectangle):
+        self._new_rectangles[rectangle] = rectangle
+        self._rectangles[rectangle] = rectangle
+        self._updated = True
 
-        h = y1 - y0
-        w = x1 - x0
-
-        rect = Rectangle(uuid4().hex, self.project.name, h, w)
+    def create_rectangle(self, w, h):
+        rect = Rectangle(uuid4().hex, self.project.name, w, h)
 
         rect.label_id = "n/a"
 
-        self._new_rectangles[rect] = rect
-        self._rectangles[rect] = rect
-        self._updated = True
-
-        return rect.add_instance(x0, y0)
+        return rect
 
     def delete(self, rectangle):
         # todo: delete rectangle from database or from buffer
@@ -225,18 +296,20 @@ class Rectangles(models.Model):
         return self.project.get_label_types()
 
     def get_rectangles(self):
-        rectangles = self._rectangles
-        with engine.connect() as con:
-            for row in con.execute(_SELECT_RECTANGLES, project_name=self.project.name):
-                r = Rectangle(
-                    row["rectangle_id"],
-                    row["project_name"],
-                    row["height"],
-                    row["width"]
-                )
-                r.label_id = row["label_id"]
-                rectangles[r.id] = r
-        return rectangles.values()
+        # rectangles = []
+        # with engine.connect() as con:
+        #     for row in con.execute(_SELECT_RECTANGLES, project_name=self.project.name):
+        #         r = Rectangle(
+        #             row["rectangle_id"],
+        #             row["project_name"],
+        #             row["height"],
+        #             row["width"]
+        #         )
+        #         r.label_id = row["label_id"]
+        #         rectangles.append(r)
+        #
+        # return rectangles
+        return self._rectangles.values()
 
     def new_rectangles(self):
         return self._new_rectangles
@@ -245,17 +318,10 @@ class Rectangles(models.Model):
         # todo: save new rectangles and updated rectangles
         # and notify the display
 
-        if self._updated == True:
-            evt = "update"
-            for obs in self.get_observers(evt):
-                obs.update(evt, self)
+        if self._new_rectangles:
+            self.project.update()
         self._new_rectangles.clear()
 
-    def load(self):
-        self.project.load()
-
-    def clear(self):
-        self.project.clear()
-
-    def _events(self):
-        return ["new", "load", "write", "update"]
+    def save(self, connection):
+        #todo: add all rectangles to database
+        pass
