@@ -3,6 +3,50 @@ from xdo.xdo import libxdo
 
 from controllers import display as ds
 
+from collections import namedtuple
+
+import Xlib.display
+
+disp = Xlib.display.Display()
+root = disp.screen().root
+
+MyGeom = namedtuple('MyGeom', 'x y height width')
+
+def get_active_window():
+    win_id = root.get_full_property(disp.intern_atom('_NET_ACTIVE_WINDOW'),
+                                    Xlib.X.AnyPropertyType).value[0]
+    try:
+        return disp.create_resource_object('window', win_id)
+    except Xlib.error.XError:
+        pass
+
+def get_absolute_geometry(win):
+    """
+    Returns the (x, y, height, width) of a window relative to the top-left
+    of the screen.
+    """
+    geom = win.get_geometry()
+    x, y = geom.x, geom.y
+
+    while True:
+        parent = win.query_tree().parent
+        pgeom = parent.get_geometry()
+        x += pgeom.x
+        y += pgeom.y
+        if parent.id == root.id:
+            break
+        win = parent
+
+    return MyGeom(x, y, geom.height, geom.width)
+
+def get_window_bbox(geom):
+    """
+    Returns (x1, y1, x2, y2) relative to the top-left of the screen.
+    """
+    x = geom.x
+    y = geom.y
+    return (x, y, x + geom.width, y + geom.height)
+
 class State(object):
     def on_capture(self):
         pass
@@ -59,13 +103,14 @@ class Initial(State):
     def _on_click(self, event):
         self._manager.state = self._manager.window_selected
         container = self._container
+
         win_id = self._xdo.get_window_at_mouse()
         self._manager.container.grab_release()
+
         container["cursor"] = "arrow"
 
         self._xdo.activate_window(win_id)
         self._xdo.wait_for_window_active(win_id)
-        loc = self._xdo.get_window_location(win_id)
 
         w = self._manager.width
         h = self._manager.height
@@ -75,32 +120,20 @@ class Initial(State):
             self._xdo.set_window_size(win_id, w, h)
             libxdo.xdo_wait_for_window_size(self._xdo._xdo, win_id, w, h, 0, 0)
 
-        size = self._xdo.get_window_size(win_id)
+        geom = get_absolute_geometry(get_active_window())
 
-        #todo: pass in ltwh instead of bbox
-        img = self._manager.capture_tool.capture(self._bbox(loc, size))
+        img = self._manager.capture_tool.capture(get_window_bbox(geom))
+
         #todo: only change state if the image was mapping_active
         self._manager.mapping_state = cst = self._manager.mapping_active
         cst.update()
 
-        self._manager.interface.on_window_selected(size[0], size[1], img)
-
-        #todo: we need a cleaner way of setting left and top values
-        self._manager.capture_tool._left = loc[0] - 10
-        self._manager.capture_tool._top = loc[1] - 8
+        self._manager.interface.on_window_selected(geom.width, geom.height, img)
 
         self._manager.display(img)
 
-        # self._mapper.template_image, self._img_item = ds.display(img, self._mapper.canvas)
-        # self._mapper.canvas.config(scrollregion=(0,0, img.width, img.height), height=size[1], width=size[0])
-
     def _get_container(self, manager):
         return manager.container
-
-    def _bbox(self, loc, size):
-        x0 = loc[0] - 10
-        y0 = loc[1] - 8
-        return (x0, y0, x0 + size[0], y0 + size[1])
 
     def stop(self):
         pass

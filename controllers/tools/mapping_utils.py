@@ -39,7 +39,11 @@ class RectangleWrapper(object):
 
     @property
     def center(self):
-        return self._rectangle.center
+        return self._instance.center
+
+    @property
+    def instance(self):
+        return self._instance
 
     @property
     def rectangle(self):

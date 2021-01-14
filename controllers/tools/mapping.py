@@ -53,6 +53,8 @@ class MappingTool(object):
 
         self._items = {}
 
+        self._points = []
+
     @property
     def canvas(self):
         return self._canvas
@@ -79,48 +81,10 @@ class MappingTool(object):
         return self._width
 
     def select_rectangle(self, x, y):
-
-        #returns the smallest rectangle that encloses a point
         res = self._find_closest_enclosing(x, y)
-
-        # if smallest:
-        #     fn = self._smallest
-        # else:
-        #     fn = self._biggest
-
-        found = None
-        rid = None
-
         if res:
-            # p = None
-            # for id_ in res:
-            #     rect = self._instances[id_].rectangle
-            #     x0, y0, x1, y1 = rect.bbox
-            #     if x0 < x and y0 < y and x1 > x and y1 > y:
-            #         per = rect.perimeter
-            #
-            #         found = rect
-            #         rid = id_
-            #
-            #         self._rid = rid
-            #         self.rectangle = found
-            #
-            #         if not p:
-            #             p = per
-            #             continue
-            #
-            #         if fn(per, p):
-            #             p = per
-            #             found = rect
-            #             rid = id_
-            rid = res[-1]
-            self._rid = rid
-            self.rectangle = found
-
-        self._rid = rid
-        self.rectangle = found
-
-        return rid
+            return res[0]
+        return
 
     def _smallest(self, per, p):
         return per <= p
@@ -163,11 +127,8 @@ class MappingTool(object):
                 yield instances[c]
         else:
             for r in instances.values():
-                if r.container:
-                    yield instances[self.get_root_container(r.container)]
-                else:
+                if not r.container:
                     yield r
-
 
     def find_closest(self, x, y):
         m_dist = None
@@ -194,8 +155,8 @@ class MappingTool(object):
 
         return results
 
-    def move(self, rid, x, y):
-        self._canvas.move(rid, x, y)
+    def move(self, rid, dx, dy):
+        self._canvas.move(rid, dx, dy)
 
     def adjust_point(self, x, y, w, h):
         #makes sure that any drawn element is within the canvas
@@ -211,16 +172,24 @@ class MappingTool(object):
 
         return x, y
 
+    @property
     def selected_rectangle(self):
         return self._rid
+
+    @selected_rectangle.setter
+    def selected_rectangle(self, rid):
+        self._rid = rid
 
     def add_item(self, item):
         self._items[item] = item
 
     def add_component(self, rid, comp_rid):
         instances = self._all_instances
-        instances[comp_rid].container = rid
-        instances[rid].add_component(comp_rid)
+        comp = instances[comp_rid]
+        comp.container = rid
+        cont = instances[rid]
+        cont.add_component(comp_rid)
+        comp.instance.container_id = cont.instance.id
 
     def add_rectangle(self, bbox, container_id=None):
         x0, y0, x1, y1 = bbox
@@ -240,6 +209,7 @@ class MappingTool(object):
         instances[rid] = wrapper
 
         self._new_rectangles.append(rct)
+        self._rectangles.append(rct)
 
         return rid
 
@@ -266,20 +236,20 @@ class MappingTool(object):
 
         return nid
 
-    def get_rectangle(self, rct):
+    def get_rectangle(self, rid):
         """
 
         Parameters
         ----------
-        rct
+        rid
 
         Returns
         -------
         mapping_utils.RectangleWrapper
         """
         instances = self._all_instances
-        if rct in instances:
-            return instances[rct]
+        if rid in instances:
+            return instances[rid]
         return
 
     def get_root_container(self, rct):
@@ -307,7 +277,6 @@ class MappingTool(object):
     def start(self, image):
         # todo: need absolute coordinates of the main window...
 
-        # todo: re-draw previously created rectangles on the canvas
         # todo: highlight un-labeled rectangles
 
         self._root = root = tk.Toplevel(self._container)
@@ -335,7 +304,6 @@ class MappingTool(object):
 
         rectangles = self.rectangles.get_rectangles()
 
-        rid_to_cmp = {}
         cmp_to_rid = {}
 
         instances = self._all_instances
@@ -345,7 +313,7 @@ class MappingTool(object):
 
             for instance in rct.get_instances():
             #draw all instances
-                rid = self.canvas.create_rectangle(*instance.bbox)
+                rid = self._canvas.create_rectangle(*instance.bbox)
 
                 wrapper = mapping_utils.RectangleWrapper(
                     instance.rectangle,
@@ -353,20 +321,35 @@ class MappingTool(object):
                     instance)
 
                 instances[rid] = wrapper
-                cmp = instance.get_components()
-
-                rid_to_cmp[rid] = cmp
-
-                for c in cmp:
-                    cmp_to_rid[c] = rid
+                cmp_to_rid[instance.id] = rid
 
         #build relations
-        for k, w in instances:
-            for cmp in rid_to_cmp[k]:
+        for k, w in instances.items():
+            wrapper = instances[k]
+            for cmp in wrapper.instance.get_components():
                 rid = cmp_to_rid[cmp]
-                wrapper = instances[rid]
-                wrapper.container = k #set the container
+                component = instances[rid]
+                component.container = k
                 w.add_component(rid)
+
+        # for ist in instances.values():
+        #     ct = self.get_root_container(ist.rid)
+        #     if ct:
+        #         for rct in mapping_utils.tree_iterator(self, ct):
+        #             x, y = rct.bbox[0], rct.bbox[1]
+        #             self._canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill = "blue")
+
+        # for ist in instances.values():
+        #     ct = self.get_root_container(ist.rid)
+        #
+        #     print("ROOT", ct)
+        #     if ct:
+        #         ct = self.get_rectangle(ct)
+        #         x, y = ct.bbox[0], ct.bbox[1]
+        #
+        #         self._canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill = "blue")
+        #
+        # print("DRAWN!!!")
 
     def stop(self):
         self._aborted = True
@@ -416,14 +399,30 @@ class MappingTool(object):
 
         #submit new rectangles and instances
         if not self._aborted:
+            with engine.connect() as con:
+                # todo: only delete updated rectangles
+
+                for r in self._rectangles:
+                    r.delete(con)
+
+                for wrapper in self._all_instances.values():
+                    wrapper.delete(con)
+
             with engine.connect() as connection:
                 #todo: check if all rectangles have been labeled
                 # note: we can resume a mapping session from where we left off
-                for r in self._new_rectangles:
+                for r in self._rectangles:
                     r.submit(connection)
 
-                for wrapper in self._new_instances.values():
+                for wrapper in self._all_instances.values():
                     wrapper.submit(connection)
+
+        self._rectangles.clear()
+        self._new_instances.clear()
+        self._all_instances.clear()
+        self._new_rectangles.clear()
+
+        self._state = self.initial
 
     def _on_drag(self, event):
         self._position[0] = self._root.winfo_rootx()

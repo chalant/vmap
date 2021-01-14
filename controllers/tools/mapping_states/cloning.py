@@ -1,6 +1,7 @@
 import tkinter as tk
 
 from controllers.tools import mapping_utils
+from controllers.tools import collision as cl
 
 class Cloning(object):
     def __init__(self, manager, collision):
@@ -31,15 +32,24 @@ class Cloning(object):
 
         self._prev_pos = None
 
+        self._instances = []
+        self._collision = cl.BoxCollision()
+
+        self._container = None
+        self._rectangle = None
+
+        self._nrx = 0
+        self._nry = 0
+
+        self._view = cl.CollisionView(self._mapper)
+        self._lc = False
+        self._cursor_pos = None
+
     def on_right_click(self, event):
         options = self._options
         options.tk_popup(event.x_root, event.y_root)
 
         self._clicked = (event.x, event.y)
-
-        #todo: activate dragging => create center nodes with tag "drag" and bind them to motion
-        # and left click button events. Redraw rectangle on each motion if the left click button
-        # is not released, also, the mouse pointer must be switched to pointing hand
 
     def update(self):
         pass
@@ -64,14 +74,18 @@ class Cloning(object):
         rct = self._mapper.get_rectangle(rectangle)
         x1, y1 = rct.top_left
 
-        x, y = self._mapper.adjust_point(x - rct.width / 2, y - rct.height / 2, rct.width, rct.height)
+        x, y = self._mapper.adjust_point(
+            x - rct.width / 2,
+            y - rct.height / 2,
+            rct.width,
+            rct.height)
 
         dx, dy = x - x1, y - y1
 
         stack = [rectangle]
-        ls = len(stack)
+        ls = 1
 
-        instances = []
+        instances = self._instances
 
         while ls != 0:
             rct = self._mapper.get_rectangle(stack[-1])
@@ -99,11 +113,11 @@ class Cloning(object):
     def _on_paste(self):
         canvas = self._mapper.canvas
         #draw all components of the container
-        rct = self._mapper.selected_rectangle()
+        rct = self._mapper.selected_rectangle
         container = self._mapper.get_root_container(rct)
 
         self._container = container
-        self._rect = container
+        self._rid = container
 
         x, y = self._clicked
 
@@ -114,7 +128,7 @@ class Cloning(object):
 
 
     def _unbind(self):
-        prev = self._rect
+        prev = self._rid
 
         if prev:
             canvas = self._mapper.canvas
@@ -125,16 +139,17 @@ class Cloning(object):
 
             canvas["cursor"] = "arrow"
             canvas.itemconfigure(prev, outline="black")
+            self._rid = None
 
     def _on_motion(self, event):
         canvas = self._mapper.canvas
         res = self._mapper.select_rectangle(event.x, event.y)
 
         if res and res != self._mapper.cloned:
-            if res != self._rect:
+            if res != self._rid:
                 self._unbind()
 
-            self._rect = res
+            self._rid = res
 
             canvas.bind("<Button-1>", self._on_click, "+")
             canvas.bind("<B1-Motion>", self._on_drag, "+")
@@ -149,50 +164,123 @@ class Cloning(object):
 
 
     def _on_click(self, event):
-        self._prev_pos = (event.x, event.y)
+        if not self._lc:
+            rid = self._rid
+            rct = self._mapper.get_rectangle(rid)
+            self._container = self._mapper.get_rectangle(rct.container)
+            self._rectangle = rct
+            self._prev_pos = rct.center
+            self._cursor_pos = event.x, event.y
+            self._lc = True
 
-    def _update_draw(self, r, dx, dy, container):
+    def _update_draw(self, r, dx, dy):
         x0, y0, x1, y1 = r.bbox
 
-        x0 = x0 + dx
-        y0 = y0 + dy
-        x1 = x1 + dx
-        y1 = y1 + dy
+        self._mapper.move(r.rid, dx, dy)
 
-        bbox = (x0, y0, x1, y1)
-
-        if container:
-            cx0, cy0, cx1, cy1 = self._mapper.get_rectangle(container).bbox
-
-        #only draw within the container
-            # if cx0 < x0 and cx1 > x1 and cy0 < y0 and cy1 > y1:
-            #     # return self._mapper.update_rectangle(r.rid, bbox), bbox
-            self._mapper.move(r.rid, dx, dy)
-
-            # return r.rid, r.bbox
-        else:
-            self._mapper.move(r.rid, dx, dy)
+        bbox = (x0 + dx, y0 + dy, x1 + dx, y1 + dy)
 
         r.bbox = bbox
-        r.top_left = x0, y0
-        # self._mapper.update_rectangle(r.rid, bbox)
-        # return self._mapper.update_rectangle(r.rid , bbox), bbox
 
     def _on_drag(self, event):
         px, py = self._prev_pos
-        rect = self._rect
+        cx, cy = self._cursor_pos
+        rid = self._rid
 
-        dx = event.x - px
-        dy = event.y - py
+        x = event.x
+        y = event.y
 
-        container = self._mapper.get_rectangle(rect).container
+        dx = x - cx
+        dy = y - cy
 
-        #todo: implement collision
+        mx = dx
+        my = dy
 
-        for rct in mapping_utils.tree_iterator(self._mapper, rect):
-            self._update_draw(rct, dx, dy, container)
+        if mx != 0 or my != 0:
+            container = self._container
+            # collision = self._collision
+            # mapper = self._mapper
 
-        self._prev_pos = (event.x, event.y)
+            # self._view.clear()
+            # self._view.ray(px, py, mx, my)
+
+            x0, y0, x1, y1 = self._rectangle.bbox
+
+            # w = self._rectangle.width/2
+            # h = self._rectangle.height/2
+
+            fx0 = x0 + mx
+            fy0 = y0 + my
+            fx1 = x1 + mx
+            fy1 = y1 + my
+
+            if container:
+                cx0, cy0, cx1, cy1 = container.bbox
+
+                if cx0 >= fx0:
+                    mx = cx0 - x0 + 2
+                elif fx1 >= cx1:
+                    mx = cx1 - x1 - 2
+
+                if cy0 >= fy0:
+                    my = cy0 - y0 + 2
+                elif cy1 <= fy1:
+                    my = cy1 - y1 - 2
+
+            else:
+                wd = self._mapper.width
+                hg = self._mapper.height
+
+                if 0 >= fx0:
+                    mx = 2 - x0
+                elif fx1 >= wd:
+                    mx = wd - x1 - 2
+
+                if 0 >= fy0:
+                    my = 2 - y0
+                elif hg <= fy1:
+                    my = hg - y1 - 2
+        #
+        #         for r in mapper.get_rectangles(container):
+        #             if r.rid != rid:
+        #                 rx0, ry0, rx1, ry1 = r.bbox
+        #
+        #                 col, t, nrx, nry = collision.collision_info(
+        #                     px, py, mx, my,
+        #                     (rx0 - w, ry0 - h, rx1 + w, ry1 + h))
+        #
+        #                 # col_ptx, col_pty = cl.collision_point(px, py, mx, my, t)
+        #
+        #                 if nrx is None:
+        #                     nrx = self._nrx
+        #
+        #                 if nry is None:
+        #                     nry = self._nry
+        #
+        #                 # self._view.point(col_ptx, col_pty)
+        #                 # self._view.normal(col_ptx, col_pty, nrx, nry)
+        #
+        #                 if col:
+        #                     if nrx < 0:
+        #                         if fx1 >= rx0:
+        #                             mx = (rx0 - 2) - x1
+        #                     elif nrx > 0:
+        #                         if fx0 <= rx1:
+        #                             mx = (rx1 + 2) - x0
+        #                     elif nry < 0:
+        #                         if fy1 >= ry0:
+        #                             my = (ry0 - 2) - y1
+        #                     elif nry > 0:
+        #                         if fy0 <= ry1:
+        #                             my = (ry1 + 2) - y0
+
+        for rct in mapping_utils.tree_iterator(self._mapper, rid):
+            self._update_draw(rct, mx, my)
+
+        self._prev_pos = px + mx, py + my
+        self._cursor_pos = x, y
 
     def _on_release(self, event):
-        pass
+        self._lc = False
+        self._container = None
+        self._rectangle = None

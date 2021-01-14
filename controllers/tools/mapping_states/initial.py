@@ -30,13 +30,11 @@ class Initial(object):
         m.entryconfig("Set Label", state="disabled")
 
     def on_right_click(self, event):
-        #todo:
-        # when we clone a rectangle, we also clone its components.
-        # components positions can be updated
         res = self._manager.select_rectangle(event.x, event.y)
         options = self._options
 
         if res:
+            self._manager.selected_rectangle = res
             options.entryconfig("Copy", state="normal")
             options.entryconfig("Edit", state="normal")
             options.entryconfig("Delete", state="normal")
@@ -92,7 +90,6 @@ class Initial(object):
 
     def _on_clone(self):
         self._manager.state = self._manager.cloning
-        self._manager.cloned = self._manager.selected_rectangle()
 
     def _on_delete(self):
         self._manager.remove_rectangle(self._manager.selected_rectangle())

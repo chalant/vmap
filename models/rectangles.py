@@ -14,15 +14,15 @@ _SELECT_RECTANGLES = text(
 
 _ADD_RECTANGLE = text(
     """
-    INSERT INTO rectangles(rectangle_id, height, width, project_name, label_id)
+    INSERT OR REPLACE INTO rectangles(rectangle_id, height, width, project_name, label_id)
     VALUES (:rectangle_id, :height, :width, :project_name, :label_id);
     """
 )
 
 _ADD_RECTANGLE_INSTANCE = text(
     """
-    INSERT INTO rectangle_instances(r_rectangle_id, rectangle_id, left, top)
-    VALUES (:r_rectangle_id, :rectangle_id, :left, :top);
+    INSERT INTO rectangle_instances(r_instance_id, rectangle_id, left, top)
+    VALUES (:r_instance_id, :rectangle_id, :left, :top);
     """
 )
 
@@ -31,6 +31,22 @@ _GET_RECTANGLE_INSTANCES = text(
     SELECT *
     FROM rectangle_instances
     WHERE rectangle_id=:rectangle_id
+    """
+)
+
+_GET_RECTANGLE_COMPONENTS = text(
+    """
+    SELECT *
+    FROM rectangle_components
+    WHERE r_instance_id=:r_instance_id
+    """
+)
+
+_GET_RECTANGLE_CONTAINER = text(
+    """
+    SELECT *
+    FROM rectangle_components
+    WHERE r_component_id=:r_component_id
     """
 )
 
@@ -53,6 +69,12 @@ _DELETE_RECTANGLE_INSTANCE = text(
     """
 )
 
+_DELETE_RECTANGLE_COMPONENT = text(
+    """
+    DELETE FROM rectangle_components WHERE r_instance_id=:r_instance_id
+    """
+)
+
 class RectangleInstance(object):
     def __init__(self, id_, rectangle, left, top, container_id=None):
         """
@@ -62,6 +84,7 @@ class RectangleInstance(object):
         rectangle: Rectangle
         left: Int
         top: Int
+        container_id: String
         """
         self._id = id_
         self._left = left
@@ -75,7 +98,7 @@ class RectangleInstance(object):
         self._center = ((x2 + x1) / 2, (y2 + y1) / 2)
 
     @property
-    def instance_id(self):
+    def id(self):
         return self._id
 
     @property
@@ -87,6 +110,10 @@ class RectangleInstance(object):
         # returns the container rectangle if this rectangle instance
         # todo: if none, load it from data-base, (can be none)
         return self._container_id
+
+    @container_id.setter
+    def container_id(self, value):
+        self._container_id = value
 
     @property
     def label_id(self):
@@ -146,14 +173,26 @@ class RectangleInstance(object):
         return self._rectangle.get_instances()
 
     def get_components(self):
-        # todo: query components of instance
-        return
+        components = []
+
+        with engine.connect() as con:
+            for row in con.execute(_GET_RECTANGLE_COMPONENTS, r_instance_id=self._id):
+                components.append(row["r_component_id"])
+
+        return components
 
     def delete(self, connection):
         connection.execute(
             _DELETE_RECTANGLE_INSTANCE,
             r_instance_id=self._id
         )
+
+        # remove components
+        connection.execute(
+            _DELETE_RECTANGLE_COMPONENT,
+            r_instance_id=self._id
+        )
+
         self._rectangle.delete(connection)
 
     def create_instance(self, x, y):
@@ -171,8 +210,9 @@ class RectangleInstance(object):
             connection.execute(
                 _ADD_RECTANGLE_COMPONENT,
                 r_instance_id=self._container_id,
-                r_component_id=self._id
-            )
+                r_component_id=self._id)
+
+        # self._rectangle.submit(connection)
 
 class Rectangle(object):
     def __init__(self, id_, project_name, width, height):
@@ -215,14 +255,27 @@ class Rectangle(object):
         self._height = value
 
     def get_instances(self):
+        instances = []
         with engine.connect() as connection:
             for row in connection.execute(
                 _GET_RECTANGLE_INSTANCES, rectangle_id=self._id):
-                yield RectangleInstance(
-                    row["r_instance_id"],
+                instance_id = row["r_instance_id"]
+                container_id = None
+                try:
+                    container_id = connection.execute(
+                        _GET_RECTANGLE_CONTAINER,
+                        r_component_id=instance_id).first()["r_instance_id"]
+                except:
+                    pass
+
+                instances.append(RectangleInstance(
+                    instance_id,
                     self,
                     row["left"],
-                    row["top"])
+                    row["top"],
+                    container_id))
+
+        return instances
 
     def create_instance(self, x, y, container=None):
         self._num_instances += 1
@@ -235,10 +288,10 @@ class Rectangle(object):
         if self._num_instances == 0:
             connection.execute(
                 _DELETE_RECTANGLE,
-                rectangle_id=self._id
-            )
+                rectangle_id=self._id)
 
     def submit(self, connection):
+        # if self._num_instances == 1:
         connection.execute(
             _ADD_RECTANGLE,
             rectangle_id=self._id,
@@ -296,20 +349,21 @@ class Rectangles(object):
         return self.project.get_label_types()
 
     def get_rectangles(self):
-        # rectangles = []
-        # with engine.connect() as con:
-        #     for row in con.execute(_SELECT_RECTANGLES, project_name=self.project.name):
-        #         r = Rectangle(
-        #             row["rectangle_id"],
-        #             row["project_name"],
-        #             row["height"],
-        #             row["width"]
-        #         )
-        #         r.label_id = row["label_id"]
-        #         rectangles.append(r)
-        #
-        # return rectangles
-        return self._rectangles.values()
+        instances = []
+        with engine.connect() as con:
+            for row in con.execute(_SELECT_RECTANGLES, project_name=self.project.name):
+                r = Rectangle(
+                    row["rectangle_id"],
+                    row["project_name"],
+                    row["width"],
+                    row["height"]
+                )
+                r.label_id = row["label_id"]
+                instances.append(r)
+                # for ist in r.get_instances():
+                #     instances.append(ist)
+        return instances
+        # return self._rectangles.values()
 
     def new_rectangles(self):
         return self._new_rectangles

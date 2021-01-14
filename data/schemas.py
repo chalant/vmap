@@ -91,8 +91,8 @@ rectangle_instances = Table(
 rectangle_components = Table(
     "rectangle_components",
     meta,
-    Column("r_instance_id", String, primary_key=True),
-    Column("r_component_id", String, ForeignKey("rectangles.rectangle_id"))
+    Column("r_instance_id", String, ForeignKey("rectangle_instances.r_instance_id")),
+    Column("r_component_id", String, ForeignKey("rectangle_instances.r_instance_id"))
 )
 
 #provided by user

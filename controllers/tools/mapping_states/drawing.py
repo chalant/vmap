@@ -1,5 +1,7 @@
 import tkinter as tk
 
+from controllers.tools import collision as cl
+
 class RectDrawer(object):
     def __init__(self, manager, rectangles, collision):
         self._rectangles = rectangles
@@ -31,7 +33,7 @@ class RectDrawer(object):
         self._nry = 0
         self._nrx = 0
 
-        self._collision = collision
+        self._collision = cl.DrawingCollision()
 
     def _draw(self, start, end, container, **opts):
         """Draw the rectangle"""
@@ -39,6 +41,9 @@ class RectDrawer(object):
         x1, y1 = end
 
         collision = self._collision
+
+        # make sure the drawn point is within the canvas
+        x1, y1 = self._mapper.adjust_point(x1, y1, 0, 0)
 
         if container:
             cx0, cy0, cx1, cy1 = container.bbox
@@ -54,6 +59,7 @@ class RectDrawer(object):
                 y1 -= (y1 - cy1) + 2
             if y1 < cy0:
                 y1 += (cy0 - y1) + 2
+
 
         if not self._prev:
             self._prev = x0, y0
@@ -85,9 +91,9 @@ class RectDrawer(object):
         for r in self._mapper.get_rectangles(container):
             rx0, ry0, rx1, ry1 = r.bbox
 
-            t, nrx, nry = collision.collision_info(px, py, dx, dy, r.bbox)
+            col, t, nrx, nry = collision.collision_info(px, py, dx, dy, r.bbox)
                 # print(nx, "NX", ny, "NY")
-            col_ptx, col_pty = collision.collision_point(px, py, dx, dy, t)
+            col_ptx, col_pty = cl.collision_point(px, py, dx, dy, t)
 
             if nrx is None:
                 nrx = self._nrx
@@ -95,7 +101,7 @@ class RectDrawer(object):
             if nry is None:
                 nry = self._nry
 
-            if t <= 1:
+            if col:
                 if collision.overlapping((x0, y0, x1, y1), r.bbox):
                     if nrx < 0:
                         x1 = rx0 - 2
@@ -140,15 +146,18 @@ class RectDrawer(object):
         # self._menus.clear()
 
     def _update(self, event):
+        container = self._container
+
         if not self._start:
             self._cid = None
-            self._container = None
 
             self._start = (event.x, event.y)
-            self._prev = (event.x, event.y)
+            self._prev = self._start
 
-            #check if we're within a box
+            #check if we're within a container
+
             rid = self._mapper.select_rectangle(event.x, event.y)
+
             if rid:
                 self._container = self._mapper.get_rectangle(rid)
                 self._cid = rid
@@ -159,7 +168,7 @@ class RectDrawer(object):
         self.item = self._draw(
             self._start,
             (event.x, event.y),
-            self._container,
+            container,
             **self.rectopts)
 
         self._command(self.start, (event.x, event.y))
@@ -179,6 +188,7 @@ class RectDrawer(object):
 
         self.item = None
         self._prev_col = None
+        self._container = None
 
         self.canvas.delete(self._line)
 
@@ -246,8 +256,8 @@ class Drawing(object):
 
         self._on_done()
 
-    def add_rectangle(self, bbox):
-        rid = self._manager.add_rectangle(bbox)
+    def add_rectangle(self, bbox, container_id=None):
+        rid = self._manager.add_rectangle(bbox, container_id)
         self._rectangles.append(rid)
         return rid
 

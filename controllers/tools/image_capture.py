@@ -98,6 +98,8 @@ class ImageCaptureTool(object):
         return self._fps
 
     def capture(self, bbox):
+        self._top = bbox[1]
+        self._left = bbox[0]
         return snapshot(self._screen.root, _to_ltwh(bbox))
 
     def _from_bytes(self, data):
@@ -136,7 +138,7 @@ class ImageCaptureTool(object):
                 for handler in self._handlers:
                     handler.process_image(snapshot(dsp, tuple(map(operator.add, handler.ltwh, shift))))
             self._fps =  1 / (time.time() - t0)
-            print(self._fps)
+            # print(self._fps)
 
     def _start_capped(self):
         # start capture loop
@@ -161,7 +163,8 @@ class ImageCaptureTool(object):
     def add_handlers(self, rectangles):
         with self._lock:
             for r in rectangles:
-                self._handlers.append(self._handler_factory.get_handler(r))
+                for instance  in r.get_instances():
+                    self._handlers.append(self._handler_factory.get_handler(instance))
 
     def clear(self):
         with self._lock:
