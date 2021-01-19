@@ -35,14 +35,13 @@ class _LabelType(_Element):
     def __init__(self, name):
         super(_LabelType, self).__init__()
         self._name = name
-        self._submit_flag = name
 
     @property
     def name(self):
         return self._name
 
     def _submit(self, connection):
-        if not self._submit_flag:
+        if self._name:
             connection.execute(
                 ADD_LABEL_TYPE,
                 label_type=self._name)

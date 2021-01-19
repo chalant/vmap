@@ -14,8 +14,8 @@ _SELECT_RECTANGLES = text(
 
 _ADD_RECTANGLE = text(
     """
-    INSERT OR REPLACE INTO rectangles(rectangle_id, height, width, project_name, label_id)
-    VALUES (:rectangle_id, :height, :width, :project_name, :label_id);
+    INSERT OR REPLACE INTO rectangles(rectangle_id, height, width, project_name, label_name, label_type)
+    VALUES (:rectangle_id, :height, :width, :project_name, :label_name, :label_type);
     """
 )
 
@@ -107,21 +107,11 @@ class RectangleInstance(object):
 
     @property
     def container_id(self):
-        # returns the container rectangle if this rectangle instance
-        # todo: if none, load it from data-base, (can be none)
         return self._container_id
 
     @container_id.setter
     def container_id(self, value):
         self._container_id = value
-
-    @property
-    def label_id(self):
-        return self._rectangle.label_id
-
-    @label_id.setter
-    def label_id(self, value):
-        self._rectangle.label_id = value
 
     @property
     def bbox(self):
@@ -168,10 +158,6 @@ class RectangleInstance(object):
     def area(self):
         return self._rectangle.area
 
-    @property
-    def siblings(self):
-        return self._rectangle.get_instances()
-
     def get_components(self):
         components = []
 
@@ -212,14 +198,13 @@ class RectangleInstance(object):
                 r_instance_id=self._container_id,
                 r_component_id=self._id)
 
-        # self._rectangle.submit(connection)
-
 class Rectangle(object):
     def __init__(self, id_, project_name, width, height):
         self._id = id_
         self._project_name = project_name
 
-        self._label_id = None
+        self._label_name = None
+        self._label_type = None
 
         self._width = width
         self._height = height
@@ -231,12 +216,20 @@ class Rectangle(object):
         return self._id
 
     @property
-    def label_id(self):
-        return self._label_id
+    def label_name(self):
+        return self._label_name
 
-    @label_id.setter
-    def label_id(self, value):
-        self._label_id = value
+    @label_name.setter
+    def label_name(self, value):
+        self._label_name = value
+
+    @property
+    def label_type(self):
+        return self._label_type
+
+    @label_type.setter
+    def label_type(self, value):
+        self._label_type = value
 
     @property
     def width(self):
@@ -254,28 +247,24 @@ class Rectangle(object):
     def height(self, value):
         self._height = value
 
-    def get_instances(self):
-        instances = []
-        with engine.connect() as connection:
-            for row in connection.execute(
-                _GET_RECTANGLE_INSTANCES, rectangle_id=self._id):
-                instance_id = row["r_instance_id"]
-                container_id = None
-                try:
-                    container_id = connection.execute(
-                        _GET_RECTANGLE_CONTAINER,
-                        r_component_id=instance_id).first()["r_instance_id"]
-                except:
-                    pass
+    def get_instances(self, connection):
+        for row in connection.execute(
+            _GET_RECTANGLE_INSTANCES, rectangle_id=self._id):
+            instance_id = row["r_instance_id"]
+            container_id = None
+            try:
+                container_id = connection.execute(
+                    _GET_RECTANGLE_CONTAINER,
+                    r_component_id=instance_id).first()["r_instance_id"]
+            except:
+                pass
 
-                instances.append(RectangleInstance(
-                    instance_id,
-                    self,
-                    row["left"],
-                    row["top"],
-                    container_id))
-
-        return instances
+            yield RectangleInstance(
+                instance_id,
+                self,
+                row["left"],
+                row["top"],
+                container_id)
 
     def create_instance(self, x, y, container=None):
         self._num_instances += 1
@@ -292,13 +281,16 @@ class Rectangle(object):
 
     def submit(self, connection):
         # if self._num_instances == 1:
+
         connection.execute(
             _ADD_RECTANGLE,
             rectangle_id=self._id,
             height=self._height,
             width=self._width,
             project_name=self._project_name,
-            label_id=self._label_id)
+            label_type=self._label_type,
+            label_name=self._label_name
+        )
 
     @property
     def perimeter(self):
@@ -310,72 +302,31 @@ class Rectangle(object):
 
 class Rectangles(object):
     def __init__(self, project):
-
         super(Rectangles, self).__init__()
-        # self._engine = engine
-        self._updated = False
-
-        self._rectangles = {}
-        self._new_rectangles = {}
 
         self.project = project
 
-    def add_rectangle(self, rectangle):
-        self._new_rectangles[rectangle] = rectangle
-        self._rectangles[rectangle] = rectangle
-        self._updated = True
+    def create_rectangle(self, w, h, project_name):
+        rect = Rectangle(uuid4().hex, project_name, w, h)
 
-    def create_rectangle(self, w, h):
-        rect = Rectangle(uuid4().hex, self.project.name, w, h)
-
-        rect.label_id = "n/a"
+        rect.label_name = "n/a"
+        rect.label_type = "n/a"
 
         return rect
-
-    def delete(self, rectangle):
-        # todo: delete rectangle from database or from buffer
-        pass
-
-    def get_rectangle_by_label(self, label):
-        pass
-
-    def get_labels_of_type(self, label_type):
-        self.project.get_labels(label_type)
 
     def get_label(self, rectangle_instance):
         return self.project.get_label(rectangle_instance.rectangle.label_id)
 
-    def get_label_types(self):
-        return self.project.get_label_types()
+    def get_rectangles(self, connection, project_name):
+        for row in connection.execute(_SELECT_RECTANGLES, project_name=project_name):
+            r = Rectangle(
+                row["rectangle_id"],
+                row["project_name"],
+                row["width"],
+                row["height"]
+            )
 
-    def get_rectangles(self):
-        instances = []
-        with engine.connect() as con:
-            for row in con.execute(_SELECT_RECTANGLES, project_name=self.project.name):
-                r = Rectangle(
-                    row["rectangle_id"],
-                    row["project_name"],
-                    row["width"],
-                    row["height"]
-                )
-                r.label_id = row["label_id"]
-                instances.append(r)
-                # for ist in r.get_instances():
-                #     instances.append(ist)
-        return instances
-        # return self._rectangles.values()
+            r.label_name = row["label_name"]
+            r.label_type = row["label_type"]
 
-    def new_rectangles(self):
-        return self._new_rectangles
-
-    def submit(self):
-        # todo: save new rectangles and updated rectangles
-        # and notify the display
-
-        if self._new_rectangles:
-            self.project.update()
-        self._new_rectangles.clear()
-
-    def save(self, connection):
-        #todo: add all rectangles to database
-        pass
+            yield r

@@ -1,7 +1,5 @@
 from itertools import chain
 
-from sqlalchemy import text
-
 from data import engine
 from data.project_types import _ProjectType
 from data.labels import _LabelType
@@ -19,7 +17,8 @@ def clear(connection):
         "project_types",
         "project_type_components",
         "labels",
-        "label_components"
+        "label_components",
+        "label_types"
     ]
 
     for name in table_names:

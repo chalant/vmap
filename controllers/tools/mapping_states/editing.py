@@ -11,7 +11,7 @@ class Editing(object):
 
     # todo: need an editor (draw squares at each corner of the rectangle and the center)
     #  the center is for dragging an the corners are for resizing
-    def __init__(self, manager, collision):
+    def __init__(self, manager):
         """
 
         Parameters
@@ -24,12 +24,12 @@ class Editing(object):
 
         self._options = m = tk.Menu(self._mapper.canvas, tearoff=False)
 
-        m.add_command(label="Reset", command=self._on_reset)
-        m.add_separator()
+        # m.add_command(label="Reset", command=self._on_reset)
+        # m.add_separator()
         m.add_command(label="Cancel", command=self._on_cancel)
         m.add_command(label="Done", command=self._on_done)
 
-        m.entryconfig("Reset", state="disabled")
+        # m.entryconfig("Reset", state="disabled")
 
         self._item = None
         self._clicked = None
@@ -52,6 +52,7 @@ class Editing(object):
         self._cursor_pos = None
 
         self._rid = None
+        self._text = None
 
     def on_right_click(self, event):
         res = self._mapper.select_rectangle(event.x, event.y)
@@ -60,10 +61,10 @@ class Editing(object):
 
         options.tk_popup(event.x_root, event.y_root)
 
-        if res:
-            options.entryconfig("Reset", state="normal")
-        else:
-            options.entryconfig("Reset", state="disabled")
+        # if res:
+        #     options.entryconfig("Reset", state="normal")
+        # else:
+        #     options.entryconfig("Reset", state="disabled")
 
     def _unbind(self):
         prev = self._rid
@@ -77,9 +78,10 @@ class Editing(object):
 
             canvas["cursor"] = "arrow"
             canvas.itemconfigure(prev, outline="black")
+
             self._rid = None
 
-    def _on_motion(self, event):
+    def on_motion(self, event):
         canvas = self._mapper.canvas
         res = self._mapper.select_rectangle(event.x, event.y)
 
@@ -96,26 +98,37 @@ class Editing(object):
             canvas["cursor"] = "hand2"
 
             canvas.itemconfigure(res, outline="red")
+            rct = self._mapper.get_rectangle(res)
+
+            if self._text:
+                canvas.delete(self._text)
+
+            x0, y0, x1, y1 = rct.bbox
+
+            x, y = round((x1 + x0) / 2), y0
+
+            self._text = canvas.create_text(x, y, text=rct.label_name)
 
         else:
             self._unbind()
-
-    def _selected_label(self, label_id):
-        # set label id
-        self._mapper.rectangle.label_id = label_id
 
     def _on_cancel(self):
         pass
 
     def _on_done(self):
         # todo update the selected rectangle coordinates
+        self._unbind()
         self._on_cancel()
-        self._mapper.canvas.unbind("<Motion>")
+        self._mapper.state = self._mapper.initial
 
-    def _on_reset(self):
-        # todo: move back to initial rectangle dimensions and location
-        #  and stay in edit state
-        pass
+        if self._text:
+            self._mapper.canvas.delete(self._text)
+
+
+    # def _on_reset(self):
+    #     # todo: move back to initial rectangle dimensions and location
+    #     #  and stay in edit state
+    #     pass
 
     def _on_click(self, event):
         if not self._lc:
@@ -141,6 +154,10 @@ class Editing(object):
         r.bbox = bbox
 
     def _on_drag(self, event):
+
+        if self._text:
+            self._mapper.canvas.delete(self._text)
+
         px, py = self._prev_pos
         cx, cy = self._cursor_pos
         rid = self._rid
@@ -247,5 +264,5 @@ class Editing(object):
         self._rectangle = None
 
     def update(self):
-        self._options.entryconfig("Reset", state="disabled")
-        self._mapper.canvas.bind("<Motion>", self._on_motion)
+        # self._options.entryconfig("Reset", state="disabled")
+        pass

@@ -8,16 +8,9 @@ from controllers import interface as itf
 
 from models import projects as pjt
 
-class MainFrame(object):
-    """
-    Used for editing elements and performing image capture
+from data import engine
 
-    We capture sequences from a window
-    captures are made using a thread (or a process) that loops forever and takes
-    screenshots. Note: We have to watch for events where the window is minimized, or is not
-    on the foreground... capture must be paused on these events and resumed anytime the window
-    appears... Also, when window is displaced we should track it if possible...
-    """
+class MainFrame(object):
     def __init__(self, manager, root):
 
         r = 4/3
@@ -114,8 +107,8 @@ class MainFrame(object):
         mb.grid(row=0, column=2)
 
         self._initialized = False
-        self.width = 0
-        self.height = 0
+        self.width = None
+        self.height = None
 
     @property
     def state(self):
@@ -160,54 +153,81 @@ class MainFrame(object):
             self.canvas.yview_scroll(-1, "units")
 
     def initialize(self, project):
-        if not self._initialized:
+        """
+
+        Parameters
+        ----------
+        project: models.projects.Project
+
+        Returns
+        -------
+
+        """
+
+        # if not self._initialized:
+        with engine.connect() as con:
+
             # todo: load template image if it exists
             self.mapping_tool = mapping.MappingTool(
                 self.container,
-                project.rectangles)
+                project)
+
+            self.mapping_tool.on_close(self.mapping_tool_close)
 
             self.capture_tool = image_capture.ImageCaptureTool(
                 ds.DisplayFactory(self.canvas), 30)
             # load capture areas (if any)
-            self.capture_tool.add_handlers(project.rectangles.get_rectangles())
+            self.capture_tool.add_handlers(project.get_rectangles(con))
             # create image_handlers. each display is bound to a rectangle
             self._win_select_btn["state"] = "normal"
+            self.state = self.initial  # set state to initial
+            self.mapping_state = self.mapping_inactive
+            self.mapping_state.update()
 
-        else:
-            self.stop()
+            project.load_template(self.display)  # load template and display it
+            project.template_update(self.display)  # gets notified on new template write
+            project.on_update(self.update)
 
-            if self.template_image:
-                self.canvas.delete(self.img_item) #delete image
-                self.template_image = None
-            self.capture_tool.clear() #remove all image handlers
+            self.height = project.height
+            self.width = project.width
 
-            self._initialized = False
+            self._initialized = True
 
-            self.capture_tool.add_handlers(project.rectangles.get_rectangles())
+            # else:
+            #     pass
+                # self.stop()
+                #
+                # # if self.template_image:
+                # #     self.canvas.delete(self.img_item) #delete image
+                # #     self.template_image = None
+                # self.capture_tool.clear() #remove all image handlers
+                #
+                # # self._initialized = False
+                #
+                # self.capture_tool.add_handlers(project.get_rectangles(con))
 
-        self.state = self.initial  # set state to initial
-
-        project.load_template(self.display) #load template and display it
-        project.template_update(self.display) #gets notified on new template write
 
     def display(self, image):
-        self.template_image, self.img_item = ds.display(image, self.canvas)
+        self.template_image = image
+        self._img, self.img_item = ds.display(image, self.canvas)
 
         self.width = w = image.width
         self.height = h = image.height
 
+        self.mapping_state = self.mapping_active
+        self.mapping_state.update()
+
         self.canvas.config(scrollregion=(0, 0, w, h), height=h, width=w)
 
-    def update(self, rectangles):
-        # todo: add new rectangles to the capture_tool
-        pass
+    def update(self, project):
+        with engine.connect() as con:
+            self.capture_state.project_update(project, con)
+
+    def mapping_tool_close(self, data):
+        self.mapping_state = self.mapping_active
+        self.mapping_state.update()
 
     def stop(self):
         self._state.stop()
         self.capture_state.stop()
         self.mapping_state.stop()
-
-
-
-
-

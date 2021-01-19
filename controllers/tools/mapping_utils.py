@@ -18,6 +18,22 @@ class RectangleWrapper(object):
         self._rid = value
 
     @property
+    def label_name(self):
+        return self._rectangle.label_name
+
+    @label_name.setter
+    def label_name(self, value):
+        self._rectangle.label_name = value
+
+    @property
+    def label_type(self):
+        return self._rectangle.label_type
+
+    @label_type.setter
+    def label_type(self, value):
+        self._rectangle.label_type = value
+
+    @property
     def bbox(self):
         return self._instance.bbox
 
@@ -27,7 +43,7 @@ class RectangleWrapper(object):
 
     @property
     def top_left(self):
-        return self._top_left
+        return self._instance.top_left
 
     @top_left.setter
     def top_left(self, value):
@@ -35,7 +51,7 @@ class RectangleWrapper(object):
 
     @property
     def bottom_right(self):
-        return self._rectangle.bottom_right
+        return self._instance.bottom_right
 
     @property
     def center(self):

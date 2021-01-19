@@ -1,8 +1,6 @@
 import xdo
 from xdo.xdo import libxdo
 
-from controllers import display as ds
-
 from collections import namedtuple
 
 import Xlib.display
@@ -145,16 +143,6 @@ class WindowSelected(State):
         Parameters
         ----------
         manager: controllers.main_frame.MainFrame
-
-        """
-
-        """
-        Window selection state: all the buttons are disabled
-        until selection is done. Right click to quit selection.
-
-        When a window is selected, it starts recording...
-        Stop recording button is then activated (recording is done in the back ground
-        User can navigate through frames by clicking buttons (next, previous...)
         """
         self._manager = manager
 
@@ -216,8 +204,16 @@ class Capturing(CaptureState):
         self._manager.capture_button["text"] = "Stop Capture"
         self._manager.window_selection_button["state"] = "normal"
 
+    def project_update(self, project, connection):
+        self._manager.capture_tool.clear()
+        self._manager.capture_tool.add_handlers(project.get_rectangles(connection))
+        self._manager.capture_tool.start()
+
     def stop(self):
         self._manager.capture_tool.stop()
+        # self._manager.capture_tool.stop()
+        self._manager.capture_state = self._manager.not_capturing
+        self._manager.capture_state.update()
 
 class NotCapturing(CaptureState):
     def __init__(self, manager):
@@ -241,6 +237,10 @@ class NotCapturing(CaptureState):
         self._manager.capture_button["text"] = "Resume Capture"
         self._manager.window_selection_button["state"] = "normal"
 
+    def project_update(self, project, connection):
+        self._manager.capture_tool.clear()
+        self._manager.capture_tool.add_handlers(project.get_rectangles(connection))
+
     def stop(self):
         pass
 
@@ -260,6 +260,8 @@ class MappingActive(MappingState):
 
     def on_mapping(self):
         self._manager.mapping_tool.start(self._manager.template_image)
+        self._manager.mapping_state = self._manager.mapping_inactive
+        self._manager.mapping_state.update()
 
     def update(self):
         self._manager.mapping_button["state"] = "normal"

@@ -39,7 +39,8 @@ projects = Table(
 label_types = Table(
     "label_types",
     meta,
-    Column("label_type", String, primary_key=True)
+    Column("label_type", String, primary_key=True),
+    # Column("project_type", ForeignKey("project_types.project_type"), nullable=False)
 )
 
 #pre-populated by admin
@@ -65,16 +66,17 @@ label_components = Table(
     Column("lc_id", String, primary_key=True)
 )
 
-# multiple rectangles per label
+# multiple project per label
 rectangles = Table(
     "rectangles",
     meta,
     Column("rectangle_id", String, primary_key=True),
     Column("height", Integer, nullable=False),
     Column("width", Integer, nullable=False),
-    # rectangles are per-project
+    # project are per-project
     Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
-    Column("label_id", String, ForeignKey("labels.label_id"), nullable=False)
+    Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False),
+    Column("label_name", String, ForeignKey("labels.label_name"), nullable=False)
 )
 
 rectangle_instances = Table(

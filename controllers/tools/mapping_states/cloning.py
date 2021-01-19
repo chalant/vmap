@@ -4,7 +4,7 @@ from controllers.tools import mapping_utils
 from controllers.tools import collision as cl
 
 class Cloning(object):
-    def __init__(self, manager, collision):
+    def __init__(self, manager):
         """
 
         Parameters
@@ -45,6 +45,8 @@ class Cloning(object):
         self._lc = False
         self._cursor_pos = None
 
+        self._rid = None
+
     def on_right_click(self, event):
         options = self._options
         options.tk_popup(event.x_root, event.y_root)
@@ -61,7 +63,6 @@ class Cloning(object):
         for rid in self._rectangles:
             self._mapper.remove_rectangle(rid)
         self._rectangles.clear()
-        self._mapper.canvas.unbind("<Motion>")
 
     def _draw_copy(self, dx, dy, rct):
         a, b = rct.top_left
@@ -75,8 +76,8 @@ class Cloning(object):
         x1, y1 = rct.top_left
 
         x, y = self._mapper.adjust_point(
-            x - rct.width / 2,
-            y - rct.height / 2,
+            round(x - rct.width / 2),
+            round(y - rct.height / 2),
             rct.width,
             rct.height)
 
@@ -86,6 +87,7 @@ class Cloning(object):
         ls = 1
 
         instances = self._instances
+        container = rct.container
 
         while ls != 0:
             rct = self._mapper.get_rectangle(stack[-1])
@@ -105,27 +107,26 @@ class Cloning(object):
                 instances.append(rid)
                 ls -= 1
 
+                if ls == 0 and container:
+                    self._mapper.add_component(container, rid)
+
+
     def _on_done(self):
         self._rectangles.clear()
-        self._mapper.canvas.unbind("<Motion>")
         self._mapper.state = self._mapper.initial
 
     def _on_paste(self):
-        canvas = self._mapper.canvas
         #draw all components of the container
         rct = self._mapper.selected_rectangle
         container = self._mapper.get_root_container(rct)
 
         self._container = container
-        self._rid = container
+        self._rid = rct
 
         x, y = self._clicked
 
         #copy the rectangle and draw it
-        self._copy(container, x, y)
-
-        canvas.bind("<Motion>", self._on_motion)
-
+        self._copy(rct, x, y)
 
     def _unbind(self):
         prev = self._rid
@@ -141,7 +142,7 @@ class Cloning(object):
             canvas.itemconfigure(prev, outline="black")
             self._rid = None
 
-    def _on_motion(self, event):
+    def on_motion(self, event):
         canvas = self._mapper.canvas
         res = self._mapper.select_rectangle(event.x, event.y)
 

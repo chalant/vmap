@@ -7,6 +7,7 @@ from Xlib import display, X
 
 from PIL import Image
 
+from data import engine
 
 def snapshot(rt, xywh):
     """
@@ -21,7 +22,9 @@ def snapshot(rt, xywh):
     """
     w = xywh[2]
     h = xywh[3]
-    raw = rt.get_image(xywh[0], xywh[1], w, h, X.ZPixmap, 0xffffffff)
+
+    #shift by one pixel to compensate for rectangle outline width
+    raw = rt.get_image(xywh[0] + 1, xywh[1] + 1, w, h, X.ZPixmap, 0xffffffff)
     image = Image.frombytes("RGB", (w, h), raw.data, "raw", "BGRX")
     return image
 
@@ -90,8 +93,8 @@ class ImageCaptureTool(object):
         self._top = None
         self._left = None
 
-        self._display = display.Display()
-        self._screen = self._display.screen()
+        self._display = None
+        self._screen = None
 
     @property
     def fps(self):
@@ -100,7 +103,7 @@ class ImageCaptureTool(object):
     def capture(self, bbox):
         self._top = bbox[1]
         self._left = bbox[0]
-        return snapshot(self._screen.root, _to_ltwh(bbox))
+        return snapshot(display.Display().screen().root, _to_ltwh(bbox))
 
     def _from_bytes(self, data):
         return Image.frombytes("RGB", data.size, data.bgra, "raw", "BGRX")
@@ -118,6 +121,8 @@ class ImageCaptureTool(object):
         '''
         self._stop = False
         self._stop_evt.clear()
+        self._display = display.Display()
+        self._screen = self._display.screen()
         if self._spf:
             thread = threading.Thread(target=self._start_capped)
         else:
@@ -134,9 +139,9 @@ class ImageCaptureTool(object):
         dsp = self._screen.root
         while not self._stop:
             t0 = time.time()
-            with self._lock:
-                for handler in self._handlers:
-                    handler.process_image(snapshot(dsp, tuple(map(operator.add, handler.ltwh, shift))))
+            # with self._lock:
+            for handler in self._handlers:
+                handler.process_image(snapshot(dsp, tuple(map(operator.add, handler.ltwh, shift))))
             self._fps =  1 / (time.time() - t0)
             # print(self._fps)
 
@@ -150,26 +155,34 @@ class ImageCaptureTool(object):
 
         while not self._stop:
             t0 = time.time()
-            with self._lock:
-                for handler in self._handlers:
-                    handler.process_image(snapshot(dsp, tuple(map(operator.add, handler.ltwh, shift))))
+            # with self._lock:
+            for handler in self._handlers:
+                handler.process_image(snapshot(dsp, tuple(map(operator.add, handler.ltwh, shift))))
             sleep = target + t0 - time.time()
             if sleep < 0:
                 sleep = 0
             self._stop_evt.wait(sleep)
             self._fps =  1 / (time.time() - t0)
-            print(self._fps)
+            # print(self._fps)
 
-    def add_handlers(self, rectangles):
-        with self._lock:
+    def add_handlers(self, rectangles, connection=None):
+        # todo: only capture rectangles with label instances
+        # with self._lock:
+        if not connection:
+            with engine.connect() as connection:
+                for r in rectangles:
+                    for instance in r.get_instances(connection):
+                        self._handlers.append(self._handler_factory.get_handler(instance))
+        else:
             for r in rectangles:
-                for instance  in r.get_instances():
+                for instance in r.get_instances(connection):
                     self._handlers.append(self._handler_factory.get_handler(instance))
 
     def clear(self):
-        with self._lock:
-            self._handlers.clear()
-            self._handler_factory.clear()
+        # with self._lock:
+        self.stop()
+        self._handlers.clear()
+        self._handler_factory.clear()
 
     def stop(self):
         self._elapsed = 0

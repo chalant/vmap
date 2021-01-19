@@ -3,7 +3,7 @@ import tkinter as tk
 from controllers.tools import collision as cl
 
 class RectDrawer(object):
-    def __init__(self, manager, rectangles, collision):
+    def __init__(self, manager, rectangles):
         self._rectangles = rectangles
         self.item = None
         self._entry = None
@@ -36,6 +36,8 @@ class RectDrawer(object):
         self._collision = cl.DrawingCollision()
 
     def _draw(self, start, end, container, **opts):
+        # todo: we need a minimal area to cover with the rectangle (i.e: points are not permitted)
+
         """Draw the rectangle"""
         x0, y0 = start
         x1, y1 = end
@@ -174,17 +176,22 @@ class RectDrawer(object):
         self._command(self.start, (event.x, event.y))
 
     def _stop(self, event):
-        self._start = None
+        x0, y0 = self._start
+        x1, y1 = event.x, event.y
 
         coords = self.canvas.coords(self.item)
 
+        if abs(x1 - x0) > 2 and abs(y1 - y0) > 2:
+            rid = self._manager.add_rectangle(tuple(map(int, coords)))
+
+            if self._cid:
+                # add component if the rectangle is in the container
+                self._mapper.add_component(self._cid, rid)
+
+        self._start = None
+
         #selected label
         self.canvas.delete(self.item)
-        rid = self._manager.add_rectangle(tuple(map(int, coords)))
-
-        if self._cid:
-            # add component if the rectangle is in the container
-            self._mapper.add_component(self._cid, rid)
 
         self.item = None
         self._prev_col = None
@@ -202,17 +209,17 @@ class RectDrawer(object):
         self._points.clear()
 
 class Drawing(object):
-    def __init__(self, manager, collision):
+    def __init__(self, manager):
         """
 
         Parameters
         ----------
         manager: controllers.tools.mapping.MappingTool
         """
-        self._drawer = RectDrawer(self, manager.rectangles, collision)
-        self._manager = manager
+        self._drawer = RectDrawer(self, manager.project)
+        self._mapper = manager
 
-        self._options = menu = tk.Menu(self._manager.canvas, tearoff=False)
+        self._options = menu = tk.Menu(self._mapper.canvas, tearoff=False)
 
         self._rectangles = []
 
@@ -225,8 +232,13 @@ class Drawing(object):
 
         self._rid = None
 
+        self._x = None
+        self._y = None
+
+        self._dashes = [3, 2]
+
     def on_right_click(self, event):
-        res = self._manager.select_rectangle(event.x, event.y)
+        res = self._mapper.select_rectangle(event.x, event.y)
         opt = self._options
 
         if res:
@@ -238,41 +250,37 @@ class Drawing(object):
 
         opt.tk_popup(event.x_root, event.y_root)
 
+    def on_motion(self, event):
+        canv = self._mapper.canvas
+
+        canv.delete('no')
+
+        x = canv.create_line(event.x, 0, event.x, 2000, dash=self._dashes, tags='no')
+        y = canv.create_line(0, event.y, 2000, event.y, dash=self._dashes, tags='no')
+
     def _on_delete(self):
-        self._manager.remove_rectangle(self._rid)
+        self._mapper.remove_rectangle(self._rid)
+        self._rectangles.remove(self._rid)
 
     def _on_done(self):
-        cnv = self._manager.canvas
-        cnv.unbind('<Motion>')
-
+        cnv = self._mapper.canvas
         self._drawer.stop(cnv)
-        self._manager.canvas.delete('no')
-        self._manager.state = self._manager.initial
+        cnv.delete('no')
+
+        self._mapper.state = self._mapper.initial
         self._rectangles.clear()
+
 
     def _on_cancel(self):
         for rid in self._rectangles:
-            self._manager.remove_rectangle(rid)
+            self._mapper.remove_rectangle(rid)
 
         self._on_done()
 
     def add_rectangle(self, bbox, container_id=None):
-        rid = self._manager.add_rectangle(bbox, container_id)
+        rid = self._mapper.add_rectangle(bbox, container_id)
         self._rectangles.append(rid)
         return rid
 
     def update(self):
-        canv = self._manager.canvas
-
-        def cool_design(event):
-            kill_xy()
-            dashes = [3, 2]
-            x = canv.create_line(event.x, 0, event.x, 1000, dash=dashes, tags='no')
-            y = canv.create_line(0, event.y, 1000, event.y, dash=dashes, tags='no')
-
-        def kill_xy(event=None):
-            canv.delete('no')
-
-        canv.bind('<Motion>', cool_design, '+')
-
-        self._drawer.start(canv, self._manager, fill="", width=1)
+        self._drawer.start(self._mapper.canvas, self._mapper, fill="", width=1)

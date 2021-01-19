@@ -1,50 +1,9 @@
-from abc import ABC, abstractmethod
-
 import tkinter as tk
 
 from controllers import controller
 from controllers import store
 
-# class State(ABC):
-#     def __init__(self, manager):
-#         self._mapper = manager
-#
-#     @abstractmethod
-#     def game_type_menu(self, x):
-#         pass
-#
-# class Initial(State):
-#     def __init__(self, manager):
-#         """
-#
-#         Parameters
-#         ----------
-#         manager: Interface
-#         """
-#         super(Initial, self).__init__(manager)
-#         self._cs = "n/a"
-#
-#     def game_type_menu(self, x):
-#         # update metadata only when the game_type changes
-#         if x != self._cs:
-#             self._mapper._create_metadata()
-#             self._cs = x
-#
-# class Resetting(State):
-#     def __init__(self, manager):
-#         """
-#
-#         Parameters
-#         ----------
-#         manager: Interface
-#         """
-#         super(Resetting, self).__init__(manager)
-#
-#     def game_type_menu(self, x):
-#         mw = self._mapper
-#         mw.game_type = "n/a"
-#         mw._create_metadata()
-#         mw.state = mw.initial
+from data import engine
 
 class Interface(controller.Controller):
     def __init__(self, container, manager, projects):
@@ -103,42 +62,44 @@ class Interface(controller.Controller):
         etr.grid(row=0, column=1)
         etr["state"] = "disabled"
 
-        tk.OptionMenu(
-            stg,
-            self._selection,
-            *self._projects.get_project_types()).grid(row=1, column=1)
+        with engine.connect() as connection:
 
-        self._metadata = stg
+            tk.OptionMenu(
+                stg,
+                self._selection,
+                *self._projects.get_project_types(connection)).grid(row=1, column=1)
 
-        stg.grid(row=0, column=0)
+            self._metadata = stg
 
-        buttons = tk.Frame(self._container)
+            stg.grid(row=0, column=0)
 
-        pj = self._projects.get_project_names()
+            buttons = tk.Frame(self._container)
 
-        self._new_btn = nb = tk.Button(
-            buttons,
-            text="New",
-            command=self._on_new
-        )
+            pj = [n for n in self._projects.get_project_names(connection)]
 
-        self._load_btn = lb = tk.Button(
-            buttons,
-            text="Load",
-            command=self._on_load,
-            state="disabled" if not pj else "normal")
+            self._new_btn = nb = tk.Button(
+                buttons,
+                text="New",
+                command=self._on_new
+            )
 
-        self._save_btn = sb = tk.Button(
-            buttons,
-            text="Save",
-            command=self._on_save,
-            state="disabled")
+            self._load_btn = lb = tk.Button(
+                buttons,
+                text="Load",
+                command=self._on_load,
+                state="disabled" if not pj else "normal")
 
-        nb.grid(row=2, column=0)
-        lb.grid(row=2, column=1)
-        sb.grid(row=2, column=2)
+            self._save_btn = sb = tk.Button(
+                buttons,
+                text="Save",
+                command=self._on_save,
+                state="disabled")
 
-        buttons.grid(row=1, column=0)
+            nb.grid(row=2, column=0)
+            lb.grid(row=2, column=1)
+            sb.grid(row=2, column=2)
+
+            buttons.grid(row=1, column=0)
 
     def on_window_selected(self, width, height, img=None):
         pj = self._project
@@ -146,6 +107,9 @@ class Interface(controller.Controller):
         pj.width = width
         pj.height = height
         pj.store_template(img)
+
+        with engine.connect() as connection:
+            pj.save(connection)
 
         self._save_btn["state"] = "normal"
 
@@ -159,10 +123,11 @@ class Interface(controller.Controller):
             self._save_btn["state"] = "disable"
 
     def _on_new(self):
-        if self._changed and self._project:
-            # todo: display save message
-            self._project.save()
-        self._changed = False
+        # with engine.connect() as connection:
+        #     # if self._changed and self._project:
+        #     #     # todo: display save message
+        #     #     self._project.save(connection)
+        #     # self._changed = False
         self._new_project.start(self._initialize)
 
     def _initialize(self, project):
@@ -170,6 +135,7 @@ class Interface(controller.Controller):
 
         self._input.set(project.name)
         self._selection.set(project.project_type)
+
         project.on_update(self._update)
 
         self._project = project

@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from PIL import Image, ImageTk
+from PIL import ImageTk, Image
 from controllers.tools import image_capture
 
 class Display(image_capture.ImageHandler):

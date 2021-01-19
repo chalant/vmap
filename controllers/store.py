@@ -1,5 +1,7 @@
 import tkinter as tk
 
+from data import engine
+
 class NewProject(object):
     # todo: add Done button and Cancel Button
     def __init__(self, container, projects):
@@ -51,31 +53,37 @@ class NewProject(object):
         type_ = tk.Label(root, text="Type")
 
         self._project_type = var = tk.Variable(root)
-        menu = tk.OptionMenu(root, var, *self._projects.get_project_types())
-        menu["width"] = 15
+        var.trace_add("write", self._on_input)
 
-        self._done_btn = done_btn = tk.Button(
-            root,
-            text="Done",
-            state="disabled",
-            command=self._on_done)
+        with engine.connect() as connection:
+            menu = tk.OptionMenu(root, var, *self._projects.get_project_types(connection))
+            menu["width"] = 15
 
-        done_btn.grid(row=2, column=1)
+            self._project_names = {pj for pj in self._projects.get_project_names(connection)}
 
-        name.grid(row=0, column=0)
-        ipt.grid(row=0, column=1)
+            self._done_btn = done_btn = tk.Button(
+                root,
+                text="Done",
+                state="disabled",
+                command=self._on_done)
 
-        type_.grid(row=1, column=0)
-        menu.grid(row=1, column=1)
+            done_btn.grid(row=2, column=1)
+
+            name.grid(row=0, column=0)
+            ipt.grid(row=0, column=1)
+
+            type_.grid(row=1, column=0)
+            menu.grid(row=1, column=1)
 
     def _on_input(self, t, evt, b):
         ipt = self._input.get()
-        slc = self._project_name.get()
+        slc = self._project_type.get()
 
-        if ipt and slc:
-            self._done_btn["state"] = "normal"
-        else:
-            self._done_btn["state"] = "disable"
+        if ipt not in self._project_names:
+            if ipt and slc:
+                self._done_btn["state"] = "normal"
+            else:
+                self._done_btn["state"] = "disabled"
 
     def _close(self):
         self._root.grab_release()
@@ -107,19 +115,74 @@ class OpenProject(object):
     def start(self, callback):
         self._callback = callback
         self._root = root = tk.Toplevel(self._container)
-        root.resizable(False, False)
 
+        root.attributes('-topmost', 'true')
+        root.grab_set()
+        root.resizable(False, False)
         root.protocol("WM_DELETE_WINDOW", self._on_close)
         root.wm_title("Open Project")
 
-        name = tk.Label(root, text="Name")
+        rx = self._container.winfo_rootx()
+        ry = self._container.winfo_rooty()
+
+        w = 300
+        h = 100
+
+        scr_w = self._container.winfo_width()
+
+        root.geometry("{}x{}+{}+{}".format(w, h, rx - w - scr_w, ry + h))
 
         self._project_name = var = tk.Variable(root)
-        menu = tk.OptionMenu(root, var, *self._projects.get_project_names())
 
-        name.grid(row=0, column=0)
-        menu.grid(row=0, column=1)
+        var.trace_add("write", self._on_input)
+
+        with engine.connect() as connection:
+            self._slc_frame = slc_frame = tk.Frame(root)
+
+            # name = tk.Label(slc_frame, text="Project")
+
+            menu = tk.OptionMenu(slc_frame, var, *self._projects.get_project_names(connection))
+
+            menu["width"] = 15
+
+            self._btn_frame = btn_frame = tk.Frame(root)
+
+            self._done_btn = done_btn = tk.Button(
+                btn_frame,
+                text="Done",
+                state="disabled",
+                command=self._on_done)
+
+            self._cancel_btn = cancel_btn = tk.Button(
+                btn_frame,
+                text="Cancel",
+                state="normal",
+                command=self._on_close
+            )
+
+            slc_frame.pack()
+
+            # name.pack(side=tk.LEFT)
+            menu.pack(side=tk.LEFT)
+
+            btn_frame.pack()
+
+            cancel_btn.pack(side=tk.LEFT)
+            done_btn.pack(side=tk.LEFT)
+
+    def _on_done(self):
+        selection = self._project_name.get()
+        if selection:
+            self._callback(self._projects.open_project(selection))
+        self._on_close()
 
     def _on_close(self):
-        self._callback(self._projects.open_project(self._project_name.get()))
+        self._root.grab_release()
         self._root.destroy()
+
+    def _on_input(self, t, evt, b):
+        slc = self._project_name.get()
+        if slc:
+            self._done_btn["state"] = "normal"
+        else:
+            self._done_btn["state"] = "disabled"

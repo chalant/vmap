@@ -22,7 +22,7 @@ def build():
             poker = card_game.add_child("Poker")
 
             # state label where instances can be (active, inactive, ...)
-            state_label = poker.add_label("State", event, capture=True)
+            state_label = poker.add_label("PlayerState", event, capture=True)
 
             state_label.add_instance("Active")
             state_label.add_instance("Inactive")
@@ -35,16 +35,21 @@ def build():
             poker_action_label.add_instance("Call")
             poker_action_label.add_instance("Fold")
             poker_action_label.add_instance("Bet")
-            poker_action_label.add_instance("AllIn")
+            poker_action_label.add_instance("All-In")
             poker_action_label.add_instance("Raise")
             poker_action_label.add_instance("Null") #no action
 
-            poker_act_btn_lbl = poker.add_label("Button", button)
+            poker_act_btn_lbl = poker.add_label("PlayerAction", button)
 
-            poker_act_btn_lbl.add_component(number) #some actions have
-            poker_act_btn_lbl.add_component(poker_action_label)
+            poker_act_btn_lbl.add_instance("Call")
+            poker_act_btn_lbl.add_instance("Fold")
+            poker_act_btn_lbl.add_instance("Bet")
+            poker_act_btn_lbl.add_instance("All-In")
+            poker_act_btn_lbl.add_instance("Raise")
 
-            card_state = cards.add_label("CardState", container, 2, capture=True)
+            # poker_act_btn_lbl.add_component(poker_action_label)
+
+            card_state = cards.add_label("CardState", event, 2, capture=True)
 
             card_state.add_instance("Hidden")
             card_state.add_instance("Shown")
