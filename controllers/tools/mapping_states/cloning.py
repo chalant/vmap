@@ -26,8 +26,6 @@ class Cloning(object):
         self._item = None
         self._clicked = None
 
-        self._container = None
-
         self._prev_rect = None
 
         self._prev_pos = None
@@ -112,18 +110,22 @@ class Cloning(object):
 
 
     def _on_done(self):
+        self._unbind()
         self._rectangles.clear()
         self._mapper.state = self._mapper.initial
 
     def _on_paste(self):
         #draw all components of the container
         rct = self._mapper.selected_rectangle
-        container = self._mapper.get_root_container(rct)
 
-        self._container = container
         self._rid = rct
 
         x, y = self._clicked
+
+        rid = self._mapper.select_rectangle(x, y)
+
+        if rid:
+            self._container = self._mapper.get_rectangle(rid)
 
         #copy the rectangle and draw it
         self._copy(rct, x, y)
@@ -168,7 +170,7 @@ class Cloning(object):
         if not self._lc:
             rid = self._rid
             rct = self._mapper.get_rectangle(rid)
-            self._container = self._mapper.get_rectangle(rct.container)
+            # self._container = self._mapper.get_rectangle(rct.container)
             self._rectangle = rct
             self._prev_pos = rct.center
             self._cursor_pos = event.x, event.y
@@ -179,9 +181,7 @@ class Cloning(object):
 
         self._mapper.move(r.rid, dx, dy)
 
-        bbox = (x0 + dx, y0 + dy, x1 + dx, y1 + dy)
-
-        r.bbox = bbox
+        r.bbox = (x0 + dx, y0 + dy, x1 + dx, y1 + dy)
 
     def _on_drag(self, event):
         px, py = self._prev_pos
@@ -194,10 +194,7 @@ class Cloning(object):
         dx = x - cx
         dy = y - cy
 
-        mx = dx
-        my = dy
-
-        if mx != 0 or my != 0:
+        if dx != 0 or dy != 0:
             container = self._container
             # collision = self._collision
             # mapper = self._mapper
@@ -210,37 +207,37 @@ class Cloning(object):
             # w = self._rectangle.width/2
             # h = self._rectangle.height/2
 
-            fx0 = x0 + mx
-            fy0 = y0 + my
-            fx1 = x1 + mx
-            fy1 = y1 + my
+            fx0 = x0 + dx
+            fy0 = y0 + dy
+            fx1 = x1 + dx
+            fy1 = y1 + dy
 
             if container:
                 cx0, cy0, cx1, cy1 = container.bbox
 
                 if cx0 >= fx0:
-                    mx = cx0 - x0 + 2
+                    dx = cx0 - x0 + 2
                 elif fx1 >= cx1:
-                    mx = cx1 - x1 - 2
+                    dx = cx1 - x1 - 2
 
                 if cy0 >= fy0:
-                    my = cy0 - y0 + 2
+                    dy = cy0 - y0 + 2
                 elif cy1 <= fy1:
-                    my = cy1 - y1 - 2
+                    dy = cy1 - y1 - 2
 
             else:
                 wd = self._mapper.width
                 hg = self._mapper.height
 
                 if 0 >= fx0:
-                    mx = 2 - x0
+                    dx = 2 - x0
                 elif fx1 >= wd:
-                    mx = wd - x1 - 2
+                    dx = wd - x1 - 2
 
                 if 0 >= fy0:
-                    my = 2 - y0
+                    dy = 2 - y0
                 elif hg <= fy1:
-                    my = hg - y1 - 2
+                    dy = hg - y1 - 2
         #
         #         for r in mapper.get_rectangles(container):
         #             if r.rid != rid:
@@ -276,9 +273,9 @@ class Cloning(object):
         #                             my = (ry1 + 2) - y0
 
         for rct in mapping_utils.tree_iterator(self._mapper, rid):
-            self._update_draw(rct, mx, my)
+            self._update_draw(rct, dx, dy)
 
-        self._prev_pos = px + mx, py + my
+        self._prev_pos = px + dx, py + dy
         self._cursor_pos = x, y
 
     def _on_release(self, event):

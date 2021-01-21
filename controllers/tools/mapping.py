@@ -203,7 +203,7 @@ class MappingTool(object):
             self._create_instance(rct, x0, y0, container_id),
             container_id)
 
-        self._new_instances[rid] = wrapper
+        # self._new_instances[rid] = wrapper
         instances[rid] = wrapper
 
         self._new_rectangles.append(rct)
@@ -364,6 +364,12 @@ class MappingTool(object):
         all_instances = self._all_instances
 
         with engine.connect() as connection:
+            container = self.get_rectangle(rid).container
+
+            if container:
+                ct = self.get_rectangle(container)
+                ct.components.remove(rid)
+
             for rct in mapping_utils.tree_iterator(self, rid):
                 self.canvas.delete(rct.rid)
                 del all_instances[rct.rid]

@@ -3,8 +3,7 @@ import tkinter as tk
 from controllers.tools import collision as cl
 
 class RectDrawer(object):
-    def __init__(self, manager, rectangles):
-        self._rectangles = rectangles
+    def __init__(self, manager):
         self.item = None
         self._entry = None
 
@@ -216,12 +215,12 @@ class Drawing(object):
         ----------
         manager: controllers.tools.mapping.MappingTool
         """
-        self._drawer = RectDrawer(self, manager.project)
+        self._drawer = RectDrawer(self)
         self._mapper = manager
 
         self._options = menu = tk.Menu(self._mapper.canvas, tearoff=False)
 
-        self._rectangles = []
+        self._rectangles = {}
 
         menu.add_command(label="Delete", command=self._on_delete)
         menu.add_separator()
@@ -260,7 +259,12 @@ class Drawing(object):
 
     def _on_delete(self):
         self._mapper.remove_rectangle(self._rid)
-        self._rectangles.remove(self._rid)
+
+        try:
+            del self._rectangles[self._rid]
+        except:
+            pass
+        # self._rid = None
 
     def _on_done(self):
         cnv = self._mapper.canvas
@@ -272,14 +276,14 @@ class Drawing(object):
 
 
     def _on_cancel(self):
-        for rid in self._rectangles:
+        for rid in self._rectangles.values():
             self._mapper.remove_rectangle(rid)
 
         self._on_done()
 
     def add_rectangle(self, bbox, container_id=None):
         rid = self._mapper.add_rectangle(bbox, container_id)
-        self._rectangles.append(rid)
+        self._rectangles[rid] = rid
         return rid
 
     def update(self):
