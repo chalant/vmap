@@ -55,7 +55,7 @@ def build():
             card_state.add_instance("Shown")
 
             card_label = cards.add_label("Card", container)
-            rank_label = cards.add_label("Rank", container, 13)
+            rank_label = cards.add_label("Rank", container, 13, capture=True) #todo: capture
             suit_label = cards.add_label("Suit", container, 4, capture=True)
 
             rank_label.add_instance("A")
@@ -80,7 +80,10 @@ def build():
             card_label.add_component(rank_label)
             card_label.add_component(suit_label)
 
-            poker_button = poker.add_label("Button", container)
+            poker_button = poker.add_label(
+                "Button",
+                container,
+                capture=True)
 
             poker_button.add_instance("Dealer")
             poker_button.add_instance("SmallBlind")

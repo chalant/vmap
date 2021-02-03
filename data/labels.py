@@ -29,7 +29,8 @@ ADD_LABEL_INSTANCE = text(
     """
     INSERT INTO label_instances(instance_id, label_id, instance_name) 
     VALUES (:instance_id, :label_id, :instance_name);
-    """)
+    """
+)
 
 class _LabelType(_Element):
     def __init__(self, name):

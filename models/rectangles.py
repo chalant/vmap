@@ -12,6 +12,16 @@ _SELECT_RECTANGLES = text(
     """
 )
 
+_SELECT_CAPTURE_RECTANGLES = text(
+    """
+    SELECT *
+    FROM rectangles
+    LEFT JOIN labels 
+        ON rectangles.label_name = labels.label_name AND rectangles.label_type = labels.label_type
+    WHERE capture = 1
+    """
+)
+
 _ADD_RECTANGLE = text(
     """
     INSERT OR REPLACE INTO rectangles(rectangle_id, height, width, project_name, label_name, label_type)
@@ -75,6 +85,14 @@ _DELETE_RECTANGLE_COMPONENT = text(
     """
 )
 
+_GET_LABEL = text(
+    """
+    SELECT *
+    FROM labels
+    WHERE label_name=:label_name AND label_type=:label_type
+    """
+)
+
 class RectangleInstance(object):
     def __init__(self, id_, rectangle, left, top, container_id=None):
         """
@@ -112,6 +130,10 @@ class RectangleInstance(object):
     @container_id.setter
     def container_id(self, value):
         self._container_id = value
+
+    @property
+    def capture(self):
+        return self._rectangle.capture
 
     @property
     def bbox(self):
@@ -199,7 +221,7 @@ class RectangleInstance(object):
                 r_component_id=self._id)
 
 class Rectangle(object):
-    def __init__(self, id_, project_name, width, height):
+    def __init__(self, id_, project_name, width, height, capture=False):
         self._id = id_
         self._project_name = project_name
 
@@ -211,9 +233,15 @@ class Rectangle(object):
 
         self._num_instances = 0
 
+        self._capture = capture
+
     @property
     def id(self):
         return self._id
+
+    @property
+    def capture(self):
+        return self._capture
 
     @property
     def label_name(self):
@@ -319,14 +347,19 @@ class Rectangles(object):
 
     def get_rectangles(self, connection, project_name):
         for row in connection.execute(_SELECT_RECTANGLES, project_name=project_name):
+            ln = row["label_name"]
+            lt = row["label_type"]
+
+            label = connection.execute(_GET_LABEL, label_name=ln, label_type=lt).fetchone()
+
             r = Rectangle(
                 row["rectangle_id"],
                 row["project_name"],
                 row["width"],
-                row["height"]
-            )
+                row["height"],
+                label["capture"] if label is not None else False)
 
-            r.label_name = row["label_name"]
-            r.label_type = row["label_type"]
+            r.label_name = ln
+            r.label_type = lt
 
             yield r

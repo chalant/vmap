@@ -5,16 +5,16 @@ from collections import namedtuple
 
 import Xlib.display
 
-disp = Xlib.display.Display()
-root = disp.screen().root
+dsp = Xlib.display.Display()
+root = dsp.screen().root
 
 MyGeom = namedtuple('MyGeom', 'x y height width')
 
 def get_active_window():
-    win_id = root.get_full_property(disp.intern_atom('_NET_ACTIVE_WINDOW'),
+    win_id = root.get_full_property(dsp.intern_atom('_NET_ACTIVE_WINDOW'),
                                     Xlib.X.AnyPropertyType).value[0]
     try:
-        return disp.create_resource_object('window', win_id)
+        return dsp.create_resource_object('window', win_id)
     except Xlib.error.XError:
         pass
 
@@ -126,7 +126,7 @@ class Initial(State):
         self._manager.mapping_state = cst = self._manager.mapping_active
         cst.update()
 
-        self._manager.interface.on_window_selected(geom.width, geom.height, img)
+        self._manager.on_window_selected(geom.width, geom.height, img)
 
         self._manager.display(img)
 
@@ -137,6 +137,7 @@ class Initial(State):
         pass
 
 class WindowSelected(State):
+    # todo: need to track window position etc.
     def __init__(self, manager):
         """
 
@@ -182,6 +183,9 @@ class CaptureState(object):
     def stop(self):
         pass
 
+    def initialize(self, handlers):
+        pass
+
 class Capturing(CaptureState):
     def __init__(self, manager):
         """
@@ -204,10 +208,11 @@ class Capturing(CaptureState):
         self._manager.capture_button["text"] = "Stop Capture"
         self._manager.window_selection_button["state"] = "normal"
 
-    def project_update(self, project, connection):
-        self._manager.capture_tool.clear()
-        self._manager.capture_tool.add_handlers(project.get_rectangles(connection))
-        self._manager.capture_tool.start()
+    def initialize(self, handlers):
+        capture_tool = self._manager.capture_tool
+        capture_tool.clear()
+        capture_tool.add_handlers(handlers)
+        capture_tool.start() #resumes image_capture
 
     def stop(self):
         self._manager.capture_tool.stop()
@@ -237,9 +242,10 @@ class NotCapturing(CaptureState):
         self._manager.capture_button["text"] = "Resume Capture"
         self._manager.window_selection_button["state"] = "normal"
 
-    def project_update(self, project, connection):
-        self._manager.capture_tool.clear()
-        self._manager.capture_tool.add_handlers(project.get_rectangles(connection))
+    def initialize(self, handlers):
+        capture_tool = self._manager.capture_tool
+        capture_tool.clear()
+        capture_tool.add_handlers(handlers)
 
     def stop(self):
         pass

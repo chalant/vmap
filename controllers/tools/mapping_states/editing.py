@@ -1,14 +1,8 @@
 import tkinter as tk
 
-from controllers.tools import mapping_utils
+from controllers.rectangles import rectangles
 
 class Editing(object):
-    # when a rectangle is selected, we can modify its dimensions, or drag it
-    # when changing its dimensions, the all instances of the base triangle are
-    # updated and redrawn. Also, all instances of the base are highlighted as-well.
-
-    # if we click outside a rectangle, we move back to drawing state
-
     # todo: need an editor (draw squares at each corner of the rectangle and the center)
     #  the center is for dragging an the corners are for resizing
     def __init__(self, manager):
@@ -24,12 +18,8 @@ class Editing(object):
 
         self._options = m = tk.Menu(self._mapper.canvas, tearoff=False)
 
-        # m.add_command(label="Reset", command=self._on_reset)
-        # m.add_separator()
         m.add_command(label="Cancel", command=self._on_cancel)
         m.add_command(label="Done", command=self._on_done)
-
-        # m.entryconfig("Reset", state="disabled")
 
         self._item = None
         self._clicked = None
@@ -39,8 +29,6 @@ class Editing(object):
         self._prev_rect = None
 
         self._prev_pos = None
-
-        self._instances = []
 
         self._container = None
         self._rectangle = None
@@ -55,16 +43,7 @@ class Editing(object):
         self._text = None
 
     def on_right_click(self, event):
-        res = self._mapper.select_rectangle(event.x, event.y)
-
-        options = self._options
-
-        options.tk_popup(event.x_root, event.y_root)
-
-        # if res:
-        #     options.entryconfig("Reset", state="normal")
-        # else:
-        #     options.entryconfig("Reset", state="disabled")
+        self._options.tk_popup(event.x_root, event.y_root)
 
     def _unbind(self):
         prev = self._rid
@@ -116,19 +95,12 @@ class Editing(object):
         pass
 
     def _on_done(self):
-        # todo update the selected rectangle coordinates
         self._unbind()
         self._on_cancel()
         self._mapper.state = self._mapper.initial
 
         if self._text:
             self._mapper.canvas.delete(self._text)
-
-
-    # def _on_reset(self):
-    #     # todo: move back to initial rectangle dimensions and location
-    #     #  and stay in edit state
-    #     pass
 
     def _on_click(self, event):
         if not self._lc:
@@ -174,7 +146,7 @@ class Editing(object):
         if mx != 0 or my != 0:
             container = self._container
             # collision = self._collision
-            # mapper = self._mapper
+            # controller = self._mapper
 
             # self._view.clear()
             # self._view.ray(px, py, mx, my)
@@ -216,7 +188,7 @@ class Editing(object):
                 elif hg <= fy1:
                     my = hg - y1 - 2
         #
-        #         for r in mapper.get_rectangles(container):
+        #         for r in controller.get_rectangles(container):
         #             if r.rid != rid:
         #                 rx0, ry0, rx1, ry1 = r.bbox
         #
@@ -249,7 +221,7 @@ class Editing(object):
         #                         if fy0 <= ry1:
         #                             my = (ry1 + 2) - y0
 
-        for rct in mapping_utils.tree_iterator(self._mapper, rid):
+        for rct in rectangles.tree_iterator(self._mapper.instances, rid):
             self._update_draw(rct, mx, my)
 
             # x, y = rct.bbox[0], rct.bbox[1]

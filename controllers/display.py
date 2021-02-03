@@ -1,7 +1,12 @@
 import tkinter as tk
 
-from PIL import ImageTk, Image
+from PIL import ImageTk
+
 from controllers.tools import image_capture
+
+#todo: the display displays, tracks and stores images. We use image hashing to detect changes
+# in images each frame, and only add image if we do not have it already.
+# we capture images in each "capturable" rectangle instance
 
 class Display(image_capture.ImageHandler):
     def __init__(self, canvas, rectangle):
@@ -15,9 +20,6 @@ class Display(image_capture.ImageHandler):
             self._photo_image = img = ImageTk.PhotoImage(image)
             self._image_item = self._editor.create_image(bbox[0], bbox[1], image=img, anchor=tk.NW)
             self._flag = True
-            # print(bbox[0] + e1, bbox[1] + e2, "BBOX")
-        # bbox = self.bbox
-        # print(bbox[0] - e1, bbox[1] - e2, "BBOX")
         self._photo_image.paste(image)
 
 class DisplayFactory(image_capture.ImageHandlerFactory):

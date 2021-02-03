@@ -34,12 +34,10 @@ class NewProject(object):
         rx = self._container.winfo_rootx()
         ry = self._container.winfo_rooty()
 
-        scr_w = self._container.winfo_width()
-
         w = 300
         h = 100
 
-        root.geometry("{}x{}+{}+{}".format(w, h, rx - w - scr_w, ry + h))
+        root.geometry("{}x{}+{}+{}".format(w, h, rx + w, ry + h))
 
         name = tk.Label(root, text="Name")
 
@@ -128,9 +126,7 @@ class OpenProject(object):
         w = 300
         h = 100
 
-        scr_w = self._container.winfo_width()
-
-        root.geometry("{}x{}+{}+{}".format(w, h, rx - w - scr_w, ry + h))
+        root.geometry("{}x{}+{}+{}".format(w, h, rx + w, ry + h))
 
         self._project_name = var = tk.Variable(root)
 

@@ -102,12 +102,12 @@ label_instances = Table(
     "label_instances",
     meta,
     Column("instance_id", String, primary_key=True),
-    #name of the instance (bet, call, etc.)
     Column("instance_name", String, nullable=False),
-    Column("label_id", String, ForeignKey("labels.label_id"))
+    # Column("label_id", String, ForeignKey("labels.label_id")),
+    Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
+    Column("label_type", String, ForeignKey("labels.label_type"), nullable=False)
     #multiple label_instances can share the same rectangle
 )
-
 
 images = Table(
     "images",
@@ -116,7 +116,8 @@ images = Table(
     Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
     # each image is mapped to an instance id
     Column("instance_id", String, ForeignKey("label_instances.instance_id"), nullable=False),
-    Column("image_path", String, nullable=False)
+    Column("image_path", String, nullable=False),
+    Column("image_hash_key", String, nullable=False)
 )
 
 def create_all(engine):

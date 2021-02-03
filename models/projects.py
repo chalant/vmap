@@ -80,7 +80,23 @@ _GET_PROJECT_TYPE_COMPONENTS = text(
     FROM project_types
     INNER JOIN project_type_components 
         ON project_type_components.project_type = project_types.project_type
-    WHERE project_types.project_type = :project_type;
+    WHERE project_types.project_type=:project_type;
+    """
+)
+
+_GET_LABEL_INSTANCES = text(
+    """
+    SELECT *
+    FROM label_instances
+    WHERE label_name=:label_name AND label_type=:label_type
+    """
+)
+
+_GET_IMAGE_PATHS = text(
+    """
+    SELECT *
+    FROM images
+    WHERE project_name=:project_name AND instance_id=:instance_id
     """
 )
 
@@ -178,8 +194,19 @@ class Project(object):
         for element in self._get_labels(connection, self.project_type, label_type):
             yield element
 
-    def get_label_instances(self, connection, label_id):
-        pass
+    def get_label_instances(self, connection, label_name, label_type):
+        for element in connection.execute(
+                _GET_LABEL_INSTANCES,
+                label_name=label_name,
+                label_type=label_type):
+            yield element
+
+    def get_image_metadata(self, connection, instance_id):
+        for element in connection.execute(
+                _GET_IMAGE_PATHS,
+                project_name=self.name,
+                instance_id=instance_id):
+            yield element
 
     def get_label_components(self, connection, label_id):
         pass

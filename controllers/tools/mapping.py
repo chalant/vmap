@@ -1,18 +1,17 @@
-import math
-
 import tkinter as tk
-
-import colorutils
 
 from PIL import ImageTk
 
 from data import engine
 from data import io
 
-from controllers.tools import mapping_utils
+from controllers.rectangles.rectangles import utils as rectangle_utils
 from controllers.tools import mapping_states as states
+from controllers.rectangles import rectangles
 
-class MappingTool(object):
+from utils import generators
+
+class MappingTool(rectangle_utils.RectangleFactory):
     def __init__(self, container, project):
         """
 
@@ -39,9 +38,7 @@ class MappingTool(object):
         self._state = self.initial
 
         self._rectangles = []
-        self._new_rectangles = []
 
-        self._new_instances = {}
         self._all_instances = {}
 
         self.rectangle = None
@@ -78,80 +75,27 @@ class MappingTool(object):
     def width(self):
         return self._width
 
+    @property
+    def instances(self):
+        """
+
+        Returns
+        -------
+        typing.Dict[int, controllers.rectangles.utils.RectangleWrapper]
+        """
+        return self._all_instances
+
     def select_rectangle(self, x, y):
-        res = self._find_closest_enclosing(x, y)
+        res = rectangles.find_closest_enclosing(self._all_instances, x, y)
         if res:
             return res[0]
         return
 
-    def _smallest(self, per, p):
-        return per <= p
-
-    def _biggest(self, per, p):
-        return per >= p
-
-    def _find_closest_enclosing(self, x, y):
-        m_dist = None
-        p = (x, y)
-
-        results = []
-
-        #find smallest distance
-        instances = self._all_instances
-
-        for r in instances.values():
-            x0, y0, x1, y1 = r.bbox
-
-            if m_dist is None:
-                if x0 < x and y0 < y and x1 > x and y1 > y:
-                    m_dist = math.dist(p, r.top_left)
-                continue
-
-            dst = math.dist(p, r.top_left)
-
-            if dst < m_dist and x0 < x and y0 < y and x1 > x and y1 > y:
-                m_dist = dst
-
-        for rid, r in instances.items():
-            if m_dist == math.dist(p, r.top_left):
-                results.append(rid)
-
-        return results
-
     def get_rectangles(self, container=None):
-        instances = self._all_instances
-        if container:
-            for c in container.components:
-                yield instances[c]
-        else:
-            for r in instances.values():
-                if not r.container:
-                    yield r
+        return rectangles.get_rectangles(self._all_instances, container)
 
     def find_closest(self, x, y):
-        m_dist = None
-        p = (x, y)
-
-        results = []
-
-        # find smallest distance
-        all_instances = self._all_instances
-
-        for r in all_instances.values():
-            if m_dist is None:
-                m_dist = min((math.dist(p, r.top_left), math.dist(p, r.bottom_right)))
-                continue
-
-            dst = min((math.dist(p, r.top_left), math.dist(p, r.bottom_right)))
-
-            if dst < m_dist:
-                m_dist = dst
-
-        for rid, r in all_instances.items():
-            if m_dist == min((math.dist(p, r.top_left), math.dist(p, r.bottom_right))):
-                results.append(rid)
-
-        return results
+        return rectangles.find_closest(self._all_instances, x, y)
 
     def move(self, rid, dx, dy):
         self._canvas.move(rid, dx, dy)
@@ -182,34 +126,23 @@ class MappingTool(object):
         self._rid = rid
 
     def add_component(self, rid, comp_rid):
-        instances = self._all_instances
-        comp = instances[comp_rid]
-        comp.container = rid
-        cont = instances[rid]
-        cont.add_component(comp_rid)
-        comp.instance.container_id = cont.instance.id
+        rectangles.add_component(self._all_instances, rid, comp_rid)
 
     def add_rectangle(self, bbox, container_id=None):
         x0, y0, x1, y1 = bbox
 
         rct = self.project.create_rectangle(x1 - x0, y1 - y0)
-        rid = self.canvas.create_rectangle(*bbox)
 
         instances = self._all_instances
 
-        wrapper = mapping_utils.RectangleWrapper(
-            rct,
-            rid,
-            self._create_instance(rct, x0, y0, container_id),
-            container_id)
+        wrapper = self.create_rectangle(self._create_instance(rct, x0, y0, container_id), x0, y0)
 
         # self._new_instances[rid] = wrapper
-        instances[rid] = wrapper
+        instances[wrapper.rid] = wrapper
 
-        self._new_rectangles.append(rct)
         self._rectangles.append(rct)
 
-        return rid
+        return wrapper.rid
 
     def _create_instance(self, rct, x, y, container_id=None):
         if container_id:
@@ -221,56 +154,20 @@ class MappingTool(object):
     def add_instance(self, rid, x, y, container_id=None):
         instance = self._all_instances[rid]
 
-        nid = self.canvas.create_rectangle(x, y, x + instance.width, y + instance.height)
+        wrapper = self.create_rectangle(instance, x, y)
 
-        wrapper = mapping_utils.RectangleWrapper(
-            instance.rectangle,
-            nid,
-            self._create_instance(instance.rectangle, x, y, container_id),
-            container_id)
+        self._all_instances[wrapper.rid] = wrapper
 
-        self._new_instances[nid] = wrapper
-        self._all_instances[nid] = wrapper
-
-        return nid
+        return wrapper.rid
 
     def get_rectangle(self, rid):
-        """
+        return rectangles.get_rectangle(self._all_instances, rid)
 
-        Parameters
-        ----------
-        rid
-
-        Returns
-        -------
-        mapping_utils.RectangleWrapper
-        """
-        instances = self._all_instances
-        if rid in instances:
-            return instances[rid]
-        return
-
-    def get_root_container(self, rct):
-        r = self.get_rectangle(rct)
-        if r:
-            container = r.container
-
-            while container is not None:
-                r = self.get_rectangle(container)
-                container = r.container
-
-            if r:
-                return r.rid
-            return
-        return
-
-    def get_components(self, rct):
-        if isinstance(rct, mapping_utils.RectangleWrapper):
-            return rct.components
-        return self._new_instances[rct].components
-
-    def create_rectangle(self, x0, y0, x1, y1):
-        return self.canvas.create_rectangle(x0, y0, x1, y1)
+    def create_rectangle(self, instance, x, y):
+        return rectangle_utils.RectangleWrapper(
+            instance.rectangle,
+            self.canvas.create_rectangle(x, y, x + instance.width, y + instance.height),
+            instance)
 
     def start(self, image):
         """
@@ -319,43 +216,26 @@ class MappingTool(object):
         # black = colorutils.Color(web="black", arithmetic=colorutils.ArithmeticModel.BLEND)
 
         with engine.connect() as con:
-            cmp_to_rid = {}
-
             instances = self._all_instances
-            rectangles = self._rectangles
 
-            for rct in self.project.get_rectangles(con):
-                rectangles.append(rct)
+            for instance in rectangles.load_rectangle_instances(
+                con,
+                generators.append_yield(
+                    self._rectangles,
+                    self.project.get_rectangles(con)), self):
 
-                for instance in rct.get_instances(con):
+                instances[instance.rid] = instance
+
                 #draw all instances
-                    rid = self._canvas.create_rectangle(*instance.bbox)
-                    # tl = colorutils.Color(rgb=self._image.getpixel(instance.top_left),
-                    #                       arithmetic=colorutils.ArithmeticModel.LIGHT)
-                    # # br = colorutils.Color(rgb=self._image.getpixel(instance.bottom_right))
-                    # outline = tl
-                    # r, g, b = outline.rgb
-                    # print(outline.rgb)
+                # tl = colorutils.Color(rgb=self._image.getpixel(instance.top_left),
+                #                       arithmetic=colorutils.ArithmeticModel.LIGHT)
+                # # br = colorutils.Color(rgb=self._image.getpixel(instance.bottom_right))
+                # outline = tl
+                # r, g, b = outline.rgb
+                # print(outline.rgb)
 
-                    # colorutils.Color(hsv=outline.hsv).hex
-                    self._canvas.itemconfigure(rid)
-
-                    wrapper = mapping_utils.RectangleWrapper(
-                        instance.rectangle,
-                        rid,
-                        instance)
-
-                    instances[rid] = wrapper
-                    cmp_to_rid[instance.id] = rid
-
-            #build relations
-            for k, w in instances.items():
-                wrapper = instances[k]
-                for cmp in wrapper.instance.get_components():
-                    rid = cmp_to_rid[cmp]
-                    component = instances[rid]
-                    component.container = k
-                    w.add_component(rid)
+                # colorutils.Color(hsv=outline.hsv).hex
+                # self._canvas.itemconfigure(rid)
 
     def stop(self):
         self._aborted = True
@@ -363,17 +243,24 @@ class MappingTool(object):
     def remove_rectangle(self, rid):
         all_instances = self._all_instances
 
-        with engine.connect() as connection:
-            container = self.get_rectangle(rid).container
+        # with engine.connect() as connection:
+        #     container = self.get_rectangle(rid).container
+        #
+        #     if container:
+        #         ct = self.get_rectangle(container)
+        #         ct.components.remove(rid)
+        #
+        #     for rct in rectangle_utils.tree_iterator(self, rid):
+        #         self.canvas.delete(rct.rid)
+        #         del all_instances[rct.rid]
+        #         rct.delete(connection)
 
-            if container:
-                ct = self.get_rectangle(container)
-                ct.components.remove(rid)
-
-            for rct in mapping_utils.tree_iterator(self, rid):
-                self.canvas.delete(rct.rid)
-                del all_instances[rct.rid]
-                rct.delete(connection)
+        with engine.connect() as conn:
+            for rct in rectangles.remove_rectangle(all_instances, rid):
+                id_ = rct.rid
+                self.canvas.delete(id_)
+                rct.delete(conn)
+            all_instances.clear()
 
     def unselect_rectangle(self):
         self._rid = None
@@ -381,12 +268,6 @@ class MappingTool(object):
 
     def on_close(self, callback):
         self._close_callback = callback
-
-    def _add_instance(self, rectangle, instance):
-        return rectangle.add_instance(instance)
-
-    def _add_component(self, rectangle, component):
-        rectangle.add_component(component)
 
     def _on_left_click(self, event):
         pass
@@ -405,7 +286,6 @@ class MappingTool(object):
         #submit new rectangles and instances
         if not self._aborted:
             with engine.connect() as con:
-                # todo: only delete updated rectangles
                 for r in self._rectangles:
                     r.delete(con)
 
@@ -413,8 +293,6 @@ class MappingTool(object):
                     wrapper.delete(con)
 
             with engine.connect() as con:
-                #todo: check if all rectangles have been labeled
-                # note: we can resume a mapping session from where we left off
                 for r in self._rectangles:
                     r.submit(con)
 
@@ -422,9 +300,7 @@ class MappingTool(object):
                     wrapper.submit(con)
 
         self._rectangles.clear()
-        self._new_instances.clear()
         self._all_instances.clear()
-        self._new_rectangles.clear()
 
         self._state = self.initial
         self.project.update()

@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from controllers.tools import mapping_utils
+from controllers.rectangles import rectangles
 from controllers.tools import collision as cl
 
 class Cloning(object):
@@ -30,11 +30,11 @@ class Cloning(object):
 
         self._prev_pos = None
 
-        self._instances = []
         self._collision = cl.BoxCollision()
 
         self._container = None
         self._rectangle = None
+        self._parent = None
 
         self._nrx = 0
         self._nry = 0
@@ -62,15 +62,10 @@ class Cloning(object):
             self._mapper.remove_rectangle(rid)
         self._rectangles.clear()
 
-    def _draw_copy(self, dx, dy, rct):
-        a, b = rct.top_left
-
-        return self._mapper.add_instance(rct.rid, a + dx, b + dy)
-
     def _copy(self, rectangle, x, y):
-        rectangles = self._rectangles
+        instances = self._rectangles
 
-        rct = self._mapper.get_rectangle(rectangle)
+        rct = rectangles.get_rectangle(self._mapper.instances, rectangle)
         x1, y1 = rct.top_left
 
         x, y = self._mapper.adjust_point(
@@ -81,33 +76,16 @@ class Cloning(object):
 
         dx, dy = x - x1, y - y1
 
-        stack = [rectangle]
-        ls = 1
+        cont_id = None
 
-        instances = self._instances
-        container = rct.container
+        if self._container:
+            cont_id = self._container.rid
 
-        while ls != 0:
-            rct = self._mapper.get_rectangle(stack[-1])
-            try:
-                stack.append(next(rct))
-                ls += 1
-            except StopIteration:
-                rid = self._draw_copy(dx, dy, rct)
-
-                rectangles.append(rid)
-
-                stack.pop()
-
-                for _ in range(len(rct.components)):
-                    self._mapper.add_component(rid, instances.pop())
-
-                instances.append(rid)
-                ls -= 1
-
-                if ls == 0 and container:
-                    self._mapper.add_component(container, rid)
-
+        for instance in rectangles.copy(
+                self._mapper.instances,
+                rct, dx, dy, self._mapper, cont_id):
+            # store copies elements so that we can undo copy action.
+            instances.append(instance.rid)
 
     def _on_done(self):
         self._unbind()
@@ -116,19 +94,20 @@ class Cloning(object):
 
     def _on_paste(self):
         #draw all components of the container
-        rct = self._mapper.selected_rectangle
+        rid = self._mapper.selected_rectangle
 
-        self._rid = rct
+        self._rid = rid
 
         x, y = self._clicked
 
-        rid = self._mapper.select_rectangle(x, y)
+        res = rectangles.find_closest_enclosing(self._mapper.instances, x, y)
 
-        if rid:
-            self._container = self._mapper.get_rectangle(rid)
+        if res:
+            self._container = self._mapper.get_rectangle(res[-1])
 
         #copy the rectangle and draw it
-        self._copy(rct, x, y)
+        self._mapper.cloned = rid
+        self._copy(rid, x, y)
 
     def _unbind(self):
         prev = self._rid
@@ -153,6 +132,7 @@ class Cloning(object):
                 self._unbind()
 
             self._rid = res
+            self._parent = self._mapper.get_rectangle(self._mapper.get_rectangle(res).container)
 
             canvas.bind("<Button-1>", self._on_click, "+")
             canvas.bind("<B1-Motion>", self._on_drag, "+")
@@ -195,9 +175,9 @@ class Cloning(object):
         dy = y - cy
 
         if dx != 0 or dy != 0:
-            container = self._container
+            container = self._parent
             # collision = self._collision
-            # mapper = self._mapper
+            # controller = self._mapper
 
             # self._view.clear()
             # self._view.ray(px, py, mx, my)
@@ -239,7 +219,7 @@ class Cloning(object):
                 elif hg <= fy1:
                     dy = hg - y1 - 2
         #
-        #         for r in mapper.get_rectangles(container):
+        #         for r in controller.get_rectangles(container):
         #             if r.rid != rid:
         #                 rx0, ry0, rx1, ry1 = r.bbox
         #
@@ -272,7 +252,7 @@ class Cloning(object):
         #                         if fy0 <= ry1:
         #                             my = (ry1 + 2) - y0
 
-        for rct in mapping_utils.tree_iterator(self._mapper, rid):
+        for rct in rectangles.tree_iterator(self._mapper.instances, rid):
             self._update_draw(rct, dx, dy)
 
         self._prev_pos = px + dx, py + dy
@@ -282,3 +262,4 @@ class Cloning(object):
         self._lc = False
         self._container = None
         self._rectangle = None
+        self._parent = None

@@ -1,8 +1,11 @@
+from functools import partial
+
 import tkinter as tk
 
 from controllers import display as ds
 from controllers.tools import mapping
 from controllers.tools import image_capture
+from controllers.tools import label_instance
 from controllers import states
 from controllers import interface as itf
 
@@ -42,7 +45,7 @@ class MainFrame(object):
         # editor.pack(fill=tk.BOTH)
         editor.pack()
 
-        right_frame = tk.LabelFrame(manager.container, text="Project")
+        right_frame = tk.Frame(manager.container)
         right_frame.grid(row=0, column=1, sticky="wens")
 
         #main states
@@ -76,7 +79,16 @@ class MainFrame(object):
 
         self.template_image = None
 
-        self.interface = itf.Interface(right_frame, self, pjt.Projects())
+        self._interface = interface = itf.Interface(mf, self, pjt.Projects())
+
+        menu = tk.Menu(root, tearoff=False)
+        root.config(menu=menu)
+
+        file_menu = tk.Menu(menu, tearoff=False)
+        menu.add_cascade(label="File", menu=file_menu)
+
+        file_menu.add_command(label="New", command=interface.new)
+        file_menu.add_command(label="Open", command=interface.open)
 
         self.mapping_tool = None
         self.capture_tool = None
@@ -109,6 +121,9 @@ class MainFrame(object):
         self._initialized = False
         self.width = None
         self.height = None
+
+        self._instance_mapper = label_instance.LabelInstanceMapper(right_frame, self.canvas)
+
 
     @property
     def state(self):
@@ -167,7 +182,6 @@ class MainFrame(object):
         # if not self._initialized:
         with engine.connect() as con:
 
-            # todo: load template image if it exists
             self.mapping_tool = mapping.MappingTool(
                 self.container,
                 project)
@@ -177,15 +191,18 @@ class MainFrame(object):
             self.capture_tool = image_capture.ImageCaptureTool(
                 ds.DisplayFactory(self.canvas), 30)
             # load capture areas (if any)
-            self.capture_tool.add_handlers(project.get_rectangles(con))
+
+            # #todo: should only pass project as argument to capture tool.
+            # self.capture_tool.add_handlers(project.get_rectangles(con))
+
             # create image_handlers. each display is bound to a rectangle
             self._win_select_btn["state"] = "normal"
             self.state = self.initial  # set state to initial
             self.mapping_state = self.mapping_inactive
             self.mapping_state.update()
 
-            project.load_template(self.display)  # load template and display it
-            project.template_update(self.display)  # gets notified on new template write
+            project.load_template(partial(self.display, project))  # load template and display it
+            project.template_update(partial(self.display, project))  # gets notified on new template write
             project.on_update(self.update)
 
             self.height = project.height
@@ -207,7 +224,7 @@ class MainFrame(object):
                 # self.capture_tool.add_handlers(project.get_rectangles(con))
 
 
-    def display(self, image):
+    def display(self, project, image):
         self.template_image = image
         self._img, self.img_item = ds.display(image, self.canvas)
 
@@ -219,13 +236,20 @@ class MainFrame(object):
 
         self.canvas.config(scrollregion=(0, 0, w, h), height=h, width=w)
 
+        with engine.connect() as connection:
+            self._instance_mapper.start(project, connection, self.capture_state)
+
     def update(self, project):
         with engine.connect() as con:
-            self.capture_state.project_update(project, con)
+            self._instance_mapper.clear()
+            self._instance_mapper.start(project, con, self.capture_state)
 
     def mapping_tool_close(self, data):
         self.mapping_state = self.mapping_active
         self.mapping_state.update()
+
+    def on_window_selected(self, width, height, img=None):
+        self._interface.on_window_selected(width, height, img)
 
     def stop(self):
         self._state.stop()

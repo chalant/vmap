@@ -56,17 +56,24 @@ class GFG:
 
 
 if __name__ == "__main__":
-    # object of class Tk, resposible for creating
-    # a tkinter toplevel window
-    master = Tk()
-    gfg = GFG(master)
+    # # object of class Tk, resposible for creating
+    # # a tkinter toplevel window
+    # master = Tk()
+    # gfg = GFG(master)
+    #
+    # # This will bind arrow keys to the tkinter
+    # # toplevel which will navigate the image or drawing
+    # master.bind("<KeyPress-Left>", lambda e: gfg.left(e))
+    # master.bind("<KeyPress-Right>", lambda e: gfg.right(e))
+    # master.bind("<KeyPress-Up>", lambda e: gfg.up(e))
+    # master.bind("<KeyPress-Down>", lambda e: gfg.down(e))
+    #
+    # # Infnite loop breaks only by interrupt
+    # mainloop()
+    from tkinter import *
 
-    # This will bind arrow keys to the tkinter
-    # toplevel which will navigate the image or drawing
-    master.bind("<KeyPress-Left>", lambda e: gfg.left(e))
-    master.bind("<KeyPress-Right>", lambda e: gfg.right(e))
-    master.bind("<KeyPress-Up>", lambda e: gfg.up(e))
-    master.bind("<KeyPress-Down>", lambda e: gfg.down(e))
-
-    # Infnite loop breaks only by interrupt
-    mainloop()
+    root = Tk()
+    canvas = Canvas(root, width=500, height=350)
+    canvas.pack()
+    canvas.create_rectangle(50, 50, 150, 150, width=0, fill='blue')
+    root.mainloop()

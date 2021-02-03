@@ -97,11 +97,11 @@ class Initial(object):
     def _on_close(self):
         pass
 
-    def _selected_label(self, label_name, label_type):
+    def _selected_label(self, label):
         rct = self._mapper.get_rectangle(self._mapper.selected_rectangle)
 
-        rct.label_name = label_name
-        rct.label_type = label_type
+        rct.label_name = label["label_name"]
+        rct.label_type = label["label_type"]
 
     def _on_set_label(self):
         project = self._mapper.project
@@ -118,7 +118,7 @@ class Initial(object):
                     name = lb["label_name"]
                     lbm.add_command(
                         label=name,
-                        command=partial(self._selected_label, name, lt))
+                        command=partial(self._selected_label, lb))
 
     def _on_draw(self):
         self._mapper.state = self._mapper.drawing

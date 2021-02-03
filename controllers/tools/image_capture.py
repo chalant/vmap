@@ -10,16 +10,6 @@ from PIL import Image
 from data import engine
 
 def snapshot(rt, xywh):
-    """
-    Take a screenshot and save it to `tmp.png` filename by default
-
-    Args:
-        filename: name of file where to store the screenshot
-
-    Returns:
-        display the screenshot
-
-    """
     w = xywh[2]
     h = xywh[3]
 
@@ -31,6 +21,11 @@ def snapshot(rt, xywh):
 def _to_ltwh(bbox):
     x0, y0, x1, y1 = bbox
     return (x0, y0, x1 - x0, y1 - y0)
+
+class ImagesHandler(ABC):
+    @abstractmethod
+    def process_images(self, images):
+        pass
 
 class ImageHandler(ABC):
     def __init__(self, rectangle):
@@ -84,8 +79,7 @@ class ImageCaptureTool(object):
         self._stop = False
         self._spf = fps if not fps else 1/fps
         self._handlers = []
-        self._lock = lock = threading.Lock()
-        self._new_data = threading.Condition(lock)
+
         self._fps = 0
         self._running = False
         self._handler_factory = handler_factory
@@ -165,18 +159,9 @@ class ImageCaptureTool(object):
             self._fps =  1 / (time.time() - t0)
             # print(self._fps)
 
-    def add_handlers(self, rectangles, connection=None):
-        # todo: only capture rectangles with label instances
-        # with self._lock:
-        if not connection:
-            with engine.connect() as connection:
-                for r in rectangles:
-                    for instance in r.get_instances(connection):
-                        self._handlers.append(self._handler_factory.get_handler(instance))
-        else:
-            for r in rectangles:
-                for instance in r.get_instances(connection):
-                    self._handlers.append(self._handler_factory.get_handler(instance))
+    def add_handlers(self, rectangles):
+        for r in rectangles:
+            self._handlers.append(r)
 
     def clear(self):
         # with self._lock:
@@ -188,4 +173,4 @@ class ImageCaptureTool(object):
         self._elapsed = 0
         self._total_frames = 0
         self._stop = True
-        self._stop_evt.set() #trigger event in case the loop is sleeping
+        self._stop_evt.set()
