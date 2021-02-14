@@ -18,7 +18,8 @@ def clear(connection):
         "project_type_components",
         "labels",
         "label_components",
-        "label_types"
+        "label_types",
+        "label_instances"
     ]
 
     for name in table_names:

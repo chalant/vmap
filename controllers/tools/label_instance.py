@@ -323,21 +323,16 @@ class CaptureZone(image_capture.ImagesHandler):
 
                 rid = res[0]
                 image = self._images[rid]
-                i = 0
 
                 for instance in project.get_label_instances(
                         connection, image.label_name, image.label_type):
                     name = instance["instance_name"]
                     print("INSTANCE", name)
-                    # label_instances.add_command(
-                    #     label=name,
-                    #     command=partial(self._on_set_label_instance, instance)
-                    # )
-                    i += 1
-
+                    label_instances.add_command(
+                        label=name,
+                        command=partial(self._on_set_label_instance, instance))
 
                 options.tk_popup(event.x_root, event.y_root)
-                print("TOTAL", i)
 
     def on_motion(self, event):
         canvas = self._capture_canvas
