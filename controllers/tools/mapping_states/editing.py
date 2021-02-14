@@ -3,8 +3,7 @@ import tkinter as tk
 from controllers.rectangles import rectangles
 
 class Editing(object):
-    # todo: need an editor (draw squares at each corner of the rectangle and the center)
-    #  the center is for dragging an the corners are for resizing
+    # todo: should be able to resize the cz
     def __init__(self, manager):
         """
 
@@ -153,8 +152,8 @@ class Editing(object):
 
             x0, y0, x1, y1 = self._rectangle.bbox
 
-            # w = self._rectangle.width/2
-            # h = self._rectangle.height/2
+            # w = self._cz.width/2
+            # h = self._cz.height/2
 
             fx0 = x0 + mx
             fy0 = y0 + my

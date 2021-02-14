@@ -105,7 +105,7 @@ class Cloning(object):
         if res:
             self._container = self._mapper.get_rectangle(res[-1])
 
-        #copy the rectangle and draw it
+        #copy the cz and draw it
         self._mapper.cloned = rid
         self._copy(rid, x, y)
 
@@ -184,8 +184,8 @@ class Cloning(object):
 
             x0, y0, x1, y1 = self._rectangle.bbox
 
-            # w = self._rectangle.width/2
-            # h = self._rectangle.height/2
+            # w = self._cz.width/2
+            # h = self._cz.height/2
 
             fx0 = x0 + dx
             fy0 = y0 + dy

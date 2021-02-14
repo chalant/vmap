@@ -47,7 +47,7 @@ class RectTracker:
         self.win_id = win_id
 
     def draw(self, start, end, **opts):
-        """Draw the rectangle"""
+        """Draw the cz"""
         return self.canvas.create_rectangle(*(list(start) + list(end)), **opts)
 
     def autodraw(self, **opts):

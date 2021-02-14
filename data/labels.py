@@ -27,8 +27,8 @@ ADD_LABEL_COMPONENTS = text(
 
 ADD_LABEL_INSTANCE = text(
     """
-    INSERT INTO label_instances(instance_id, label_id, instance_name) 
-    VALUES (:instance_id, :label_id, :instance_name);
+    INSERT INTO label_instances(instance_id, instance_name, label_name, label_type) 
+    VALUES (:instance_id, :instance_name, :label_name, :label_type);
     """
 )
 
@@ -50,11 +50,12 @@ class _LabelType(_Element):
 class _LabelInstance(_Element):
     __slots__ = ["instance_id", "label_id", "instance_name"]
 
-    def __init__(self, instance_id, label_id, instance_name):
+    def __init__(self, instance_id, instance_name, label_name, label_type):
         super(_LabelInstance, self).__init__()
 
         self.instance_id = instance_id
-        self.label_id = label_id
+        self.label_name = label_name
+        self.label_type = label_type
         self.instance_name = instance_name
 
     def _submit(self, connection):
@@ -62,7 +63,8 @@ class _LabelInstance(_Element):
             ADD_LABEL_INSTANCE,
             instance_id=self.instance_id,
             instance_name=self.instance_name,
-            label_id=self.label_id
+            label_name=self.label_name,
+            label_type=self.label_type
         )
 
 class _Label(_Element):
@@ -101,15 +103,18 @@ class _Label(_Element):
         if not self._max:
             instance = _LabelInstance(
                 uuid4().hex,
-                self._label_id,
-                instance_name)
+                instance_name,
+                self._label_name,
+                self._label_type)
+
             self._instances.append(instance)
         else:
             if self._total < self._max:
                 instance = _LabelInstance(
                     uuid4().hex,
-                    self._label_id,
-                    instance_name)
+                    instance_name,
+                    self._label_name,
+                    self._label_type)
                 self._total += 1
                 self._instances.append(instance)
 

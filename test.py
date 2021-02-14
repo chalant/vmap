@@ -13,18 +13,18 @@ class GFG:
 
         # canvas object to create shape
         self.canvas = Canvas(master)
-        # creating rectangle
+        # creating cz
         self.rectangle = self.canvas.create_rectangle(
             5, 5, 25, 25, fill="black")
         self.canvas.pack()
 
         # calling class's movement method to
-        # move the rectangle
+        # move the cz
         self.movement()
 
     def movement(self):
         # This is where the move() method is called
-        # This moves the rectangle to x, y coordinates
+        # This moves the cz to x, y coordinates
         self.canvas.move(self.rectangle, self.x, self.y)
 
         self.canvas.after(100, self.movement)
@@ -72,8 +72,14 @@ if __name__ == "__main__":
     # mainloop()
     from tkinter import *
 
-    root = Tk()
-    canvas = Canvas(root, width=500, height=350)
-    canvas.pack()
-    canvas.create_rectangle(50, 50, 150, 150, width=0, fill='blue')
+    import tkinter as tk
+
+    root = tk.Tk()
+    canvas = tk.Canvas(root, width=300, height=300, scrollregion=(0, 0, 5000, 1000))
+    canvas.pack(fill="both", expand=True)
+
+    canvas.create_rectangle(600, 700, 650, 750, fill="red")
+    canvas.yview_moveto(700 / 1000)
+    canvas.xview_moveto(600 / 5000)
+
     root.mainloop()

@@ -69,8 +69,6 @@ class Initial(object):
         canvas = self._mapper.canvas
         res = self._mapper.select_rectangle(event.x, event.y)
 
-        # print("BACKGROUND", canvas["background"])
-
         if res:
             if res != self._rid:
                 self._unbind()

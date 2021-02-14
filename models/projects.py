@@ -96,7 +96,14 @@ _GET_IMAGE_PATHS = text(
     """
     SELECT *
     FROM images
-    WHERE project_name=:project_name AND instance_id=:instance_id
+    WHERE project_name=:project_name AND r_instance_id=:r_instance_id
+    """
+)
+
+_ADD_IMAGE = text(
+    """
+    INSERT INTO images(image_id, project_name, label_instance_id, r_instance_id, hash_key, position)
+    VALUES (:image_id, :project_name, :label_instance_id, :r_instance_id, :hash_key, :position)
     """
 )
 
@@ -205,7 +212,7 @@ class Project(object):
         for element in connection.execute(
                 _GET_IMAGE_PATHS,
                 project_name=self.name,
-                instance_id=instance_id):
+                r_instance_id=instance_id):
             yield element
 
     def get_label_components(self, connection, label_id):
@@ -252,6 +259,17 @@ class Project(object):
 
     def update(self):
         self._update_callback(self)
+
+    def add_image(self, connection, image_id, label_instance_id, r_instance_id, hash_key, position):
+        connection.execute(
+            _ADD_IMAGE,
+            image_id=image_id,
+            project_name=self.name,
+            label_instance_id=label_instance_id,
+            r_instance_id=r_instance_id,
+            hash_key=hash_key,
+            position=position
+        )
 
 class Projects(object):
     def create_project(self, name, type_):

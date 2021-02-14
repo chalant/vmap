@@ -35,9 +35,9 @@ class RectDrawer(object):
         self._collision = cl.DrawingCollision()
 
     def _draw(self, start, end, container, **opts):
-        # todo: we need a minimal area to cover with the rectangle (i.e: points are not permitted)
+        # todo: we need a minimal area to cover with the cz (i.e: points are not permitted)
 
-        """Draw the rectangle"""
+        """Draw the cz"""
         x0, y0 = start
         x1, y1 = end
 
@@ -70,7 +70,7 @@ class RectDrawer(object):
         dx = x1 - px
         dy = y1 - py
 
-        # get the closest rectangle that intersects with he line
+        # get the closest cz that intersects with he line
         if self._line:
             self.canvas.delete(self._line)
         self._line = self.canvas.create_line(px, py, px + 25*dx, py + 25*dy, dash=(6,4))
@@ -184,7 +184,7 @@ class RectDrawer(object):
             rid = self._manager.add_rectangle(tuple(map(int, coords)))
 
             if self._cid:
-                # add component if the rectangle is in the container
+                # add component if the cz is in the container
                 self._mapper.add_component(self._cid, rid)
 
         self._start = None

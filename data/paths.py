@@ -2,8 +2,8 @@ from os.path import expanduser, join
 from os import mkdir
 
 _ROOT = expanduser("~/.gmap")
-_IMAGES = join("images")
-_TEMPLATES = join('templates')
+_IMAGES = "images"
+_TEMPLATES = 'templates'
 
 def global_path(pth):
     return join(_ROOT, pth)

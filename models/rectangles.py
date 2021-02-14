@@ -180,6 +180,14 @@ class RectangleInstance(object):
     def area(self):
         return self._rectangle.area
 
+    @property
+    def label_type(self):
+        return self._rectangle.label_type
+
+    @property
+    def label_name(self):
+        return self._rectangle.label_name
+
     def get_components(self):
         components = []
 
@@ -301,7 +309,7 @@ class Rectangle(object):
     def delete(self, connection):
         self._num_instances -= 1
 
-        #delete rectangle if there is no more instance
+        #delete cz if there is no more instance
         if self._num_instances == 0:
             connection.execute(
                 _DELETE_RECTANGLE,

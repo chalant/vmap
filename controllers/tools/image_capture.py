@@ -7,13 +7,11 @@ from Xlib import display, X
 
 from PIL import Image
 
-from data import engine
-
 def snapshot(rt, xywh):
     w = xywh[2]
     h = xywh[3]
 
-    #shift by one pixel to compensate for rectangle outline width
+    #shift by one pixel to compensate for cz outline width
     raw = rt.get_image(xywh[0] + 1, xywh[1] + 1, w, h, X.ZPixmap, 0xffffffff)
     image = Image.frombytes("RGB", (w, h), raw.data, "raw", "BGRX")
     return image
@@ -24,7 +22,7 @@ def _to_ltwh(bbox):
 
 class ImagesHandler(ABC):
     @abstractmethod
-    def process_images(self, images):
+    def process_image(self, image):
         pass
 
 class ImageHandler(ABC):
@@ -162,6 +160,15 @@ class ImageCaptureTool(object):
     def add_handlers(self, rectangles):
         for r in rectangles:
             self._handlers.append(r)
+
+    # def initialize(self, image):
+    #     e1 = self._left
+    #     e2 = self._top
+    #     shift = (e1, e2, 0, 0)
+    #     dsp = display.Display().screen().root
+    #
+    #     for handler in self._handlers:
+    #         handler.initialize(snapshot(dsp, tuple(map(operator.add, handler.ltwh, shift))))
 
     def clear(self):
         # with self._lock:

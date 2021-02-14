@@ -128,7 +128,7 @@ class Initial(State):
 
         self._manager.on_window_selected(geom.width, geom.height, img)
 
-        self._manager.display(img)
+        # self._manager.display(self._p)
 
     def _get_container(self, manager):
         return manager.container

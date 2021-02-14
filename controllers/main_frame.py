@@ -34,8 +34,8 @@ class MainFrame(object):
         self.v_scroll_bar = sbarV = tk.Scrollbar(container, orient=tk.VERTICAL)
         self.h_scroll_bar = sbarH = tk.Scrollbar(container, orient=tk.HORIZONTAL)
 
-        sbarV.config(command=editor.yview)
-        sbarH.config(command=editor.xview)
+        sbarV.config(command=self._on_y_scroll)
+        sbarH.config(command=self._on_x_scroll)
 
         editor.config(yscrollcommand=sbarV.set)
         editor.config(xscrollcommand=sbarH.set)
@@ -78,6 +78,7 @@ class MainFrame(object):
         self.window_location = None
 
         self.template_image = None
+        self._img = None
 
         self._interface = interface = itf.Interface(mf, self, pjt.Projects())
 
@@ -88,6 +89,7 @@ class MainFrame(object):
         menu.add_cascade(label="File", menu=file_menu)
 
         file_menu.add_command(label="New", command=interface.new)
+        #todo: disable open button if there is no projects.
         file_menu.add_command(label="Open", command=interface.open)
 
         self.mapping_tool = None
@@ -159,13 +161,21 @@ class MainFrame(object):
     #     self._state.on_resize(event)
 
     def _on_mouse_wheel(self, event):
+        # todo: each time we scroll we need to set the cursor offset
         # respond to Linux or Windows wheel event
         if event.num == 5 or event.delta == -120:
             self._count -= 1
             self.canvas.yview_scroll(1, "units")
+
         if event.num == 4 or event.delta == 120:
             self._count += 1
             self.canvas.yview_scroll(-1, "units")
+
+    def _on_x_scroll(self, *args):
+        self.canvas.xview(*args)
+
+    def _on_y_scroll(self, *args):
+        self.canvas.yview(*args)
 
     def initialize(self, project):
         """
@@ -195,14 +205,14 @@ class MainFrame(object):
             # #todo: should only pass project as argument to capture tool.
             # self.capture_tool.add_handlers(project.get_rectangles(con))
 
-            # create image_handlers. each display is bound to a rectangle
+            # create image_handlers. each display is bound to a cz
             self._win_select_btn["state"] = "normal"
             self.state = self.initial  # set state to initial
             self.mapping_state = self.mapping_inactive
             self.mapping_state.update()
 
             project.load_template(partial(self.display, project))  # load template and display it
-            project.template_update(partial(self.display, project))  # gets notified on new template write
+            project.template_update(partial(self.update_display, project))  # gets notified on new template write
             project.on_update(self.update)
 
             self.height = project.height
@@ -235,14 +245,22 @@ class MainFrame(object):
         self.mapping_state.update()
 
         self.canvas.config(scrollregion=(0, 0, w, h), height=h, width=w)
+        self.canvas.update()
 
         with engine.connect() as connection:
-            self._instance_mapper.start(project, connection, self.capture_state)
+            self._instance_mapper.start(project, connection, self.capture_state, self)
+
+    def update_display(self, project, image):
+        if self._img:
+            self._img.paste(image)
+            self.update(project)
+        else:
+            self.display(project, image)
 
     def update(self, project):
         with engine.connect() as con:
             self._instance_mapper.clear()
-            self._instance_mapper.start(project, con, self.capture_state)
+            self._instance_mapper.start(project, con, self.capture_state, self)
 
     def mapping_tool_close(self, data):
         self.mapping_state = self.mapping_active
@@ -250,6 +268,8 @@ class MainFrame(object):
 
     def on_window_selected(self, width, height, img=None):
         self._interface.on_window_selected(width, height, img)
+        self.state = self.window_selected
+        # self.capture_tool.initialize(img) #initialize all image handlers
 
     def stop(self):
         self._state.stop()

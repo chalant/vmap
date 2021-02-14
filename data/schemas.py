@@ -83,7 +83,7 @@ rectangle_instances = Table(
     "rectangle_instances",
     meta,
     # Column("instance_id", String, primary_key=True),
-    #rectangle has multiple instances
+    #cz has multiple instances
     Column("r_instance_id", String, nullable=False),
     Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id"), nullable=False),
     Column("left", Integer, nullable=False),
@@ -106,7 +106,7 @@ label_instances = Table(
     # Column("label_id", String, ForeignKey("labels.label_id")),
     Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
     Column("label_type", String, ForeignKey("labels.label_type"), nullable=False)
-    #multiple label_instances can share the same rectangle
+    #multiple label_instances can share the same cz
 )
 
 images = Table(
@@ -115,9 +115,10 @@ images = Table(
     Column("image_id", String, primary_key=True),
     Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
     # each image is mapped to an instance id
-    Column("instance_id", String, ForeignKey("label_instances.instance_id"), nullable=False),
-    Column("image_path", String, nullable=False),
-    Column("image_hash_key", String, nullable=False)
+    Column("label_instance_id", String, ForeignKey("label_instances.instance_id"), nullable=False),
+    Column("r_instance_id", String, ForeignKey("rectangle_instances.r_instance_id"), nullable=False),
+    Column("hash_key", String, nullable=False),
+    Column("position", Integer, nullable=False)
 )
 
 def create_all(engine):

@@ -46,7 +46,7 @@ class DrawingCollision(object):
         if ny > fy:
             ny, fy = swap(ny, fy)
 
-        # take the smallest collision time outside the rectangle
+        # take the smallest collision time outside the cz
         if nx >= 0 and ny >= 0:
             nrx, nry = self._normal(nx, ny, dx, dy)
             t = min(nx, ny)
