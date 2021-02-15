@@ -84,7 +84,7 @@ rectangle_instances = Table(
     meta,
     # Column("instance_id", String, primary_key=True),
     #cz has multiple instances
-    Column("r_instance_id", String, nullable=False),
+    Column("r_instance_id", String, primary_key=True),
     Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id"), nullable=False),
     Column("left", Integer, nullable=False),
     Column("top", Integer, nullable=False)
@@ -115,10 +115,10 @@ images = Table(
     Column("image_id", String, primary_key=True),
     Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
     # each image is mapped to an instance id
-    Column("label_instance_id", String, ForeignKey("label_instances.instance_id"), nullable=False),
     Column("r_instance_id", String, ForeignKey("rectangle_instances.r_instance_id"), nullable=False),
     Column("hash_key", String, nullable=False),
-    Column("position", Integer, nullable=False)
+    Column("position", Integer, nullable=False),
+    Column("label_instance_name", String, nullable=False)
 )
 
 def create_all(engine):

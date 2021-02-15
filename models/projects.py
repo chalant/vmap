@@ -122,7 +122,7 @@ class Project(object):
 
         self._rectangles = rectangles.Rectangles(self)
 
-        self._template_path = path.join(paths.global_path(paths.templates()), name)
+        self._template_path = path.join(paths.templates(), name)
 
         def null_callback(data):
             pass

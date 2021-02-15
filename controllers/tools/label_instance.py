@@ -8,14 +8,17 @@ import tkinter as tk
 from PIL import ImageTk, Image
 import imagehash
 
+
 from controllers.tools import image_capture
 from controllers.rectangles import rectangles as rt
+
+from models import images
 
 from data import engine
 from data import paths
 
 class ImageRectangle(object):
-    def __init__(self, rid, iid, cz, bbox):
+    def __init__(self, rid, iid, cz, bbox, image_metadata):
         """
 
         Parameters
@@ -24,12 +27,14 @@ class ImageRectangle(object):
         iid: int
         cz: CaptureZone
         bbox: tuple
+        image_metadata: models.images.ImageMetadata
         """
 
         self._rid = rid
         self._cz = cz
         self._bbox = bbox
         self._iid = iid
+        self._meta = image_metadata
 
     @property
     def rid(self):
@@ -55,6 +60,14 @@ class ImageRectangle(object):
     @property
     def label_name(self):
         return self._cz.label_name
+
+    @property
+    def label_instance_name(self):
+        return self._meta.label_instance_name
+
+    @label_instance_name.setter
+    def label_instance_name(self, value):
+        self._meta.label_instance_name = value
 
 
 class CaptureZone(image_capture.ImagesHandler):
@@ -130,28 +143,26 @@ class CaptureZone(image_capture.ImagesHandler):
 
     def initialize(self, connection):
 
-        project = self._project
         self._position = pos = 0
 
-        image_path = None
+        image = None
 
         rct = self._rectangle
 
-        for im in project.get_image_metadata(connection, rct.id):
-            p = im['position']
-            h = im["hash_key"]
+        for im in self._rectangle.get_images(connection):
+            p = im.position
+            h = im.hash_key
 
-            self._hashes[h] = h
+            self._hashes[h] = im
 
             if p > pos:
                 pos = p
-                image_path = im["image_id"]
+                image = im
 
         self._position = pos + 1
 
-        if image_path:
-            pt = path.join(paths.global_path(paths.images()), image_path)
-            pi = ImageTk.PhotoImage(Image.open(pt, formats=("PNG", )))
+        if image:
+            pi = image.get_image()
         else:
             pi = ImageTk.PhotoImage(Image.new('RGB', (rct.width, rct.height)))
 
@@ -181,26 +192,30 @@ class CaptureZone(image_capture.ImagesHandler):
 
         """
         hsh = str(imagehash.average_hash(image))
+        hashes = self._hashes
+        position = self._position
+        pn = self._project.name
+        rct = self._rectangle
 
-        if hsh not in self._hashes:
+        if hsh not in hashes:
             #create new image instance
 
             # canvas = self._capture_canvas
             if self._i == 3:
                 self._i = 1
 
-                y = self._y + self._rectangle.height
+                y = self._y + rct.height
                 x = 1
             else:
                 self._i += 1
 
-                x = self._x + self._rectangle.width
+                x = self._x + rct.width
                 y = self._y
 
             self._x = x
             self._y = y
 
-            self._position += 1
+            position += 1
 
             # rid = self._image_item
 
@@ -209,21 +224,35 @@ class CaptureZone(image_capture.ImagesHandler):
             # todo: we need to draw (append) the image if we're in picture display mode...
             #  also, only draw only what is "viewable"
 
-            self._hashes[hsh] = hsh
-
-            self._thread_pool.submit(self._save_image, image, hsh)
+            self._thread_pool.submit(
+                self._save_image,
+                hashes,
+                pn,
+                rct.id,
+                image,
+                hsh,
+                position)
 
             self._photo_image.paste(image) # display image
 
+            self._position = position
+
             # image.save(paths.join(paths.global_path(paths.images()), hsh), 'PNG')
 
-    def _save_image(self, image, hash_):
-        id_ = uuid4().hex
+    def _save_image(self, hashes, project_name, rct_id, image, hash_, position):
+        img = images.ImageMetadata(
+            uuid4().hex,
+            project_name,
+            rct_id,
+            hash_,
+            position)
+
+        hashes[hash_] = img
 
         with engine.connect() as connection:
-            self._project.add_image(connection, id_, "n/a", self.instance.id, hash_, self._position)
+            img.submit(connection)
 
-        image.save(paths.global_path(path.join(paths.images(), id_)), 'PNG')
+        image.save(img.path, 'PNG')
 
     def draw_captured_images(self, connection, max_row, step):
         #todo: draw outlines around images
@@ -237,8 +266,6 @@ class CaptureZone(image_capture.ImagesHandler):
         # submit draw threads
         i = 0
 
-        project = self._project
-
         canvas = self._capture_canvas
 
         images = self._images
@@ -246,7 +273,7 @@ class CaptureZone(image_capture.ImagesHandler):
         rct = self._rectangle
         m = 0
 
-        for meta in project.get_image_metadata(connection, rct.id):
+        for meta in rct.get_images(connection):
             # pool.submit(
             #     self._load_draw,
             #     images,
@@ -259,7 +286,7 @@ class CaptureZone(image_capture.ImagesHandler):
                 images,
                 canvas,
                 self,
-                meta["image_id"],
+                meta,
                 x, y)
 
             i += 1
@@ -279,10 +306,8 @@ class CaptureZone(image_capture.ImagesHandler):
         self._width = m
         # canvas.update()
 
-    def _load_draw(self, images, canvas, rct, image_path, x, y):
-        image = ImageTk.PhotoImage(Image.open(
-            paths.global_path(path.join(paths.images(), image_path)),
-            formats=("PNG",)))
+    def _load_draw(self, images, canvas, rct, image_meta, x, y):
+        image = image_meta.get_image()
 
         iid = canvas.create_image(x, y, image=image, anchor=tk.NW)
         bbox = canvas.bbox(iid)
@@ -290,7 +315,7 @@ class CaptureZone(image_capture.ImagesHandler):
 
         self._items.append(image)
 
-        images[rid] = ImageRectangle(rid, iid, rct, bbox)
+        images[rid] = ImageRectangle(rid, iid, rct, bbox, image_meta)
 
     def clear(self):
         images = self._images
@@ -327,10 +352,9 @@ class CaptureZone(image_capture.ImagesHandler):
                 for instance in project.get_label_instances(
                         connection, image.label_name, image.label_type):
                     name = instance["instance_name"]
-                    print("INSTANCE", name)
                     label_instances.add_command(
                         label=name,
-                        command=partial(self._on_set_label_instance, instance))
+                        command=partial(self._on_set_label_instance, image, instance))
 
                 options.tk_popup(event.x_root, event.y_root)
 
@@ -362,9 +386,8 @@ class CaptureZone(image_capture.ImagesHandler):
         if prev:
             canvas.itemconfigure(prev, outline="black")
 
-    def _on_set_label_instance(self, label_instance):
-        # todo: display a list of available label instances for the image
-        pass
+    def _on_set_label_instance(self, image_rectangle, label_instance):
+        image_rectangle.label_instance_name = label_instance["instance_name"]
 
 class LabelInstanceMapper(object):
     def __init__(self, container, canvas):
@@ -498,6 +521,8 @@ class LabelInstanceMapper(object):
         for rid in instances.keys():
             canvas.delete(rid)
 
+        self._drawn_instance = None
+
         instances.clear()
         canvas.unbind("<Motion>")
 
@@ -543,7 +568,7 @@ class LabelInstanceMapper(object):
             w = canvas.winfo_width()
 
             max_row = math.floor(w / rct.width)
-            t = math.floor((w - rct.width) * max_row / rct.width)
+            t = math.floor((w - (rct.width * max_row)) / max_row)
 
             #todo: we need the scroll region (the sum heights for vbar)
 

@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
+from models import images
 from data import engine
 
 _SELECT_RECTANGLES = text(
@@ -93,7 +94,17 @@ _GET_LABEL = text(
     """
 )
 
+_GET_IMAGE = text(
+    """
+    SELECT *
+    FROM images
+    WHERE project_name=:project_name AND r_instance_id=:r_instance_id
+    """
+)
+
 class RectangleInstance(object):
+    __slots__ = ['_id', '_left', '_top', '_rectangle', '_container_id', '_center']
+
     def __init__(self, id_, rectangle, left, top, container_id=None):
         """
 
@@ -214,6 +225,25 @@ class RectangleInstance(object):
     def create_instance(self, x, y):
         return self._rectangle.create_instance(x, y)
 
+    def get_images(self, connection):
+        for element in connection.execute(
+            _GET_IMAGE,
+            project_name=self._rectangle.project_name,
+            r_instance_id=self._id):
+
+            yield images.ImageMetadata(
+                element['image_id'],
+                self._rectangle.project_name,
+                self._id,
+                element["hash_key"],
+                element["position"],
+                element["label_instance_name"]
+            )
+
+    def create_image_meta(self, id_, hash_key, position):
+        return images.ImageMetadata(
+            id_, self._rectangle.project_name, self._id, hash_key, position)
+
     def submit(self, connection):
         connection.execute(
             _ADD_RECTANGLE_INSTANCE,
@@ -229,6 +259,8 @@ class RectangleInstance(object):
                 r_component_id=self._id)
 
 class Rectangle(object):
+    __slots__ = ['_id', '_project_name', '_width', '_height', '_capture', '_label_type', '_label_name', '_num_instances']
+
     def __init__(self, id_, project_name, width, height, capture=False):
         self._id = id_
         self._project_name = project_name
@@ -242,6 +274,10 @@ class Rectangle(object):
         self._num_instances = 0
 
         self._capture = capture
+
+    @property
+    def project_name(self):
+        return self._project_name
 
     @property
     def id(self):

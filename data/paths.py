@@ -12,10 +12,10 @@ def root():
     return _ROOT
 
 def templates():
-    return _TEMPLATES
+    return global_path(_TEMPLATES)
 
 def images():
-    return _IMAGES
+    return global_path(_IMAGES)
 
 try:
     mkdir(_ROOT)
@@ -23,11 +23,11 @@ except FileExistsError:
     pass
 
 try:
-    mkdir(global_path(templates()))
+    mkdir(templates())
 except FileExistsError:
     pass
 
 try:
-    mkdir(global_path(images()))
+    mkdir(images())
 except FileExistsError:
     pass
