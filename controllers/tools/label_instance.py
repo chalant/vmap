@@ -1,4 +1,3 @@
-from os import path
 from functools import partial
 from concurrent import futures
 from uuid import uuid4
@@ -15,7 +14,6 @@ from controllers.rectangles import rectangles as rt
 from models import images
 
 from data import engine
-from data import paths
 
 class ImageRectangle(object):
     def __init__(self, rid, iid, cz, bbox, image_metadata):
@@ -36,6 +34,8 @@ class ImageRectangle(object):
         self._iid = iid
         self._meta = image_metadata
 
+        self._changed = False
+
     @property
     def rid(self):
         return self._rid
@@ -48,6 +48,11 @@ class ImageRectangle(object):
     def top_left(self):
         bbox = self._bbox
         return bbox[0], bbox[1]
+
+    @property
+    def center(self):
+        x0, y0, x1, y1 = self._bbox
+        return (x0 + x1)/2, (y0 + y1)/2
 
     @property
     def bbox(self):
@@ -67,11 +72,16 @@ class ImageRectangle(object):
 
     @label_instance_name.setter
     def label_instance_name(self, value):
+        self._changed = True
         self._meta.label_instance_name = value
+
+    def submit(self, connection):
+        if self._changed:
+            self._meta.submit(connection)
 
 
 class CaptureZone(image_capture.ImagesHandler):
-    def __init__(self, canvas, capture_canvas, rid, rectangle, project, thread_pool):
+    def __init__(self, canvas, capture_canvas, rid, rectangle, project, thread_pool, hashes):
         """
 
         Parameters
@@ -96,7 +106,7 @@ class CaptureZone(image_capture.ImagesHandler):
         self._rid = rid
 
         self._images = {}
-        self._hashes = {} #stored image hashes
+        self._hashes = hashes
 
         self._project = project
 
@@ -112,6 +122,8 @@ class CaptureZone(image_capture.ImagesHandler):
         self._prev = None
         self._f_rid = None
         self._width = 0
+
+        self._text = None
 
     @property
     def rid(self):
@@ -318,22 +330,25 @@ class CaptureZone(image_capture.ImagesHandler):
         images[rid] = ImageRectangle(rid, iid, rct, bbox, image_meta)
 
     def clear(self):
-        images = self._images
-        capture_canvas = self._capture_canvas
-        # clear all images
-        for k, im in images.items():
-            capture_canvas.delete(k)
-            capture_canvas.delete(im.iid)
+        with engine.connect() as connection:
+            images = self._images
+            capture_canvas = self._capture_canvas
+            # clear all images
+            for k, im in images.items():
+                capture_canvas.delete(k)
+                capture_canvas.delete(im.iid)
+                #submit any changes to the image
+                im.submit(connection)
 
-        images.clear()
+            images.clear()
 
-        self._items.clear()
+            self._items.clear()
 
-        self._x = 1
-        self._y = 1
-        self._i = 0
+            self._x = 1
+            self._y = 1
+            self._i = 0
 
-        self._position = 0
+            self._position = 0
 
     def on_right_click(self, event):
         res = rt.find_closest_enclosing(self._images, event.x, event.y)
@@ -374,6 +389,7 @@ class CaptureZone(image_capture.ImagesHandler):
             self._unbind(canvas)
 
             rct = rt.get_rectangle(images, rid)
+            self._text = canvas.create_text(*rct.center, text=rct.label_instance_name)
             canvas.itemconfigure(rct.rid, outline="red")
             self._prev = rid
         else:
@@ -382,9 +398,13 @@ class CaptureZone(image_capture.ImagesHandler):
 
     def _unbind(self, canvas):
         prev = self._prev
+        text = self._text
 
         if prev:
             canvas.itemconfigure(prev, outline="black")
+
+        if text:
+            canvas.delete(text)
 
     def _on_set_label_instance(self, image_rectangle, label_instance):
         image_rectangle.label_instance_name = label_instance["instance_name"]
@@ -433,6 +453,7 @@ class LabelInstanceMapper(object):
         self._rid = None
 
         self._items = []
+        self._hashes = {}
 
         self._project = None
 
@@ -493,6 +514,8 @@ class LabelInstanceMapper(object):
         self._project = project
         pool = self._thread_pool
 
+        hashes = self._hashes
+
         for rct in project.get_rectangles(connection):
             # filter cz that we can capture
             if rct.capture:
@@ -505,7 +528,8 @@ class LabelInstanceMapper(object):
                         rid,
                         instance,
                         project,
-                        pool)
+                        pool,
+                        hashes)
 
                     cz.initialize(connection)
             #todo: load the latest captured image and display it in the box

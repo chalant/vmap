@@ -99,6 +99,7 @@ _GET_IMAGE = text(
     SELECT *
     FROM images
     WHERE project_name=:project_name AND r_instance_id=:r_instance_id
+    ORDER BY position ASC
     """
 )
 
