@@ -35,13 +35,11 @@ class RectDrawer(object):
         self._collision = cl.DrawingCollision()
 
     def _draw(self, start, end, container, **opts):
-        # todo: we need a minimal area to cover with the cz (i.e: points are not permitted)
-
-        """Draw the cz"""
         x0, y0 = start
         x1, y1 = end
 
         collision = self._collision
+        canvas = self.canvas
 
         # make sure the drawn point is within the canvas
         x1, y1 = self._mapper.adjust_point(x1, y1, 0, 0)
@@ -72,20 +70,20 @@ class RectDrawer(object):
 
         # get the closest cz that intersects with he line
         if self._line:
-            self.canvas.delete(self._line)
-        self._line = self.canvas.create_line(px, py, px + 25*dx, py + 25*dy, dash=(6,4))
+            canvas.delete(self._line)
+        self._line = canvas.create_line(px, py, px + 25*dx, py + 25*dy, dash=(6,4))
 
         lines = self._lines
         points = self._points
 
         if lines:
             for l in lines:
-                self.canvas.delete(l)
+                canvas.delete(l)
             lines.clear()
 
         if points:
             for p in points:
-                self.canvas.delete(p)
+                canvas.delete(p)
             points.clear()
 
 

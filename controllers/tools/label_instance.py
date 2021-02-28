@@ -8,7 +8,7 @@ from PIL import ImageTk, Image
 import imagehash
 
 
-from controllers.tools import image_capture
+from controllers.tools import image_capture, preprocess
 from controllers.rectangles import rectangles as rt
 
 from models import images
@@ -173,12 +173,12 @@ class CaptureZone(image_capture.ImagesHandler):
 
         self._position = pos + 1
 
-        if image:
-            pi = image.get_image()
-        else:
-            pi = ImageTk.PhotoImage(Image.new('RGB', (rct.width, rct.height)))
+        # if image:
+        #     pi = image.get_image()
+        # else:
+        # pi =
 
-        self._photo_image = pi
+        self._photo_image = pi = ImageTk.PhotoImage(Image.new('RGB', (rct.width, rct.height)))
 
         x, y = rct.top_left
 
@@ -209,6 +209,8 @@ class CaptureZone(image_capture.ImagesHandler):
         pn = self._project.name
         rct = self._rectangle
 
+        im = preprocess.preprocess_image(image)
+
         if hsh not in hashes:
             #create new image instance
 
@@ -229,27 +231,31 @@ class CaptureZone(image_capture.ImagesHandler):
 
             position += 1
 
-            # rid = self._image_item
+            rid = self._image_item
 
             #todo: create image in canvas
             #self._images[rid] = ImageRectangle(rid, self)
             # todo: we need to draw (append) the image if we're in picture display mode...
             #  also, only draw only what is "viewable"
 
+            #todo: update detect image after pre-processing. Note: Detection depends on the task:
+            # could be a number, a rank suit, etc. Ex: if we want to detect POT size, we will
+            # use tesseract for instance. Pre-processing might depend on the detection model.
+
             self._thread_pool.submit(
                 self._save_image,
                 hashes,
                 pn,
                 rct.id,
-                image,
+                im,
                 hsh,
                 position)
 
-            self._photo_image.paste(image) # display image
+        self._photo_image.paste(im) # display image
 
-            self._position = position
+        self._position = position
 
-            # image.save(paths.join(paths.global_path(paths.images()), hsh), 'PNG')
+
 
     def _save_image(self, hashes, project_name, rct_id, image, hash_, position):
         img = images.ImageMetadata(
@@ -348,8 +354,6 @@ class CaptureZone(image_capture.ImagesHandler):
             self._y = 1
             self._i = 0
 
-            self._position = 0
-
     def on_right_click(self, event):
         res = rt.find_closest_enclosing(self._images, event.x, event.y)
         project = self._project
@@ -409,6 +413,8 @@ class CaptureZone(image_capture.ImagesHandler):
     def _on_set_label_instance(self, image_rectangle, label_instance):
         image_rectangle.label_instance_name = label_instance["instance_name"]
 
+
+
 class LabelInstanceMapper(object):
     def __init__(self, container, canvas):
         """
@@ -418,13 +424,36 @@ class LabelInstanceMapper(object):
         container: tkinter.Frame
         canvas: tkinter.Canvas
         """
-        self._images = {}
 
         self._canvas = canvas
         self._container = container
 
-        self._capture_frame = frame = tk.LabelFrame(container, text="Captures")
+
+        self._capture_frame = frame = tk.LabelFrame(container, text="Samples")
+
         self._capture_canvas = capture_canvas = tk.Canvas(frame)
+        self._filter_canvas = filter_canvas = tk.Canvas(container)
+
+        #todo: display parameters when we click on the preprocessing tools (blur, threshold, zoom, grey)
+
+        self._commands = commands = tk.Frame(frame)
+        self._menu = menu = tk.LabelFrame(frame, text="Filters")
+
+        #captures an image of the selected rectangle.
+        self._sample = sample = tk.Button(commands, text="Sample")
+
+        self._add_filter = add_filter = tk.Menubutton(menu, text="Add")
+        self._open_filters = open_filters = tk.Menubutton(menu, text="Open")
+
+        self._filter_menu = fm = tk.Menu(add_filter, tearoff=0)
+
+        fm.add_command(label="Blur")
+        fm.add_command(label="Threshold")
+        fm.add_command(label="Zoom")
+        fm.add_command(label="Color")
+        add_filter.config(menu=fm)
+
+        self._parameter_frame = pr = tk.Frame(container)
 
         self._v_scroll_bar = vbar = tk.Scrollbar(frame, orient=tk.VERTICAL)
         self._h_scroll_bar = hbar = tk.Scrollbar(frame, orient=tk.HORIZONTAL)
@@ -444,8 +473,18 @@ class LabelInstanceMapper(object):
         capture_canvas.bind("<Button-4>", self._on_mouse_wheel)
         capture_canvas.bind("<Button-5>", self._on_mouse_wheel)
 
+
         frame.pack()
+        menu.pack(side=tk.RIGHT, fill=tk.Y)
+        add_filter.pack()
+        open_filters.pack()
+
+
         capture_canvas.pack()
+        sample.pack()
+
+        pr.pack()
+        commands.pack()
 
         self._instances = {}
 
@@ -459,23 +498,17 @@ class LabelInstanceMapper(object):
 
         self._thread_pool = futures.ThreadPoolExecutor(10)
 
-        self._drawn = False
         self._drawn_instance = None
-
-        self._selected_image = None
 
         self._x = 1
         self._y = 1
         self._i = 0
 
-        self._x_offset = 0
-        self._y_offset = 0
-
         self._height = 0
         self._width = 0
 
     def _on_mouse_wheel(self, event):
-        # todo: each time we scroll we need to set the cursor offset
+        # todo: should create this function as a utility function
         # respond to Linux or Windows wheel event
         if event.num == 5 or event.delta == -120:
             self._count -= 1
@@ -499,9 +532,6 @@ class LabelInstanceMapper(object):
         -------
         None
         """
-
-        # todo: load latest captured images, or use template image if no images were found and display
-        #  them
 
         canvas = self._canvas
 
@@ -623,17 +653,3 @@ class LabelInstanceMapper(object):
 
                 canvas.bind("<Motion>", rct.on_motion)
                 canvas.bind("<Button-3>", rct.on_right_click)
-
-
-    def on_x_scroll(self, h_scroll_bar):
-        self._x_offset = h_scroll_bar.get()[0]
-
-    def on_y_scroll(self, offset):
-        # if offset < 0:
-        #     self._y_offset = 0
-        # else:
-        #     self._y_offset = offset
-        #
-        # print("OFFSET!!!", offset)
-        pass
-

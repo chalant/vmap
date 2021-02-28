@@ -35,12 +35,91 @@ projects = Table(
     Column("width", Float(32), nullable=False)
 )
 
+filter_groups = Table(
+    "filter_groups",
+    meta,
+    Column("name", String, primary_key=True)
+)
+
+blur = Table(
+    "blur",
+    meta,
+    Column("id", String, primary_key=True),
+    Column("group", String, ForeignKey("filter_group.name"), nullable=False),
+    Column("type", String, nullable=False),
+    Column("position", Integer, nullable=False)
+)
+
+color = Table(
+    "color",
+    meta,
+    Column("id", String, primary_key=True),
+    Column("group", String, ForeignKey("filter_group.name"), nullable=False),
+    Column("type", String, nullable=False),
+    Column("position", Integer, nullable=False)
+)
+
+resize = Table(
+    "resize",
+    meta,
+    Column("id", String, primary_key=True),
+    Column("group", String, ForeignKey("filter_group.name"), nullable=False),
+    Column("type", String, nullable=False),
+    Column("position", Integer, nullable=False)
+)
+
+threshold = Table(
+    "threshold",
+    meta,
+    Column("id", String, primary_key=True),
+    Column("group", String, ForeignKey("filter_group.name"), nullable=False),
+    Column("type", String, nullable=False),
+    Column("position", Integer, nullable=False)
+)
+
+filters = Table(
+    "filters",
+    meta,
+    Column("id", String, primary_key=True),
+    Column("group", String, ForeignKey("filter_group.name"), nullable=False),
+    Column("type", String, nullable=False),
+    Column("position", Integer, nullable=False)
+)
+
+gaussian_blur = Table(
+    "gaussian_blur",
+    meta,
+    Column("id", String, primary_key=True),
+    Column("blur_id", String, ForeignKey("filters.id"), nullable=False),
+    Column("ksizeX", Float),
+    Column("ksizeY", Float),
+    Column("sigmaX", Float, nullable=False),
+    Column("sigmaY", Float)
+)
+
+average_blur = Table(
+    "average_blur",
+    meta,
+    Column("id", String, primary_key=True),
+    Column("blur_id", String, ForeignKey("filters.id"), nullable=False),
+    Column("ksizeX", Float),
+    Column("ksizeY", Float)
+)
+
+median_blur = Table(
+    "median_blur",
+    meta,
+    Column("id", String, primary_key=True),
+    Column("blur_id", String, ForeignKey("filters.id"), nullable=False),
+    Column("ksize", Float)
+)
+
 # these are pre-populated by admin
 label_types = Table(
     "label_types",
     meta,
     Column("label_type", String, primary_key=True),
-    # Column("project_type", ForeignKey("project_types.project_type"), nullable=False)
+    # Column("project_type", ForeignKey("project_trectanglesypes.project_type"), nullable=False)
 )
 
 #pre-populated by admin
@@ -55,7 +134,9 @@ labels = Table(
     Column("max_instances", Integer), # maximum instances of this label
     Column("total", Integer, nullable=False, default=0), # tracks number of instances of this label
     # labels are bound to a single project_type
-    Column("project_type", ForeignKey("project_types.project_type"), nullable=False)
+    Column("project_type", ForeignKey("project_types.project_type"), nullable=False),
+    #preprocessing is done per label
+    Column("preprocessing_name", ForeignKey("preprocessing.preprocessing_name"))
 )
 
 label_components = Table(

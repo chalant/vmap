@@ -242,6 +242,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
     def remove_rectangle(self, rid):
         all_instances = self._all_instances
+        canvas = self.canvas
 
         # with engine.connect() as connection:
         #     container = self.get_rectangle(rid).container
@@ -258,9 +259,9 @@ class MappingTool(rectangle_utils.RectangleFactory):
         with engine.connect() as conn:
             for rct in rectangles.remove_rectangle(all_instances, rid):
                 id_ = rct.rid
-                self.canvas.delete(id_)
+                canvas.delete(id_)
                 rct.delete(conn)
-            all_instances.clear()
+                del all_instances[id_]
 
     def unselect_rectangle(self):
         self._rid = None
