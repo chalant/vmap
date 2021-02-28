@@ -112,22 +112,32 @@ class FiltersData(object):
     def get_filter(self, connection, type_, id_):
         pass
 
+class FilterView(object):
+    def __init__(self, container):
+        self._frame = frame = tk.Frame(container)
+
+        self._canvas = canvas = tk.Canvas(frame)
+
+        self._vbar = vbar = tk.Scrollbar(frame, orient=tk.VERTICAL)
+        self._hbar = hbar = tk.Scrollbar(frame, orient=tk.HORIZONTAL)
+
+        self._filter_tool = FilterTool()
+
+    def render(self):
+        self._frame.tkraise()
+
 class FilterTool(object):
     '''
     Filters Interface
     '''
 
-    def __init__(self, filter_data):
+    def __init__(self, filter_data, canvas):
         self._rectangles = {} #rectangles on canvas
         self._pipeline = []
 
         self._position = 0
 
-        self._frame = None
-        self._canvas = None
-
-        self._vbar = None
-        self._hbar = None
+        self._canvas = canvas
 
         self._filter_data = filter_data
 
@@ -155,8 +165,6 @@ class FilterTool(object):
         self._pipeline.clear()
         self._rectangles.clear()
 
-
-
     def on_left_click(self, event):
         #todo: return the selected filter
         pass
@@ -179,14 +187,6 @@ class FilterTool(object):
             im = p.apply(im)
 
         return im.image()
-
-    def render(self, container):
-        self._frame = frame = tk.Frame(container)
-
-        self._canvas = canvas = tk.Canvas(frame)
-
-        self._vbar = vbar = tk.Scrollbar(frame, orient=tk.VERTICAL)
-        self._hbar = hbar = tk.Scrollbar(frame, orient=tk.HORIZONTAL)
 
 def preprocess_image(image):
     # blur = cv2.GaussianBlur(cv2.cvtColor(np.asarray(image), cv2.COLOR_BGR2GRAY), (5, 5), 0)
