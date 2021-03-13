@@ -14,22 +14,31 @@ _ADD_IMAGE_METADATA = text(
 )
 
 class ImageMetadata(object):
-    __slots__ = ['_id', '_project_name', '_r_instance_id', '_hash_key', '_position', '_label_instance_name']
+    __slots__ = ['_id', '_project_name', '_rectangle', '_hash_key', '_position', '_label', '_image']
 
     def __init__(
             self,
             id_,
             project_name,
-            r_instance_id,
+            rectangle,
             hash_key,
             position,
-            label_instance_name="n/a"):
+            label):
+
         self._id = id_
         self._project_name = project_name
-        self._r_instance_id = r_instance_id
+        self._rectangle = rectangle
         self._hash_key = hash_key
         self._position = position
-        self._label_instance_name = label_instance_name
+        self._label = label
+
+    @property
+    def height(self):
+        return self._rectangle.height
+
+    @property
+    def width(self):
+        return self._rectangle.width
 
     @property
     def hash_key(self):
@@ -48,12 +57,12 @@ class ImageMetadata(object):
         return path.join(paths.images(), self._id)
 
     @property
-    def label_instance_name(self):
-        return self._label_instance_name
+    def label(self):
+        return self._label
 
-    @label_instance_name.setter
-    def label_instance_name(self, value):
-        self._label_instance_name = value
+    @property
+    def rectangle(self):
+        return self._rectangle
 
     def get_image(self):
         return ImageTk.PhotoImage(Image.open(self.path, formats=("PNG",)))
@@ -63,7 +72,7 @@ class ImageMetadata(object):
             _ADD_IMAGE_METADATA,
             image_id=self._id,
             project_name=self._project_name,
-            label_instance_name=self._label_instance_name,
-            r_instance_id=self._r_instance_id,
+            label_instance_name=self._label,
+            r_instance_id=self._rectangle.id,
             hash_key=self._hash_key,
             position=self._position)

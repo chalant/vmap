@@ -1,7 +1,8 @@
 import tkinter as tk
 
 from controllers.rectangles import rectangles
-from controllers.tools import collision as cl
+from tools import collision as cl
+
 
 class Cloning(object):
     def __init__(self, manager):

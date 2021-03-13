@@ -1,6 +1,7 @@
 import tkinter as tk
 
-from controllers.tools import collision as cl
+from tools import collision as cl
+
 
 class RectDrawer(object):
     def __init__(self, manager):

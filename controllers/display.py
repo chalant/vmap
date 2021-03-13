@@ -2,7 +2,8 @@ import tkinter as tk
 
 from PIL import ImageTk
 
-from controllers.tools import image_capture
+from tools import image_capture
+
 
 #todo: the display displays, tracks and stores images. We use image hashing to detect changes
 # in images each frame, and only add image if we do not have it already.

@@ -1,4 +1,4 @@
-from controllers.tools.mapping_states import cloning, drawing, editing, initial
+from tools.mapping_states import drawing, editing, initial, cloning
 
 Editing = editing.Editing
 Cloning = cloning.Cloning

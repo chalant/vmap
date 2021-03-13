@@ -20,6 +20,9 @@ def _to_ltwh(bbox):
     x0, y0, x1, y1 = bbox
     return (x0, y0, x1 - x0, y1 - y0)
 
+def capture(ltwh):
+    return snapshot(display.Display().screen().root, ltwh)
+
 class ImagesHandler(ABC):
     @abstractmethod
     def process_image(self, image):

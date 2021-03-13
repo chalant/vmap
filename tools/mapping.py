@@ -6,7 +6,7 @@ from data import engine
 from data import io
 
 from controllers.rectangles.rectangles import utils as rectangle_utils
-from controllers.tools import mapping_states as states
+from tools import mapping_states as states
 from controllers.rectangles import rectangles
 
 from utils import generators

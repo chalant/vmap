@@ -1,0 +1,4 @@
+
+
+class FilteringView(object):
+    pass

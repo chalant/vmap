@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from controllers import main_frame, interface as itf
+from controllers import main_frame
 
 FONT = ("Mono", 11)
 
@@ -16,6 +16,7 @@ class WindowManager(object):
         self._container.grid_rowconfigure(0, weight=1)
         self._container.grid_columnconfigure(0, weight=1)
         self._main = MainWindow(self)
+        # self._root.wm_minsize(800, 500)
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     @property
@@ -52,17 +53,6 @@ class MainWindow(object):
 
         self._manager = manager
 
-        # bar = tk.Menu(manager.master)
-        # manager.master.config(menu=bar)
-        # file_menu = tk.Menu(bar)
-        # bar.add_cascade(label="File", menu=file_menu)
-        #
-        # file_menu.add_command(label="New", command=self._new)
-        # file_menu.add_command(label="Open", command=self._open)
-        # file_menu.add_command(label="Save", command=self._save)
-        # file_menu.add_separator()
-        # file_menu.add_command(label="Exit", command=self._on_exit)
-
         self._main_frame = main_frame.MainFrame(manager, self._manager.master)
 
         self._updated = False
@@ -78,6 +68,10 @@ class MainWindow(object):
     @state.setter
     def state(self, value):
         self._state = value
+
+    @property
+    def height(self):
+        return self._main_frame.w_height
 
     def close(self):
         self._main_frame.stop()

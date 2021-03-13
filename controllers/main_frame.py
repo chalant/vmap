@@ -3,9 +3,8 @@ from functools import partial
 import tkinter as tk
 
 from controllers import display as ds
-from controllers.tools import mapping
-from controllers.tools import image_capture
-from controllers.tools import label_instance
+from tools import image_capture, mapping
+from tools.detection import detection
 from controllers import states
 from controllers import interface as itf
 
@@ -124,8 +123,10 @@ class MainFrame(object):
         self.width = None
         self.height = None
 
-        self._instance_mapper = label_instance.LabelInstanceMapper(right_frame, self.canvas)
+        self._instance_mapper = detection.DetectionTools(right_frame, self.canvas)
 
+        root = container.winfo_toplevel()
+        root.wm_minsize(800, right_frame.winfo_height()) #set minimum height to toolbar
 
     @property
     def state(self):
@@ -245,7 +246,6 @@ class MainFrame(object):
         self.mapping_state.update()
 
         self.canvas.config(scrollregion=(0, 0, w, h), height=h, width=w)
-        self.canvas.update()
 
         with engine.connect() as connection:
             self._instance_mapper.start(project, connection, self.capture_state, self)
