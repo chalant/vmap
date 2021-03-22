@@ -185,11 +185,11 @@ class CaptureZone(image_capture.ImagesHandler):
         pass
         # todo:
 
-    def _create_metadata(self, project_name, rct_id, hash_, position, label):
+    def _create_metadata(self, project_name, rct, hash_, position, label):
         return im.ImageMetadata(
             uuid4().hex,
             project_name,
-            rct_id,
+            rct,
             hash_,
             position,
             label)

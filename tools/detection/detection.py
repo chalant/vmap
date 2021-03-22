@@ -5,6 +5,7 @@ from controllers.rectangles import rectangles as rt
 from tools.detection import capture
 from tools.detection import sampling
 from tools.detection import samples
+from tools.detection.filtering import filtering, filters
 
 from tools import windows
 
@@ -31,68 +32,14 @@ class DetectionTools(object):
 
         self._sampling = sc = sampling.SamplingController(spm)
 
+        self._filtering_model = fm = filtering.FilteringModel()
+        self._filtering = flt = filtering.FilteringController(fm)
 
-        wm.add_window(sc.view())  # render sampling view
-        wm.add_window(spl.view())
-        #
-        # self._capture_canvas = capture_canvas = tk.Canvas(capture_frame)
-        #
-        # #todo: display parameters when we click on the preprocessing tools (blur, threshold, zoom, grey)
-        #
-        # self._commands = commands = tk.Frame(capture_frame)
-        # self._menu = menu = tk.LabelFrame(capture_frame, text="Filters")
-        #
-        # #captures an image of the selected rectangle.
-        # self._sample = sample = tk.Button(commands, text="Sample")
-        #
-        # self._add_filter = add_filter = tk.Menubutton(menu, text="Add")
-        # self._open_filters = open_filters = tk.Menubutton(menu, text="Open")
-        #
-        # self._filter_menu = fm = tk.Menu(add_filter, tearoff=0)
-        #
-        # fm.add_command(label="Blur")
-        # fm.add_command(label="Threshold")
-        # fm.add_command(label="Zoom")
-        # fm.add_command(label="Color")
-        # add_filter.config(menu=fm)
-        #
-        # self._parameter_frame = pr = tk.Frame(container)
-        #
-        # self.cfv_sb = cfv_sb = tk.Scrollbar(capture_frame, orient=tk.VERTICAL)
-        # self.cfh_sb = cfh_sb = tk.Scrollbar(capture_frame, orient=tk.HORIZONTAL)
-        #
-        # cfv_sb.config(command=capture_canvas.yview)
-        # cfh_sb.config(command=capture_canvas.xview)
-        #
-        # self._count = 0
-        #
-        # capture_canvas.config(yscrollcommand=cfv_sb.set)
-        # capture_canvas.config(xscrollcomman=cfh_sb.set)
-        #
-        # cfv_sb.pack(side=tk.RIGHT, fill=tk.Y)
-        # cfh_sb.pack(side=tk.BOTTOM, fill=tk.X)
-        #
-        # capture_canvas.bind("<MouseWheel>", self._on_mouse_wheel)
-        # capture_canvas.bind("<Button-4>", self._on_mouse_wheel)
-        # capture_canvas.bind("<Button-5>", self._on_mouse_wheel)
-        #
-        #
-        # main_frame.pack()
-        # capture_frame.grid(row=1, column=0)
-        #
-        #
-        # menu.pack(side=tk.RIGHT, fill=tk.Y)
-        # add_filter.pack()
-        # open_filters.pack()
-        #
-        #
-        # capture_canvas.pack()
-        # sample.pack()
-        #
-        # pr.pack()
-        # commands.pack()
-        #
-        # main_frame.update()
+        spm.add_capture_zone_observer(flt) #register filtering controller
+
+        wm.add_window(sc)
+        wm.add_window(spl)
+        wm.add_window(flt)
 
         self._instances = {}
 
@@ -156,7 +103,7 @@ class DetectionTools(object):
                         pool,
                         hashes)
 
-                    cz.initialize(connection)
+                    # cz.initialize(connection)
             capture_state.initialize(instances.values())
 
         canvas.bind("<Motion>", self.on_motion)

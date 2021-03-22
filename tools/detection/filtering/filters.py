@@ -7,22 +7,122 @@ import cv2
 
 from tools.detection.data import interface
 
-FILTER_TYPES = ["Color", "Resize", "Threshold", "Blur"]
-BLUR_TYPES = ["Gaussian" ,"Average", "Median"]
+_GET_FILTER_GROUP = text(
+    '''
+    SELECT * FROM filter_groups
+    INNER JOIN labels_filters ON labels_filters.filter_group = filter_groups.name
+    WHERE labels_filters.label_type =:label_type AND labels_filters.label_name =:label_name
+    '''
+)
+
+_REMOVE_LABEL_FROM_GROUP = text(
+    '''
+    DELETE FROM labels_filters
+    WHERE labels_filters.label_type =:label_type AND labels_filters.label_name =:label_name
+    '''
+)
+
+_STORE_FILTER_GROUP = text(
+    '''
+    INSERT OR REPLACE INTO filter_groups (name, committed)
+    VALUES (:name, :committed)
+    '''
+)
+
+_GET_GROUPS = text(
+    """
+    SELECT * FROM filter_groups
+    """
+)
+
+_GET_FILTERS = text(
+    """
+    SELECT * FROM filters
+    WHERE group=:group
+    ORDER BY position ASC
+    """
+)
+
+_STORE_FILTER = text(
+    '''
+    INSERT OR REPLACE INTO filters (group, type, name, position)
+    VALUES (:group, :type, :name, :position)
+    '''
+)
+
+_DELETE_FILTER = text(
+    '''
+    DELETE FROM filters (group, type, name, position)
+    WHERE group=:group AND type=:type AND name=:name AND position=:position
+    '''
+)
+
+_STORE_FILTER_LABEL = text(
+    '''
+    INSERT OR REPLACE INTO filters_labels (filter_group, label_type, label_name)
+    VALUES (:filter_group, :label_type, :label_name)
+    '''
+)
+
+_PARAMETER_QUERY = """SELECT * FROM {} WHERE group=:group AND position=:position"""
+
+_DELETE_STRING = """DELETE FROM {} WHERE group=:group AND position=:position"""
+
+FILTER_TYPES = ("Color", "Resize", "Threshold", "Blur")
 
 _THRESHOLD_TYPES = {
-    "BINARY":cv2.THRESH_BINARY,
-    "BINARY_INV":cv2.THRESH_BINARY_INV,
-    "TRUNC":cv2.THRESH_TRUNC,
-    "TO_ZERO":cv2.THRESH_TOZERO,
-    "TO_ZERO_INV":cv2.THRESH_TOZERO_INV
+    "Binary":cv2.THRESH_BINARY,
+    "Inverse Binary":cv2.THRESH_BINARY_INV,
+    "Trunc":cv2.THRESH_TRUNC,
+    "To Zero":cv2.THRESH_TOZERO,
+    "To Zero Inverse":cv2.THRESH_TOZERO_INV
 }
 
 FILTERS_BY_TYPE = {
-    "Color":["Grey"],
-    "Blur": BLUR_TYPES,
-    "Threshold":list(_THRESHOLD_TYPES.keys())
+    "Color":("Grey",),
+    "Blur": ("Gaussian" ,"Average", "Median"),
+    "Threshold":list(_THRESHOLD_TYPES.keys()),
+    "Resize":("Zoom", "Crop")
 }
+
+def remove_label_from_group(connection, label_name, label_type):
+    return connection.execute(
+        _REMOVE_LABEL_FROM_GROUP,
+        label_type=label_type,
+        label_name=label_name
+    )
+
+def get_filter_group(connection, label_name, label_type):
+    return connection.execute(
+        _GET_FILTER_GROUP,
+        label_type=label_type,
+        label_name=label_name).first()
+
+def store_filter_group(connection, name, committed):
+    connection.execute(_STORE_FILTER_GROUP, name=name, committed=committed)
+
+def store_filter_labels(connection, label_type, label_name):
+    connection.execute(
+        _STORE_FILTER_LABEL,
+        label_type=label_type,
+        label_name=label_name)
+
+def get_parameters(connection, filter_, group):
+    query = None
+    if filter_.type == "Blur":
+        if filter_.name == "Gaussian":
+            query = text(_PARAMETER_QUERY.format("gaussian_blur"))
+        elif filter_.name == "Average":
+            pass
+            #todo: more parameters
+    if query:
+        return connection.execute(query, group=group, position=filter_.position)
+
+def get_filters(connection, group):
+    return connection.execute(_GET_FILTERS, group=group)
+
+def get_groups(connection):
+    return connection.execute(_GET_GROUPS)
 
 class Filters(object):
     def get_filter_types(self):
@@ -44,6 +144,7 @@ class Filters(object):
         -------
         Filter
         """
+
         if filter_type == "Blur":
             if filter_name == "Gaussian":
                 return GaussianBlur(position)
@@ -67,8 +168,18 @@ class Filters(object):
             raise  ValueError("Unknown filter type: {}")
 
 class Filter(abc.ABC):
+
     def __init__(self, position):
         self.position = position
+        self._changed = False
+
+        self._callbacks = []
+
+    def on_data_update(self, callback):
+        self._callbacks.append(callback)
+
+    def clear_callbacks(self):
+        self._callbacks.clear()
 
     @property
     @abc.abstractmethod
@@ -84,16 +195,48 @@ class Filter(abc.ABC):
     def apply(self, img):
         raise NotImplementedError
 
-    @abc.abstractmethod
     def render(self, container):
-        raise NotImplementedError
+        self._flag = False
+        frame = self._render(container)
+        self._flag = True
+        return frame
 
     @abc.abstractmethod
+    def _render(self, container):
+        raise NotImplementedError
+
     def load_parameters(self, connection, group):
+        self._load_parameters(connection, group)
+
+    @abc.abstractmethod
+    def _load_parameters(self, connection, group):
+        raise NotImplementedError
+
+    def store(self, connection, group):
+        connection.execute(
+            _STORE_FILTER, group,
+            type=self.type, name=self.name,
+            position=self.position)
+
+        self._store_parameters(connection, group)
+
+    def delete(self, connection, group):
+        pos = self.position
+
+        connection.execute(
+            _DELETE_FILTER, group,
+            type=self.type, name=self.name,
+            position=self.position
+        )
+
+        self._delete_parameters(connection, group, pos)
+
+    @abc.abstractmethod
+    def _store_parameters(self, connection, group):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def store_parameters(self, connection, group):
+    def _delete_parameters(self, connection, group, position):
         raise NotImplementedError
 
     def __lt__(self, other):
@@ -105,38 +248,57 @@ class Filter(abc.ABC):
     def __eq__(self, other):
         return other.position == self.position
 
+    def __setattr__(self, key, value):
+        d = self.__dict__
+        if key not in d:
+            self.__dict__[key] = value
+
+            # if '_callbacks' in d:
+            #     for fn in self._callbacks:
+            #         fn(self)
+
+        else:
+            pv = d[key]
+            if pv != value:
+                d[key] = value
+                # if '_callbacks' in key:
+                #     for fn in self._callbacks:
+                #         fn(self)
+
 class Threshold(Filter):
     def __init__(self, position, thresh_type, thresh_value=127, max_value=255):
         super(Threshold, self).__init__(position)
 
-        self._thresh_type = thresh_type
-        self._thresh_value = thresh_value
-        self._max_value = max_value
+        self.thresh_type = thresh_type
+        self.thresh_value = thresh_value
+        self.max_value = max_value
 
+    @property
     def type(self):
         return "Threshold"
 
     def name(self):
-        return self._thresh_type
+        return self.thresh_type
 
     def apply(self, img):
+        ttp = self.thresh_type
         return cv2.threshold(
             img,
-            self._thresh_value,
-            self._max_value,
-            _THRESHOLD_TYPES[self._thresh_type])[1]
+            ttp,
+            self.max_value,
+            _THRESHOLD_TYPES[ttp])[1]
 
     def render(self, container):
         pass
 
-    def load_parameters(self, connection, group):
-        data = interface.get_parameters(connection, self, group)
+    def _load_parameters(self, connection, group):
+        data = get_parameters(connection, self, group)
 
-        self._thresh_type = data["type"]
-        self._max_value = data["max_value"]
-        self._thresh_value  = data["thresh_value"]
+        self.thresh_type = data["type"]
+        self.max_value = data["max_value"]
+        self.thresh_value  = data["thresh_value"]
 
-    def store_parameters(self, connection, group):
+    def _store_parameters(self, connection, group):
         connection.execute(
             text(
                 """
@@ -145,19 +307,26 @@ class Threshold(Filter):
                 """),
             group=group,
             position=self.position,
-            thresh_value=self._thresh_value,
-            max_value=self._max_value,
-            type=self._thresh_type
+            thresh_value=self.thresh_value,
+            max_value=self.max_value,
+            type=self.thresh_type
+        )
+
+    def _delete_parameters(self, connection, group, position):
+        connection.execute(
+            text(_DELETE_STRING.format('threshold')),
+            group=group,
+            position=position
         )
 
 class GaussianBlur(Filter):
     def __init__(self, position, ksizeX=5, ksizeY=5, sigmaX=0, sigmaY=None):
         super(GaussianBlur, self).__init__(position)
 
-        self._kx = ksizeX
-        self._ky = ksizeY
-        self._sx = sigmaX
-        self._sy = sigmaY
+        self.ksizeX = ksizeX
+        self.ksizeY = ksizeY
+        self.sigmaX = sigmaX
+        self.sigmaY = sigmaY
 
     @property
     def type(self):
@@ -167,38 +336,78 @@ class GaussianBlur(Filter):
     def name(self):
         return "Gaussian"
 
-    @property
-    def ksizeX(self):
-        return self._kx
-
-    @property
-    def ksizeY(self):
-        return self._ky
-
-    @ksizeX.setter
-    def ksizeX(self, value):
-        self._kx = value
-
-    @ksizeY.setter
-    def ksizeY(self, value):
-        self._ky = value
-
     def apply(self, img):
-        return cv2.GaussianBlur(img.array, (self._kx, self._ky), self._sx, sigmaY=self._sy)
+        return cv2.GaussianBlur(img.array, (self.ksizeX, self.ksizeY), self.sigmaX, sigmaY=self.sigmaY)
 
-    def render(self, container):
-        # todo
-        self._ksize = tk.Label(container)
+    def _render(self, container):
+        self._frame = frame = tk.Frame(container)
+        ksize_label = tk.Label(frame, text="ksize")
 
-    def load_parameters(self, connection, group):
-        data = interface.get_parameters(connection, self, group)
+        self._ksizeX = kx = tk.IntVar(frame, self.ksizeX)
+        self._ksizeY = ky = tk.IntVar(frame, self.ksizeY)
 
-        self._kx = data["ksizeX"]
-        self._ky = data["ksizeY"]
-        self._sx = data["sigmaX"]
-        self._sy = data["sigmaY"]
+        self._sigmaX = sx = tk.IntVar(frame, self.sigmaX)
+        self._sigmaY = sy = tk.IntVar(frame, self.sigmaY)
 
-    def store_parameters(self, connection, group):
+        #notify
+        def update(a, b, c):
+            self.ksizeX = kx.get()
+            self.ksizeY = ky.get()
+
+            self.sigmaX = sx.get()
+            self.sigmaY = sy.get()
+
+            if self._flag:
+                for fn in self._callbacks:
+                    fn(self)
+
+        kx.trace_add("write", update)
+        ky.trace_add("write", update)
+
+        sx.trace_add("write", update)
+        sy.trace_add("write", update)
+
+        ksizex = tk.Spinbox(frame, from_=0, to=10, width=5, textvariable=kx, state='readonly')
+        ksizey = tk.Spinbox(frame, from_=0, to=10, width=5, textvariable=ky, state='readonly')
+
+        sigma_label = tk.Label(frame, text="sigma")
+
+        sigmaX = tk.Spinbox(frame, from_=0, to=10, width=5, textvariable=sx, state='readonly')
+        sigmaY = tk.Spinbox(frame, from_=0, to=10, width=5, textvariable=sy, state='readonly')
+
+        ksize_label.grid(column=0, row=0)
+        ksizex.grid(column=1, row=0)
+        ksizey.grid(column=2, row=0)
+
+        sigma_label.grid(column=0, row=1)
+        sigmaX.grid(column=1, row=1)
+        sigmaY.grid(column=2, row=1)
+
+        #avoid calling updating on render
+
+        return frame
+
+    def close(self):
+        #update values
+        if self._frame:
+            self.ksizeX = self._ksizeX.get()
+            self.ksizeY = self._ksizeY.get()
+
+            self.sigmaX = self._sigmaX.get()
+            self.sigmaY = self._sigmaY.get()
+
+
+            self._frame.destroy()
+
+    def _load_parameters(self, connection, group):
+        data = get_parameters(connection, self, group)
+
+        self.ksizeX = data["ksizeX"]
+        self.ksizeY = data["ksizeY"]
+        self.sigmaX = data["sigmaX"]
+        self.sigmaY = data["sigmaY"]
+
+    def _store_parameters(self, connection, group):
         connection.execute(
             text(
                 """
@@ -209,17 +418,22 @@ class GaussianBlur(Filter):
             position=self.position,
             ksizeX=self.ksizeX,
             ksizeY=self.ksizeY,
-            sigmaX=self._sx,
-            sigmaY=self._sy
+            sigmaX=self.sigmaX,
+            sigmaY=self.sigmaY
+        )
+
+    def _delete_parameters(self, connection, group, position):
+        connection.execute(
+            text(_DELETE_STRING.format('gaussian_blur')),
+            group=group,
+            position=position
         )
 
 class AverageBlur(Filter):
     def __init__(self, position, ksizeX=5, ksizeY=5):
         super(AverageBlur, self).__init__(position)
-        self._kx = ksizeX
-        self._ky = ksizeY
-
-        self._type = "Blur"
+        self.ksizeX = ksizeX
+        self.ksizeY = ksizeY
 
     @property
     def type(self):
@@ -229,24 +443,8 @@ class AverageBlur(Filter):
     def name(self):
         return "Average"
 
-    @property
-    def ksizeX(self):
-        return self._kx
-
-    @property
-    def ksizeY(self):
-        return self._ky
-
-    @ksizeX.setter
-    def ksizeX(self, value):
-        self._kx = value
-
-    @ksizeY.setter
-    def ksizeY(self, value):
-        self._ky = value
-
     def apply(self, img):
-        return cv2.blur(img, (self._kx, self._ky))
+        return cv2.blur(img, (self.ksizeX, self.ksizeY))
 
     def render(self, container):
         pass
@@ -254,7 +452,7 @@ class AverageBlur(Filter):
 class MedianBlur(Filter):
     def __init__(self, position, ksize=5):
         super(MedianBlur, self).__init__(position)
-        self._k = ksize
+        self.ksize = ksize
 
     @property
     def type(self):
@@ -273,7 +471,7 @@ class MedianBlur(Filter):
         self._kx = value
 
     def apply(self, img):
-        return cv2.medianBlur(img, self._k)
+        return cv2.medianBlur(img, self.ksize)
 
     def render(self, container):
         pass
@@ -295,3 +493,12 @@ class Grey(Filter):
         if img.mode == "RGB":
             return cv2.cvtColor(img.array, cv2.COLOR_BGR2GRAY)
         return img
+
+    def _load_parameters(self, connection, group):
+        pass
+
+    def _store_parameters(self, connection, group):
+        pass
+
+    def render(self, container):
+        pass

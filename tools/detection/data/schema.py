@@ -1,18 +1,36 @@
-from sqlalchemy import Table, Column, String, ForeignKey, Integer, Float
+from sqlalchemy import Table, Column, String, ForeignKey, Integer, Float, Boolean
 
 def build_schema(meta):
     Table(
         "models",
         meta,
         Column("name", String, primary_key=True),
-        Column("type", String, primary_key=True)
+        Column("type", String, primary_key=True),
     )
 
     Table(
         "filter_groups",
         meta,
-        Column("name", String, primary_key=True)
+        Column("name", String, primary_key=True),
+        Column("committed", Boolean, default=False)
     )
+
+    #filter to label mapping
+    Table(
+        "labels_filters",
+        meta,
+        Column("filter_group", String, ForeignKey("filter_groups.name")),
+        Column("label_type", String, ForeignKey("labels.label_type")),
+        Column("label_name", String, ForeignKey("labels.label_name"))
+    )
+
+    # labels and models mapping
+    # todo
+    # Table(
+    #     "labels_models",
+    #     meta,
+    #
+    # )
 
     Table(
         "filters",

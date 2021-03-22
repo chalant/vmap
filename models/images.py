@@ -9,7 +9,7 @@ from data import paths
 _ADD_IMAGE_METADATA = text(
     """
     INSERT OR REPLACE INTO images(image_id, project_name, label_instance_name, r_instance_id, hash_key, position)
-    VALUES (:image_id, :project_name, :label_instance_name, :r_instance_id, :hash_key, :position)
+    VALUES (:image_id, :project_name, :label_instance_name, :rectangle_id, :hash_key, :position)
     """
 )
 
@@ -73,6 +73,6 @@ class ImageMetadata(object):
             image_id=self._id,
             project_name=self._project_name,
             label_instance_name=self._label,
-            r_instance_id=self._rectangle.id,
+            rectangle=self._rectangle.rectangle.id,
             hash_key=self._hash_key,
             position=self._position)

@@ -77,7 +77,6 @@ class ImageWrapper(object):
     def image(self):
         Image.from_array(self.array)
 
-
 class FiltersData(object):
     def get_filter_groups(self, connection):
         return
@@ -209,7 +208,7 @@ class FiltersTool(object):
             position = res["position"]
 
             flt = factory.create_filter(type_, name, position)
-            flt.load_parameters(connection, group_name)
+            flt._load_parameters(connection, group_name)
 
             yield flt
 
@@ -342,11 +341,6 @@ class FiltersTool(object):
             im = p.apply(im)
 
         return im.image()
-
-class FiltersController(object):
-    def __init__(self, container):
-        self._view = FiltersView(container, self)
-        self._model = FiltersTool()
 
 def preprocess_image(image):
     # blur = cv2.GaussianBlur(cv2.cvtColor(np.asarray(image), cv2.COLOR_BGR2GRAY), (5, 5), 0)

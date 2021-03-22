@@ -2,8 +2,6 @@ import tkinter as tk
 
 from PIL import ImageTk
 
-from data import engine
-
 class SamplingView(object):
     def __init__(self, controller, model):
         """
@@ -29,7 +27,7 @@ class SamplingView(object):
         self.label_value = None
 
 
-    def capture_zone_update(self, capture_zone):
+    def capture_zone_update(self, connection, capture_zone):
         """
 
         Parameters
@@ -44,15 +42,13 @@ class SamplingView(object):
         menu = ops["menu"]
         controller = self._controller
 
-        with engine.connect() as connection:
-            for label in capture_zone.get_labels(connection):
-                menu.add_command(label=label, command=controller.set_label)
+        for label in capture_zone.get_labels(connection):
+            menu.add_command(label=label, command=controller.set_label)
 
         controller.create_thumbnail(self, capture_zone)
 
     def render(self, container):
         controller = self._controller
-        model = self._model
 
         self._frame = frame = tk.Frame(container)
 
@@ -85,6 +81,13 @@ class SamplingView(object):
         ops.grid(row=1, column=1)
 
         return frame
+
+    def filter_update(self, filters):
+        # todo: update images
+        pass
+
+    def disable_filters(self):
+        pass
 
     def update_thumbnail(self, img):
         self._thumbnail.paste(img)

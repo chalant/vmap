@@ -89,14 +89,16 @@ class WindowView(object):
             frame.destroy()
 
     def new_window(self, window):
+        view = window.view()
         canvas = self._canvas
         if canvas:
             h = self._height
-            frame = window.render(canvas)
+            frame = view.render(canvas)
             # frame.update()
             wn = canvas.create_window(self._row, h, window=frame, anchor=tk.NW)
             canvas.update()
-            h += canvas.bbox(wn)[3]
+            x0, y0, x1, y1 = canvas.bbox(wn)
+            h += (y1 - y0)
             self._height = h
             canvas.configure(scrollregion=(0, 0, 0, h))
             return wn

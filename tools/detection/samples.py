@@ -86,8 +86,9 @@ class SamplesModel(object):
         """
         self._capture_zone = capture_zone
 
-        for obs in self._cz_obs:
-            obs.capture_zone_update(capture_zone)
+        with engine.connect() as connection:
+            for obs in self._cz_obs:
+                obs.capture_zone_update(connection, capture_zone)
 
     def add_sample(self, image, label):
         cz = self._capture_zone
@@ -225,6 +226,13 @@ class SamplesView(object):
 
         self._width = wd
         self._height = h
+
+    def filters_update(self, filters):
+        # todo: apply filters to image (if filtering is activated)
+        pass
+
+    def disable_filters(self):
+        pass
 
     def new_sample(self, image, image_meta):
         # canvas = self._capture_canvas
