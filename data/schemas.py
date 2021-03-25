@@ -57,9 +57,10 @@ def build_schema(meta):
         Column("capture", Boolean, default=False), #whether to capture the label contents or not
         Column("max_instances", Integer), # maximum instances of this label
         Column("total", Integer, nullable=False, default=0), # tracks number of instances of this label
-        # labels are bound to a single project_type
-        Column("project_type", ForeignKey("project_types.project_type"), nullable=False)
+        # labels are bound to a project_type
+        Column("project_type", ForeignKey("project_types.project_type"), nullable=False),
         # each label is mapped to a detection model
+        Column("classifiable", Boolean, default=False)
     )
 
     Table(
@@ -80,10 +81,7 @@ def build_schema(meta):
         # project are per-project
         Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
         Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False),
-        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
-        Column("detection_model", ForeignKey("models.name")),
-        Column("filter_group", ForeignKey("filters.name"))
-    )
+        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False))
 
     Table(
         "rectangle_instances",

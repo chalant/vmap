@@ -35,7 +35,9 @@ class DetectionTools(object):
         self._filtering_model = fm = filtering.FilteringModel()
         self._filtering = flt = filtering.FilteringController(fm)
 
-        spm.add_capture_zone_observer(flt) #register filtering controller
+        spm.add_capture_zone_observer(flt)
+        spm.add_capture_zone_observer(spl)
+        spm.add_capture_zone_observer(sc)
 
         wm.add_window(sc)
         wm.add_window(spl)
@@ -131,7 +133,9 @@ class DetectionTools(object):
             canvas.itemconfigure(prev, outline="black")
 
     def on_motion(self, event):
-        #todo: should highlight siblings of the the cz we hover on.
+        # todo: should put this in sampling.
+
+        # todo: should highlight siblings of the the cz we hover on.
         canvas = self._canvas
 
         x = event.x + canvas.xview()[0] * self._width
@@ -156,12 +160,13 @@ class DetectionTools(object):
         rid = self._rid
 
         if rid:
+            drawn_instance = self._drawn_instance
             rct = rt.get_rectangle(self._instances, rid)
 
-            if not self._drawn_instance:
+            if not drawn_instance:
                 self._drawn_instance = rid
                 self._samples_model.set_capture_zone(rct)
 
-            elif rid != self._drawn_instance:
+            elif rid != drawn_instance:
                 self._drawn_instance = rid
                 self._samples_model.set_capture_zone(rct)

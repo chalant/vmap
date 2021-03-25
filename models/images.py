@@ -65,7 +65,7 @@ class ImageMetadata(object):
         return self._rectangle
 
     def get_image(self):
-        return ImageTk.PhotoImage(Image.open(self.path, formats=("PNG",)))
+        return Image.open(self.path, formats=("PNG",))
 
     def submit(self, connection):
         connection.execute(

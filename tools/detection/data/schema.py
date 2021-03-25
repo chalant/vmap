@@ -5,7 +5,15 @@ def build_schema(meta):
         "models",
         meta,
         Column("name", String, primary_key=True),
-        Column("type", String, primary_key=True),
+    )
+
+    #model associated with the label
+    Table(
+        "labels_models",
+        meta,
+        Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
+        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
+        Column("model_name", String, ForeignKey("models.name"), nullable=False)
     )
 
     Table(
@@ -19,18 +27,10 @@ def build_schema(meta):
     Table(
         "labels_filters",
         meta,
-        Column("filter_group", String, ForeignKey("filter_groups.name")),
-        Column("label_type", String, ForeignKey("labels.label_type")),
-        Column("label_name", String, ForeignKey("labels.label_name"))
+        Column("filter_group", String, ForeignKey("filter_groups.name"), nullable=False),
+        Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
+        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False)
     )
-
-    # labels and models mapping
-    # todo
-    # Table(
-    #     "labels_models",
-    #     meta,
-    #
-    # )
 
     Table(
         "filters",

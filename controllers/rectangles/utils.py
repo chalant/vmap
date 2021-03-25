@@ -54,6 +54,14 @@ class RectangleWrapper(object):
         self._rectangle.label_type = value
 
     @property
+    def label(self):
+        return self._rectangle.label
+
+    @label.setter
+    def label(self, value):
+        self._rectangle.label = value
+
+    @property
     def bbox(self):
         return self._instance.bbox
 

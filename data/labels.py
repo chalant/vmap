@@ -68,9 +68,16 @@ class _LabelInstance(_Element):
         )
 
 class _Label(_Element):
-    __slots__ = ["_instances", "_label_id", "_label_name", "_label_type", "_total", "_max"]
+    __slots__ = [
+        "_instances",
+        "_label_id",
+        "_label_name",
+        "_label_type",
+        "_classifiable",
+        "_total",
+        "_max"]
 
-    def __init__(self, project_type, label_name, label_type, max_=None, capture=False):
+    def __init__(self, project_type, label_name, label_type, max_=None, capture=False, classifiable=False):
         super(_Label, self).__init__()
         self._label_id = uuid4().hex
 
@@ -81,6 +88,7 @@ class _Label(_Element):
         self._capture = capture
         self._max = max_
         self._total = 0
+        self._classifiable = classifiable
 
         self._components = []
         self._instances = []
@@ -100,23 +108,28 @@ class _Label(_Element):
         -------
 
         """
-        if not self._max:
-            instance = _LabelInstance(
-                uuid4().hex,
-                instance_name,
-                self._label_name,
-                self._label_type)
-
-            self._instances.append(instance)
-        else:
-            if self._total < self._max:
+        if self._classifiable:
+            if not self._max:
                 instance = _LabelInstance(
                     uuid4().hex,
                     instance_name,
                     self._label_name,
                     self._label_type)
-                self._total += 1
+
                 self._instances.append(instance)
+            else:
+                if self._total < self._max:
+                    instance = _LabelInstance(
+                        uuid4().hex,
+                        instance_name,
+                        self._label_name,
+                        self._label_type)
+                    self._total += 1
+                    self._instances.append(instance)
+        else:
+            raise ValueError(
+                "Non classifiable label"
+            )
 
     def add_component(self, label):
         #link the label to this label.

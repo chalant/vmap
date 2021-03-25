@@ -51,6 +51,7 @@ r = [i for i in range(25)]
 comboExample = ttk.Combobox(app, values=r, textvariable=vr)
 comboExample.grid(column=0, row=1)
 comboExample.current(1)
+comboExample["state"] = tk.DISABLED
 
 vr.trace_add("write", my_callback)
 

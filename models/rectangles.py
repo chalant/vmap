@@ -235,15 +235,16 @@ class RectangleInstance(object):
             yield images.ImageMetadata(
                 element['image_id'],
                 self._rectangle.project_name,
-                self._id,
+                self._rectangle.id,
                 element["hash_key"],
                 element["position"],
                 element["label_instance_name"]
             )
 
-    def create_image_meta(self, id_, hash_key, position):
+    def create_image_meta(self, id_, hash_key, position, label):
+        rct = self._rectangle
         return images.ImageMetadata(
-            id_, self._rectangle.project_name, self._id, hash_key, position)
+            id_, rct.project_name, rct.id, hash_key, position, label)
 
     def submit(self, connection):
         connection.execute(
@@ -260,9 +261,19 @@ class RectangleInstance(object):
                 r_component_id=self._id)
 
 class Rectangle(object):
-    __slots__ = ['_id', '_project_name', '_width', '_height', '_capture', '_label_type', '_label_name', '_num_instances']
+    __slots__ = [
+        '_id',
+        '_project_name',
+        '_width',
+        '_height',
+        '_capture',
+        '_label_type',
+        '_label_name',
+        '_num_instances',
+        '_label'
+    ]
 
-    def __init__(self, id_, project_name, width, height, capture=False):
+    def __init__(self, id_, project_name, width, height):
         self._id = id_
         self._project_name = project_name
 
@@ -274,7 +285,7 @@ class Rectangle(object):
 
         self._num_instances = 0
 
-        self._capture = capture
+        self._label = None
 
     @property
     def project_name(self):
@@ -286,23 +297,31 @@ class Rectangle(object):
 
     @property
     def capture(self):
-        return self._capture
+        label = self._label
+        if label:
+            return label["capture"]
+        return False
+
+    @property
+    def classifiable(self):
+        label = self._label
+        if label:
+            return self._label["classifiable"]
+        return False
 
     @property
     def label_name(self):
-        return self._label_name
-
-    @label_name.setter
-    def label_name(self, value):
-        self._label_name = value
+        label = self._label
+        if label:
+            return label["label_name"]
+        return "n/a"
 
     @property
     def label_type(self):
-        return self._label_type
-
-    @label_type.setter
-    def label_type(self, value):
-        self._label_type = value
+        label = self._label
+        if label:
+            return label["label_type"]
+        return "n/a"
 
     @property
     def width(self):
@@ -319,6 +338,14 @@ class Rectangle(object):
     @height.setter
     def height(self, value):
         self._height = value
+
+    @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    def label(self, value):
+        self._label = value
 
     def get_instances(self, connection):
         for row in connection.execute(
@@ -361,8 +388,8 @@ class Rectangle(object):
             height=self._height,
             width=self._width,
             project_name=self._project_name,
-            label_type=self._label_type,
-            label_name=self._label_name
+            label_type=self.label_type,
+            label_name=self.label_name
         )
 
     @property
@@ -382,8 +409,7 @@ class Rectangles(object):
     def create_rectangle(self, w, h, project_name):
         rect = Rectangle(uuid4().hex, project_name, w, h)
 
-        rect.label_name = "n/a"
-        rect.label_type = "n/a"
+        rect.label = None
 
         return rect
 
@@ -401,10 +427,8 @@ class Rectangles(object):
                 row["rectangle_id"],
                 row["project_name"],
                 row["width"],
-                row["height"],
-                label["capture"] if label is not None else False)
+                row["height"])
 
-            r.label_name = ln
-            r.label_type = lt
+            r.label = label
 
             yield r

@@ -1,10 +1,14 @@
+import math
+
 import tkinter as tk
 
-import math
+from PIL import ImageTk
 
 from controllers.rectangles import rectangles as rt
 
 from data import engine
+
+
 
 class ImageRectangle(object):
     def __init__(self, rid, iid, cz, bbox, image_metadata):
@@ -167,6 +171,12 @@ class SamplesView(object):
 
         return frame
 
+    def deactivate(self):
+        self._frame["state"] = tk.DISABLED
+
+    def activate(self):
+        self._frame["state"] = tk.ACTIVE
+
     def capture_zone_update(self, capture_zone):
         """
 
@@ -299,7 +309,7 @@ class SamplesView(object):
         images[rid] = ImageRectangle(rid, iid, image_meta.rectangle, bbox, image_meta)
 
     def _load_draw(self, images, canvas, image_meta, x, y):
-        image = image_meta.get_image()
+        image = ImageTk.PhotoImage(image_meta.get_image())
 
         self._draw(images, image, canvas, image_meta, x, y)
 
@@ -320,3 +330,9 @@ class SamplesController(object):
 
     def view(self):
         return self._view
+
+    def capture_zone_update(self, connection, capture_zone):
+        if not capture_zone.classifiable:
+            self._view.deactivate() #deactive sampling
+        else:
+            self._view.activate()

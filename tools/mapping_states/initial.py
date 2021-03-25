@@ -97,9 +97,8 @@ class Initial(object):
 
     def _selected_label(self, label):
         rct = self._mapper.get_rectangle(self._mapper.selected_rectangle)
-
-        rct.label_name = label["label_name"]
-        rct.label_type = label["label_type"]
+        rct.label = label
+        print("Selected Label", type(rct))
 
     def _on_set_label(self):
         project = self._mapper.project

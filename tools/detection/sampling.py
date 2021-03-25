@@ -174,3 +174,11 @@ class SamplingController(object):
 
         if self._label:
             self._sampling_view.save["state"] = tk.ACTIVE
+
+    def capture_zone_update(self, connection, capture_zone):
+        sv = self._sampling_view
+        # can't save non-classifiable elements
+        if not capture_zone.classifiable:
+            sv.save["state"] = tk.DISABLED
+        else:
+            sv.save["state"] = tk.ACTIVE

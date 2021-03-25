@@ -32,8 +32,8 @@ class _ProjectType(_Element):
     def name(self):
         return self._name
 
-    def add_label(self, name, type_, max_=None, capture=False):
-        lbl = _Label(self._name, name, type_.name, max_, capture)
+    def add_label(self, name, type_, max_=None, capture=False, classifiable=False):
+        lbl = _Label(self._name, name, type_.name, max_, capture, classifiable)
         self._labels.append(lbl)
         return lbl
 

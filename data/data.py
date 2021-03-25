@@ -9,12 +9,13 @@ def build():
 
             game = bld.project_type("Game")
             cards = bld.project_type("Cards")
-            numbers = bld.project_type("Numbers")
 
-            number = numbers.add_label("Number", container)
-
-            number.add_instance("Fraction")
-            number.add_instance("Null") #no number
+            # numbers = bld.project_type("Numbers")
+            #
+            # number = numbers.add_label("Number", container)
+            #
+            # number.add_instance("Fraction")
+            # number.add_instance("Null") #no number
 
             card_game = game.add_child("Card Game")
             card_game.add_component(cards)
@@ -22,7 +23,7 @@ def build():
             poker = card_game.add_child("Poker")
 
             # state label where instances can be (active, inactive, ...)
-            state_label = poker.add_label("PlayerState", event, capture=True)
+            state_label = poker.add_label("PlayerState", event, capture=True, classifiable=True)
 
             state_label.add_instance("Active")
             state_label.add_instance("Inactive")
@@ -30,7 +31,7 @@ def build():
             state_label.add_instance("Unseated")
 
             #label where instances are (bet, call, fold, ...)
-            poker_action_label = poker.add_label("Action", event)
+            poker_action_label = poker.add_label("Action", event, classifiable=True)
 
             poker_action_label.add_instance("Call")
             poker_action_label.add_instance("Fold")
@@ -39,7 +40,7 @@ def build():
             poker_action_label.add_instance("Raise")
             poker_action_label.add_instance("Null") #no action
 
-            poker_act_btn_lbl = poker.add_label("PlayerAction", button)
+            poker_act_btn_lbl = poker.add_label("PlayerAction", button, classifiable=True)
 
             poker_act_btn_lbl.add_instance("Call")
             poker_act_btn_lbl.add_instance("Fold")
@@ -49,14 +50,14 @@ def build():
 
             # poker_act_btn_lbl.add_component(poker_action_label)
 
-            card_state = cards.add_label("CardState", event, 2, capture=True)
+            card_state = cards.add_label("CardState", event, 2, capture=True, classifiable=True)
 
             card_state.add_instance("Hidden")
             card_state.add_instance("Shown")
 
             card_label = cards.add_label("Card", container)
-            rank_label = cards.add_label("Rank", container, 13, capture=True) #todo: capture
-            suit_label = cards.add_label("Suit", container, 4, capture=True)
+            rank_label = cards.add_label("Rank", container, 13, capture=True, classifiable=True)
+            suit_label = cards.add_label("Suit", container, 4, capture=True, classifiable=True)
 
             rank_label.add_instance("A")
             rank_label.add_instance("K")
@@ -83,7 +84,9 @@ def build():
             poker_button = poker.add_label(
                 "Button",
                 container,
-                capture=True)
+                capture=True,
+                classifiable=True
+            )
 
             poker_button.add_instance("Dealer")
             poker_button.add_instance("SmallBlind")
@@ -91,7 +94,7 @@ def build():
 
             position = poker.add_label("Position", container)
 
-            board_label = poker.add_label("Board", container, 1)
+            board_label = poker.add_label("Board", container, True)
 
             board_label.add_component(card_label)
 
@@ -103,7 +106,7 @@ def build():
             opponent.add_component(poker_button)
             opponent.add_component(position)
 
-            player = card_game.add_label("Player", container, 1)
+            player = card_game.add_label("Player", container, True)
 
             player.add_component(card_label)
             player.add_component(poker_act_btn_lbl)

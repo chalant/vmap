@@ -82,6 +82,10 @@ class CaptureZone(image_capture.ImagesHandler):
     def ltwh(self):
         return self._ltwh
 
+    @property
+    def classifiable(self):
+        return self._rectangle.rectangle.classifiable
+
     def initialize(self, connection):
 
         self._position = pos = 0
@@ -183,7 +187,7 @@ class CaptureZone(image_capture.ImagesHandler):
 
         """
         pass
-        # todo:
+        # todo: pass image
 
     def _create_metadata(self, project_name, rct, hash_, position, label):
         return im.ImageMetadata(
@@ -229,6 +233,8 @@ class CaptureZone(image_capture.ImagesHandler):
         pass
 
     def on_motion(self, event):
+        #todo: this is for labeling => should be handled by the sampling view
+
         canvas = self._capture_canvas
 
         x = event.x + canvas.xview()[0] * (self._width)
