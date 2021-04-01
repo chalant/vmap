@@ -13,8 +13,8 @@ ADD_LABEL_TYPE = text(
 
 ADD_LABEL = text(
     """
-    INSERT INTO labels(label_id, label_name, label_type, capture, max_instances, total, project_type) 
-    VALUES (:label_id, :label_name, :label_type, :capture, :max_instances, :total, :project_type);
+    INSERT INTO labels(label_id, label_name, label_type, capture, max_instances, total, project_type, classifiable) 
+    VALUES (:label_id, :label_name, :label_type, :capture, :max_instances, :total, :project_type, :classifiable);
      """
 )
 
@@ -144,7 +144,8 @@ class _Label(_Element):
             project_type=self._project_type,
             max_instances=self._max,
             capture=self._capture,
-            total=self._total
+            total=self._total,
+            classifiable=self._classifiable
         )
 
         #submit components

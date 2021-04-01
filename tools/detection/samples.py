@@ -2,6 +2,8 @@ import math
 
 import tkinter as tk
 
+import threading
+
 from PIL import ImageTk
 
 from controllers.rectangles import rectangles as rt
@@ -9,9 +11,8 @@ from controllers.rectangles import rectangles as rt
 from data import engine
 
 
-
 class ImageRectangle(object):
-    def __init__(self, rid, iid, cz, bbox, image_metadata):
+    def __init__(self, rid, iid, cz, bbox, image_metadata, image, photo_image):
         """
 
         Parameters
@@ -23,35 +24,48 @@ class ImageRectangle(object):
         image_metadata: models.images.ImageMetadata
         """
 
-        self._rid = rid
+        self.rid = rid
         self._cz = cz
-        self._bbox = bbox
-        self._iid = iid
+        self.bbox = bbox
+        self.iid = iid
         self._meta = image_metadata
+        self.image = image
+        self.photo_image = photo_image
 
         self._changed = False
 
     @property
-    def rid(self):
-        return self._rid
+    def width(self):
+        return self._meta.width
 
     @property
-    def iid(self):
-        return self._iid
+    def height(self):
+        return self._meta.height
+
+    @property
+    def rectangle(self):
+        return self._meta.rectangle
+
+    @property
+    def position(self):
+        return self._meta.position
+
+    @position.setter
+    def position(self, value):
+        meta = self._meta
+        if meta.position != value:
+            self._changed = True
+            meta.position = value
 
     @property
     def top_left(self):
-        bbox = self._bbox
+        bbox = self.bbox
         return bbox[0], bbox[1]
 
     @property
     def center(self):
-        x0, y0, x1, y1 = self._bbox
+        x0, y0, x1, y1 = self.bbox
         return (x0 + x1)/2, (y0 + y1)/2
-
-    @property
-    def bbox(self):
-        return self._bbox
 
     @property
     def label_type(self):
@@ -69,13 +83,19 @@ class ImageRectangle(object):
         if self._changed:
             self._meta.submit(connection)
 
+    def delete(self, connection):
+        self._meta.delete_image(connection)
+
+    def get_image(self):
+        return self.image
+
 class SamplesModel(object):
     def __init__(self):
         self._capture_zone = None
         self._sample_observers = []
         self._cz_obs = []
 
-        self._position = 0
+        self.position = 0
 
     def set_capture_zone(self, capture_zone):
         """
@@ -97,14 +117,24 @@ class SamplesModel(object):
     def add_sample(self, image, label):
         cz = self._capture_zone
 
+        position = self.position
+        position += 1
+
         if cz:
-            meta = cz.add_sample(image, label)
+            meta = cz.add_sample(image, label, position)
             for obs in self._sample_observers:
                 obs.new_sample(image, meta)
 
-    def get_samples(self):
-        with engine.connect() as connection:
-            return self._capture_zone.get_images(connection)
+        self.position = position
+
+    def get_samples(self, connection):
+        position = 0
+
+        for im in self._capture_zone.get_images(connection):
+            position += 1
+            yield im
+
+        self.position = position
 
     def add_sample_observer(self, observer):
         self._sample_observers.append(observer)
@@ -119,17 +149,28 @@ class SamplesView(object):
 
         self._frame = None
         self._canvas = None
+        self._rc_menu = None
 
         self._x = 1
         self._y = 1
         self._i = 0
 
         self._images = {}
+        self._items = []
 
         self._width = 0
         self._height = 0
 
         self._motion_bind = False
+
+        self._prev = None
+        self._text = None
+        self._f_rid = None
+
+        self._max_row = None
+        self._step = None
+
+        self._position = 0
 
     def clear(self):
         images = self._images
@@ -141,6 +182,7 @@ class SamplesView(object):
             capture_canvas.delete(im.iid)
 
         images.clear()
+        self._items.clear()
 
         self._x = 1
         self._y = 1
@@ -157,7 +199,7 @@ class SamplesView(object):
         cfh_sb.config(command=canvas.xview)
 
         canvas.config(yscrollcommand=cfv_sb.set)
-        canvas.config(xscrollcomman=cfh_sb.set)
+        canvas.config(xscrollcommand=cfh_sb.set)
 
         cfv_sb.pack(side=tk.RIGHT, fill=tk.Y)
         cfh_sb.pack(side=tk.BOTTOM, fill=tk.X)
@@ -166,18 +208,20 @@ class SamplesView(object):
         canvas.bind("<Button-4>", self._on_mouse_wheel)
         canvas.bind("<Button-5>", self._on_mouse_wheel)
 
+        canvas.bind("<Button-3>", self._on_right_click)
+
         frame.pack(fill=tk.X)
         canvas.pack(fill=tk.BOTH)
 
         return frame
 
     def deactivate(self):
-        self._frame["state"] = tk.DISABLED
+        self._canvas["state"] = tk.DISABLED
 
     def activate(self):
-        self._frame["state"] = tk.ACTIVE
+        self._canvas["state"] = tk.NORMAL
 
-    def capture_zone_update(self, capture_zone):
+    def capture_zone_update(self, connection, capture_zone):
         """
 
         Parameters
@@ -189,14 +233,23 @@ class SamplesView(object):
 
         """
 
+        self._draw_samples(capture_zone.width, self._model.get_samples(connection))
+
+        if not self._motion_bind:
+            self._canvas.bind("<Motion>", self._on_motion)
+            self._motion_bind = True
+
+    def _draw_samples(self, width, images_meta, create=True):
         images = self._images
         canvas = self._canvas
+        items = self._items
+
+        images.clear() #clear previous data
 
         w = canvas.winfo_width()
 
-        max_row = math.floor(w / capture_zone.width)
-        step = math.floor((w - (capture_zone.width * max_row)) / max_row)
-        max_row = math.floor(w / capture_zone.width)
+        max_row = math.floor(w / width)
+        step = math.floor((w - (width * max_row)) / max_row)
 
         x = step
         y = 1
@@ -206,12 +259,16 @@ class SamplesView(object):
         h = 0
         wd = 0
 
-        for meta in self._model.get_samples():
-            self._load_draw(
-                images,
-                canvas,
-                meta,
-                x, y)
+        if create:
+            fn = self._load_draw
+        else:
+            fn = self._update_draw
+
+        for meta in images_meta:
+            img = fn(images, canvas, meta, x, y)
+
+            if create:
+                items.append(img)  # store images in order
 
             i += 1
             x += meta.width + step
@@ -229,53 +286,92 @@ class SamplesView(object):
         self._y = y
         self._i = i
 
-        canvas.config(scrollregion=(0, 0, m, y + h + 1))
+        mw = canvas.winfo_width()
+        mh = canvas.winfo_height()
 
-        if not self._motion_bind:
-            canvas.bind("<Motion>", self._on_motion)
+        if y + h + 1 > mh:
+            self._mh = y + h + 1
+            canvas.configure(scrollregion=(0, 0, mw, y + h + 1))
+        else:
+            self._mh = mh
+            canvas.configure(scrollregion=(0, 0, mw, mh))
 
         self._width = wd
         self._height = h
+        self._max_row = max_row
+        self._step = step
 
-    def filters_update(self, filters):
-        # todo: apply filters to image (if filtering is activated)
-        pass
 
-    def disable_filters(self):
-        pass
+    def enable_filters(self, filters):
+        for image in self._images.values():
+            image.photo_image.paste(filters.filter_image(image.image))
+
+    def disable_filters(self, filters):
+        for image in self._images.values():
+            image.photo_image.paste(image.image)
 
     def new_sample(self, image, image_meta):
-        # canvas = self._capture_canvas
+        canvas = self._canvas
+
+        w = canvas.winfo_width()
+
+        if not self._max_row:
+            self._max_row = math.floor(w / image_meta.width)
+
+        max_row = self._max_row
+
+        if not self._step:
+            self._step = math.floor((w - (w* max_row)) / max_row)
+
+        step = self._step
+
         i = self._i
 
-        if i == 3:
-            i = 1
+        x = self._x
+        y = self._y
 
-            y = self._y + image.height
-            x = 1
-        else:
-            i += 1
+        self._items.append(
+            self._create_draw(
+                self._images,
+                image,
+                self._canvas,
+                image_meta,
+                x, y))
 
-            x = self._x + image.width
-            y = self._y
+        i += 1
+
+        x = self._x + image_meta.width + step
+        y = self._y
+
+        if i == max_row:
+            i = 0
+            y = self._y + image_meta.height + 2
+            x = step
 
         self._x = x
         self._y = y
         self._i = i
+        self._width = image_meta.width
+        self._height = image_meta.height
 
-        self._draw(
-            self._images,
-            image,
-            self._canvas,
-            image_meta,
-            x, y)
+        mw = canvas.winfo_width()
+        mh = canvas.winfo_height()
+        h = image_meta.height
+
+        if y + h + 1 > mh:
+            self._mh = y + h + 1
+            canvas.configure(scrollregion=(0, 0, mw, y + h + 1))
+        else:
+            self._mh = mh
+            canvas.configure(scrollregion=(0, 0, mw, mh))
 
     def _on_motion(self, event):
         canvas = self._canvas
         images = self._images
 
-        x = event.x + canvas.xview()[0] * (self._width)
-        y = event.y + canvas.yview()[0] * (self._y + 1 + self._height)
+        # x = event.x + canvas.xview()[0] * (self._x)
+        x = event.x
+        y = event.y + canvas.yview()[0] * self._mh
 
         res = rt.find_closest_enclosing(images, x, y)
 
@@ -301,17 +397,44 @@ class SamplesView(object):
         if text:
             canvas.delete(text)
 
-    def _draw(self, images, image, canvas, image_meta, x, y):
-        iid = canvas.create_image(x, y, image=image, anchor=tk.NW)
+    def _create_draw(self, images, image, canvas, image_meta, x, y):
+        ph_im = ImageTk.PhotoImage(image)
+        iid = canvas.create_image(x, y, image=ph_im, anchor=tk.NW)
         bbox = canvas.bbox(iid)
         rid = canvas.create_rectangle(*bbox)
 
-        images[rid] = ImageRectangle(rid, iid, image_meta.rectangle, bbox, image_meta)
+        images[rid] = img = self._create_image_rectangle(
+            rid,
+            iid,
+            image_meta,
+            bbox,
+            image,
+            ph_im)
+
+        return img
+
+    def _update_draw(self, images, canvas, image_rectangle, x, y):
+        iid = canvas.create_image(x, y, image=image_rectangle.photo_image, anchor=tk.NW)
+        bbox = canvas.bbox(iid)
+        rid = canvas.create_rectangle(*bbox)
+
+        images[rid] = img = self._update_image_rectangle(image_rectangle, rid, iid, bbox)
+
+        return img
+
+
+    def _update_image_rectangle(self, image_rectangle, rid, iid, bbox):
+        image_rectangle.rid = rid
+        image_rectangle.iid = iid
+        image_rectangle.bbox = bbox
+
+        return image_rectangle
+
+    def _create_image_rectangle(self, rid, iid, image_meta, bbox, image, photo_image):
+        return ImageRectangle(rid, iid, image_meta.rectangle, bbox, image_meta, image, photo_image)
 
     def _load_draw(self, images, canvas, image_meta, x, y):
-        image = ImageTk.PhotoImage(image_meta.get_image())
-
-        self._draw(images, image, canvas, image_meta, x, y)
+        return self._create_draw(images, image_meta.get_image(), canvas, image_meta, x, y)
 
     def _on_mouse_wheel(self, event):
         # todo: should create this function as a utility function
@@ -322,17 +445,100 @@ class SamplesView(object):
         if event.num == 4 or event.delta == 120:
             self._canvas.yview_scroll(-1, "units")
 
+    def _on_right_click(self, event):
+        rid = self._f_rid
+        if rid:
+            menu = tk.Menu(self._frame, tearoff=0)
+            menu.add_command(label="Delete", command=self._delete_image)
+            menu.tk_popup(event.x_root, event.y_root)
+
+    def _delete_image(self):
+        rid = self._f_rid
+        items = self._items
+        canvas = self._canvas
+
+        canvas.unbind("<Motion>")
+
+        self._f_rid = None
+        self._prev = None
+
+        with engine.connect() as connection:
+            rct = self._images.pop(rid)
+
+            self._unbind(canvas)
+
+            self._text = None
+
+            p = rct.position
+            k = p - 1
+
+            for item in items[p::]:
+                item.position = p
+                p += 1
+
+            for item in items:
+                canvas.delete(item.rid)
+                canvas.delete(item.iid)
+
+            items.pop(k)  # remove item from list
+
+            self._draw_samples(self._width, items, False)
+
+            rct.delete(connection)
+
+        with engine.connect() as connection:
+            for item in items:
+                item.submit(connection)
+
+            pos = len(items) - 1
+
+            self._model.position = pos if pos > 0 else 0
+
+        canvas.bind("<Motion>", self._on_motion)
+
 
 class SamplesController(object):
     def __init__(self, model):
+        """
+
+        Parameters
+        ----------
+        model: tools.detection.samples.SamplesModel
+        """
         self._model = model
+
         self._view = SamplesView(self, model)
 
     def view(self):
         return self._view
 
     def capture_zone_update(self, connection, capture_zone):
+        view = self._view
         if not capture_zone.classifiable:
-            self._view.deactivate() #deactive sampling
+            view.deactivate() #deactive sampling
         else:
-            self._view.activate()
+            view.activate()
+            view.capture_zone_update(connection, capture_zone)
+
+    def filters_update(self, filters):
+        """
+
+        Parameters
+        ----------
+        filters: tools.detection.filtering.filtering.FilteringModel
+
+        Returns
+        -------
+
+        """
+
+        view = self._view
+
+        if filters.filters_enabled:
+            view.enable_filters(filters)
+        else:
+            view.disable_filters(filters)
+
+    def new_sample(self, img, meta):
+        view = self._view
+        view.new_sample(img, meta)

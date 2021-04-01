@@ -26,18 +26,21 @@ class DetectionTools(object):
         self._windows_controller = wc = windows.WindowController(wm)
 
         wc.start(container)
+        self._filtering_model = fm = filtering.FilteringModel()
+        self._filtering = flt = filtering.FilteringController(fm)
 
         self._samples_model = spm = samples.SamplesModel()
         self._samples = spl = samples.SamplesController(spm)
 
-        self._sampling = sc = sampling.SamplingController(spm)
+        self._sampling = sc = sampling.SamplingController(spm, fm)
 
-        self._filtering_model = fm = filtering.FilteringModel()
-        self._filtering = flt = filtering.FilteringController(fm)
+        fm.add_filter_observer(spl)
+        fm.add_filter_observer(sc)
 
         spm.add_capture_zone_observer(flt)
         spm.add_capture_zone_observer(spl)
         spm.add_capture_zone_observer(sc)
+        spm.add_sample_observer(spl)
 
         wm.add_window(sc)
         wm.add_window(spl)
@@ -72,6 +75,7 @@ class DetectionTools(object):
         project: models.projects.Project
         connection:
         capture_state: controllers.states.CaptureState
+        main_frame: controllers.main_frame.MainFrame
 
 
         Returns
@@ -91,6 +95,8 @@ class DetectionTools(object):
 
         hashes = self._hashes
 
+        #todo: set detection model
+
         for rct in project.get_rectangles(connection):
             # filter cz that we can capture
             if rct.capture:
@@ -98,12 +104,12 @@ class DetectionTools(object):
                     x0, y0, x1, y1 = instance.bbox
                     rid = canvas.create_rectangle(x0-1, y0-1, x1, y1, width=1, dash=(4, 1))
                     instances[rid] = cz = capture.CaptureZone(
-                        canvas,
                         rid,
                         instance,
                         project,
                         pool,
-                        hashes)
+                        hashes,
+                        main_frame.capture_tool)
 
                     # cz.initialize(connection)
             capture_state.initialize(instances.values())
@@ -133,9 +139,6 @@ class DetectionTools(object):
             canvas.itemconfigure(prev, outline="black")
 
     def on_motion(self, event):
-        # todo: should put this in sampling.
-
-        # todo: should highlight siblings of the the cz we hover on.
         canvas = self._canvas
 
         x = event.x + canvas.xview()[0] * self._width

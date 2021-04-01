@@ -32,27 +32,78 @@ from tkinter import ttk
 # Creating the root window
 
 
-import tkinter as tk
-from tkinter import ttk
+# import tkinter as tk
+# from tkinter import ttk
+#
+#
+#
+# app = tk.Tk()
+# app.geometry('200x100')
+# vr = tk.StringVar(app)
+#
+# # defining the callback function (observer)
+# def my_callback(var, indx, mode):
+#     print("Traced variable {}".format(vr.get()))
+#
+# labelTop = tk.Label(app, text="Choose your favourite month")
+# labelTop.grid(column=0, row=0)
+# r = [i for i in range(25)]
+# comboExample = ttk.Combobox(app, values=r, textvariable=vr)
+# comboExample.grid(column=0, row=1)
+# comboExample.current(1)
+# comboExample["state"] = tk.DISABLED
+#
+# vr.trace_add("write", my_callback)
+#
+# app.mainloop()
+
+# try:
+#     # Python2
+#     import Tkinter as tk
+# except ImportError:
+#     # Python3
+#     import tkinter as tk
+#
+# def toggle():
+#     '''
+#     use
+#     t_btn.config('text')[-1]
+#     to get the present state of the toggle button
+#     '''
+#     if t_btn.config('relief')[-1] == 'sunken':
+#         t_btn.config(relief='raised')
+#     else:
+#         t_btn.config(relief='sunken')
+#
+# root = tk.Tk()
+#
+# t_btn = tk.Button(text="True", width=12, command=toggle)
+# t_btn.pack(pady=5)
+#
+# root.mainloop()
+
+from tkinter import *
+
+def sel():
+   selection = "You selected the option " + str(var.get())
+   label.config(text = selection)
+
+root = Tk()
+var = IntVar()
+R1 = Radiobutton(root, text="Option 1", variable=var, value=1,
+                  command=sel)
+R1.pack( anchor = W )
+
+R2 = Radiobutton(root, text="Option 2", variable=var, value=2,
+                  command=sel)
+R2.pack( anchor = W )
+
+R3 = Radiobutton(root, text="Option 3", variable=var, value=3,
+                  command=sel)
+R3.pack( anchor = W)
+
+label = Label(root)
+label.pack()
+root.mainloop()
 
 
-
-app = tk.Tk()
-app.geometry('200x100')
-vr = tk.StringVar(app)
-
-# defining the callback function (observer)
-def my_callback(var, indx, mode):
-    print("Traced variable {}".format(vr.get()))
-
-labelTop = tk.Label(app, text="Choose your favourite month")
-labelTop.grid(column=0, row=0)
-r = [i for i in range(25)]
-comboExample = ttk.Combobox(app, values=r, textvariable=vr)
-comboExample.grid(column=0, row=1)
-comboExample.current(1)
-comboExample["state"] = tk.DISABLED
-
-vr.trace_add("write", my_callback)
-
-app.mainloop()

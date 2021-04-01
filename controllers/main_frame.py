@@ -115,15 +115,23 @@ class MainFrame(object):
             state="disabled"
         )
 
+        self._update_button = ub = tk.Button(
+            commands,
+            text="Update",
+            command=self._on_update,
+            state="disabled"
+        )
+
         wb.grid(row=0, column=0)
         cb.grid(row=0, column=1)
         mb.grid(row=0, column=2)
+        ub.grid(row=0, column=3)
 
         self._initialized = False
         self.width = None
         self.height = None
 
-        self._instance_mapper = detection.DetectionTools(right_frame, self.canvas)
+        self._detection_tool = detection.DetectionTools(right_frame, self.canvas)
 
         root = container.winfo_toplevel()
         root.wm_minsize(800, right_frame.winfo_height()) #set minimum height to toolbar
@@ -177,6 +185,10 @@ class MainFrame(object):
 
     def _on_y_scroll(self, *args):
         self.canvas.yview(*args)
+
+    def _on_update(self):
+        img = self.capture_tool.capture()
+        self._interface.update_template(self.width, self.height, img)
 
     def initialize(self, project):
         """
@@ -248,27 +260,30 @@ class MainFrame(object):
         self.canvas.config(scrollregion=(0, 0, w, h), height=h, width=w)
 
         with engine.connect() as connection:
-            self._instance_mapper.start(project, connection, self.capture_state, self)
+            self._detection_tool.start(project, connection, self.capture_state, self)
+
 
     def update_display(self, project, image):
         if self._img:
             self._img.paste(image)
             self.update(project)
+            self.mapping_state.update_image(image)
         else:
             self.display(project, image)
 
     def update(self, project):
         with engine.connect() as con:
-            self._instance_mapper.clear()
-            self._instance_mapper.start(project, con, self.capture_state, self)
+            self._detection_tool.clear()
+            self._detection_tool.start(project, con, self.capture_state, self)
 
     def mapping_tool_close(self, data):
         self.mapping_state = self.mapping_active
         self.mapping_state.update()
 
     def on_window_selected(self, width, height, img=None):
-        self._interface.on_window_selected(width, height, img)
+        self._interface.update_template(width, height, img)
         self.state = self.window_selected
+        self._update_button["state"] = tk.ACTIVE
         # self.capture_tool.initialize(img) #initialize all image handlers
 
     def stop(self):

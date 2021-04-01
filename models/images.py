@@ -1,15 +1,32 @@
+import os
 from os import path
 
-from PIL import Image, ImageTk
+from PIL import Image
 
 from sqlalchemy import text
 
 from data import paths
 
+_GET_IMAGE = text(
+    """
+    SELECT *
+    FROM images
+    WHERE project_name=:project_name AND rectangle_id=:rectangle_id
+    ORDER BY position ASC
+    """
+)
+
 _ADD_IMAGE_METADATA = text(
     """
-    INSERT OR REPLACE INTO images(image_id, project_name, label_instance_name, r_instance_id, hash_key, position)
+    INSERT OR REPLACE INTO images(image_id, project_name, label_instance_name, rectangle_id, hash_key, position)
     VALUES (:image_id, :project_name, :label_instance_name, :rectangle_id, :hash_key, :position)
+    """
+)
+
+_DELETE_IMAGE_METADATA = text(
+    """
+    DELETE FROM IMAGES
+    WHERE image_id=:image_id AND project_name=:project_name
     """
 )
 
@@ -48,6 +65,10 @@ class ImageMetadata(object):
     def position(self):
         return self._position
 
+    @position.setter
+    def position(self, value):
+        self._position = value
+
     @property
     def id(self):
         return self._id
@@ -73,6 +94,19 @@ class ImageMetadata(object):
             image_id=self._id,
             project_name=self._project_name,
             label_instance_name=self._label,
-            rectangle=self._rectangle.rectangle.id,
+            rectangle_id=self._rectangle.id,
             hash_key=self._hash_key,
             position=self._position)
+
+    def delete_image(self, connection):
+        connection.execute(
+            _DELETE_IMAGE_METADATA,
+            image_id=self._id,
+            project_name=self._project_name
+        )
+
+        try:
+            #remove image from disk
+            os.remove(self.path)
+        except FileNotFoundError:
+            pass

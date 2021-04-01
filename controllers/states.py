@@ -10,6 +10,8 @@ root = dsp.screen().root
 
 MyGeom = namedtuple('MyGeom', 'x y height width')
 
+import tkinter as tk
+
 def get_active_window():
     win_id = root.get_full_property(dsp.intern_atom('_NET_ACTIVE_WINDOW'),
                                     Xlib.X.AnyPropertyType).value[0]
@@ -99,35 +101,38 @@ class Initial(State):
         self._manager.container["cursor"] = "arrow"
 
     def _on_click(self, event):
-        self._manager.state = self._manager.window_selected
-        container = self._container
 
-        win_id = self._xdo.get_window_at_mouse()
-        self._manager.container.grab_release()
+        try:
+            win_id = self._xdo.get_window_at_mouse()
+            self._manager.container.grab_release()
 
-        container["cursor"] = "arrow"
+            container = self._container
+            container["cursor"] = "arrow"
 
-        self._xdo.activate_window(win_id)
-        self._xdo.wait_for_window_active(win_id)
+            self._xdo.activate_window(win_id)
+            self._xdo.wait_for_window_active(win_id)
 
-        w = self._manager.width
-        h = self._manager.height
+            w = self._manager.width
+            h = self._manager.height
 
-        #set window size
-        if w:
-            self._xdo.set_window_size(win_id, w, h)
-            libxdo.xdo_wait_for_window_size(self._xdo._xdo, win_id, w, h, 0, 0)
+            #set window size
+            if w:
+                self._xdo.set_window_size(win_id, w, h)
+                libxdo.xdo_wait_for_window_size(self._xdo._xdo, win_id, w, h, 0, 0)
 
-        geom = get_absolute_geometry(get_active_window())
+            geom = get_absolute_geometry(get_active_window())
 
-        img = self._manager.capture_tool.capture(get_window_bbox(geom))
+            img = self._manager.capture_tool.initialize(get_window_bbox(geom))
 
-        #todo: only change state if the image was mapping_active
-        self._manager.mapping_state = cst = self._manager.mapping_active
-        cst.update()
+            #todo: only change state if the image was mapping_active
+            self._manager.mapping_state = cst = self._manager.mapping_active
+            cst.update()
 
-        self._manager.on_window_selected(geom.width, geom.height, img)
-
+            self._manager.state = self._manager.window_selected
+            self._manager.on_window_selected(geom.width, geom.height, img)
+        except:
+            print("Window out of view")
+            self._manager.container.grab_release()
         # self._manager.display(self._p)
 
     def _get_container(self, manager):
@@ -270,7 +275,10 @@ class MappingActive(MappingState):
         self._manager.mapping_state.update()
 
     def update(self):
-        self._manager.mapping_button["state"] = "normal"
+        self._manager.mapping_button["state"] = tk.ACTIVE
+
+    def update_image(self, image):
+        pass
 
     def stop(self):
         pass
@@ -290,6 +298,9 @@ class MappingInactive(MappingState):
 
     def update(self):
         self._manager.mapping_button["state"] = "disabled"
+
+    def update_image(self, image):
+        self._manager.mapping_tool.update_image(image)
 
     def stop(self):
         pass

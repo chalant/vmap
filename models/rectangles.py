@@ -98,7 +98,7 @@ _GET_IMAGE = text(
     """
     SELECT *
     FROM images
-    WHERE project_name=:project_name AND r_instance_id=:r_instance_id
+    WHERE project_name=:project_name AND rectangle_id=:rectangle_id
     ORDER BY position ASC
     """
 )
@@ -227,24 +227,10 @@ class RectangleInstance(object):
         return self._rectangle.create_instance(x, y)
 
     def get_images(self, connection):
-        for element in connection.execute(
-            _GET_IMAGE,
-            project_name=self._rectangle.project_name,
-            r_instance_id=self._id):
-
-            yield images.ImageMetadata(
-                element['image_id'],
-                self._rectangle.project_name,
-                self._rectangle.id,
-                element["hash_key"],
-                element["position"],
-                element["label_instance_name"]
-            )
+        return self._rectangle.get_images(connection)
 
     def create_image_meta(self, id_, hash_key, position, label):
-        rct = self._rectangle
-        return images.ImageMetadata(
-            id_, rct.project_name, rct.id, hash_key, position, label)
+        self._rectangle.create_image_meta(id_, hash_key, position, label)
 
     def submit(self, connection):
         connection.execute(
@@ -378,6 +364,27 @@ class Rectangle(object):
             connection.execute(
                 _DELETE_RECTANGLE,
                 rectangle_id=self._id)
+
+    def get_images(self, connection):
+        rectangle = self
+
+        for element in connection.execute(
+                _GET_IMAGE,
+                project_name=rectangle.project_name,
+                rectangle_id=rectangle.id):
+            yield images.ImageMetadata(
+                element['image_id'],
+                rectangle.project_name,
+                rectangle,
+                element["hash_key"],
+                element["position"],
+                element["label_instance_name"]
+            )
+
+    def create_image_meta(self, id_, hash_key, position, label):
+        rct = self
+        return images.ImageMetadata(
+            id_, rct.project_name, rct.id, hash_key, position, label)
 
     def submit(self, connection):
         # if self._num_instances == 1:

@@ -209,6 +209,10 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
         io.load(self._load_rectangles)
 
+    def update_image(self, image):
+        if self._photo_image:
+            self._photo_image.paste(image)
+
     def _load_rectangles(self):
         # print(mapping_utils.colorInvert(self._canvas["background"][1:]))
         # print(self._canvas["background"])

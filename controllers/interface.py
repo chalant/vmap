@@ -111,7 +111,7 @@ class Interface(controller.Controller):
     #
     #         buttons.grid(row=1, column=0)
 
-    def on_window_selected(self, width, height, img=None):
+    def update_template(self, width, height, img=None):
         pj = self._project
 
         pj.width = width

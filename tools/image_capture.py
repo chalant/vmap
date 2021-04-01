@@ -95,10 +95,23 @@ class ImageCaptureTool(object):
     def fps(self):
         return self._fps
 
-    def capture(self, bbox):
+    def initialize(self, bbox):
         self._top = bbox[1]
         self._left = bbox[0]
+        self._width = bbox[2] - self._left
+        self._height = bbox[3] - self._top
         return snapshot(display.Display().screen().root, _to_ltwh(bbox))
+
+    def capture(self):
+        return snapshot(
+            display.Display().screen().root,
+            (self._left, self._top, self._width, self._height))
+
+
+    def capture_relative(self, ltwh):
+        return snapshot(
+            display.Display().screen().root,
+            tuple(map(operator.add, ltwh, (self._left, self._top, 0, 0))))
 
     def _from_bytes(self, data):
         return Image.frombytes("RGB", data.size, data.bgra, "raw", "BGRX")

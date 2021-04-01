@@ -337,7 +337,7 @@ class GaussianBlur(Filter):
         return "Gaussian"
 
     def apply(self, img):
-        return cv2.GaussianBlur(img.array, (self.ksizeX, self.ksizeY), self.sigmaX, sigmaY=self.sigmaY)
+        return cv2.GaussianBlur(img, (self.ksizeX, self.ksizeY), self.sigmaX, sigmaY=self.sigmaY)
 
     def _render(self, container):
         self._frame = frame = tk.Frame(container)
@@ -351,11 +351,11 @@ class GaussianBlur(Filter):
 
         #notify
         def update(a, b, c):
-            self.ksizeX = kx.get()
-            self.ksizeY = ky.get()
+            self.ksizeX = int(kx.get())
+            self.ksizeY = int(ky.get())
 
-            self.sigmaX = sx.get()
-            self.sigmaY = sy.get()
+            self.sigmaX = int(sx.get())
+            self.sigmaY = int(sy.get())
 
             if self._flag:
                 for fn in self._callbacks:

@@ -14,9 +14,11 @@ class ImageWrapper(object):
     def __init__(self, image):
         self.array = np.asarray(image)
         self.mode = image.mode
+        # self.width = image.width
+        # self.height = image.height
 
     def image(self):
-        Image.from_array(self.array)
+        return Image.fromarray(self.array)
 
 class Rectangle(object):
     def __init__(self, rid, tid, rct_idx, txt_idx, bbox, filter_):
@@ -92,7 +94,7 @@ class Rectangle(object):
         self._filter.delete(connection, group)
 
     def apply(self, img):
-        self._filter.apply(img)
+        return self._filter.apply(img)
 
     def on_data_update(self, callback):
         self._filter.on_data_update(callback)
@@ -124,6 +126,10 @@ class FilteringModel(object):
 
         self._to_delete = []
 
+    @property
+    def filters_enabled(self):
+        return self._enabled
+
     def get_groups(self, connection):
         return filters.get_groups(connection)
 
@@ -134,7 +140,7 @@ class FilteringModel(object):
         im = ImageWrapper(img)
 
         for p in self._filter_pipeline:
-            im = p.apply(im)
+            im.array = p.apply(im.array)
 
         return im.image()
 
@@ -148,17 +154,18 @@ class FilteringModel(object):
         return self._filters.get_filters(filter_type)
 
     def enable_filtering(self):
+        self._enabled = True
+
         # notify observers to apply filters
         for obs in self._filters_observers:
             obs.filters_update(self)
 
-        self._enabled = True
 
     def disable_filtering(self):
-        for obs in self._filters_observers:
-            obs.disable_filters(self)
-
         self._enabled = False
+
+        for obs in self._filters_observers:
+            obs.filters_update(self)
 
     def import_filters(self, connection, group):
         filters = list(self._load_filters(connection, group["name"]))
@@ -244,6 +251,10 @@ class FilteringModel(object):
         for obs in self._data_observers:
             obs.data_update(self)
 
+        if self._enabled:
+            for obs in self._filters_observers:
+                obs.filters_update(self)
+
 class FilteringController(object):
     def __init__(self, model):
         """
@@ -260,8 +271,6 @@ class FilteringController(object):
 
         self._capture_zone = None
         self._data_changed = False
-
-        self._i = 0
 
         model.add_data_observers(self)
 
@@ -317,7 +326,6 @@ class FilteringController(object):
         menu.entryconfig(name, state=state)
 
     def data_update(self, model):
-        self._i += 1
         #called any time a filter is created or modified
 
         self._data_changed = True
@@ -326,8 +334,6 @@ class FilteringController(object):
 
         self._set_command_state("Save", view.file_menu, tk.ACTIVE)
         self._set_command_state("Commit", view.file_menu, tk.ACTIVE)
-
-        print("Data Changed!", self._i)
 
     def commit(self):
         group = self._group
@@ -750,6 +756,8 @@ class FilteringView(object):
         self._delete_filter(self._rid)
 
     def _delete_filter(self, rid):
+        #todo: clear and redraw everything
+
         canvas = self._filter_canvas
         filter_ = self._rectangles.pop(rid)
         model = self._model
