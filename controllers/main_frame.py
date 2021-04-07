@@ -79,7 +79,9 @@ class MainFrame(object):
         self.template_image = None
         self._img = None
 
-        self._interface = interface = itf.Interface(mf, self, pjt.Projects())
+        projects = pjt.Projects()
+
+        self._interface = interface = itf.Interface(mf, self, projects)
 
         menu = tk.Menu(root, tearoff=False)
         root.config(menu=menu)
@@ -88,8 +90,15 @@ class MainFrame(object):
         menu.add_cascade(label="File", menu=file_menu)
 
         file_menu.add_command(label="New", command=interface.new)
-        #todo: disable open button if there is no projects.
+
         file_menu.add_command(label="Open", command=interface.open)
+        file_menu.entryconfig("Open", state=tk.DISABLED)
+
+        with engine.connect() as connection:
+            if list(projects.get_project_names(connection)):
+                file_menu.entryconfig("Open", state=tk.ACTIVE)
+
+        # self.file_menu = file_menu
 
         self.mapping_tool = None
         self.capture_tool = None

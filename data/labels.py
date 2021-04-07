@@ -105,7 +105,7 @@ class _Label(_Element):
         label_instance: _LabelInstance
 
         Returns
-        -------
+        -------rectangles
 
         """
         if self._classifiable:
@@ -154,5 +154,3 @@ class _Label(_Element):
 
         for instance in self._instances:
             instance.submit(connection)
-
-

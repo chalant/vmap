@@ -12,7 +12,7 @@ class Interface(controller.Controller):
         Parameters
         ----------
         container
-        manager
+        manager: controllers.main_frame.MainFrame
         projects: models.projects.Projects
         """
         self._container = container
@@ -36,8 +36,6 @@ class Interface(controller.Controller):
         self._project = None
 
         self._changed = False
-
-        # self._create_metadata()
 
         self._open_project = store.OpenProject(container, projects)
         self._new_project = store.NewProject(container, projects)

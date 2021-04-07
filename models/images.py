@@ -18,8 +18,8 @@ _GET_IMAGE = text(
 
 _ADD_IMAGE_METADATA = text(
     """
-    INSERT OR REPLACE INTO images(image_id, project_name, label_instance_name, rectangle_id, hash_key, position)
-    VALUES (:image_id, :project_name, :label_instance_name, :rectangle_id, :hash_key, :position)
+    INSERT OR REPLACE INTO images(image_id, project_name, label_instance_name, label_type, label_name, hash_key, position)
+    VALUES (:image_id, :project_name, :label_instance_name, :label_type, :label_name, :hash_key, :position)
     """
 )
 
@@ -89,12 +89,14 @@ class ImageMetadata(object):
         return Image.open(self.path, formats=("PNG",))
 
     def submit(self, connection):
+        label = self._label
         connection.execute(
             _ADD_IMAGE_METADATA,
             image_id=self._id,
             project_name=self._project_name,
-            label_instance_name=self._label,
-            rectangle_id=self._rectangle.id,
+            label_type=label["label_type"],
+            label_name=label["label_name"],
+            label_instance_name=label["instance_name"],
             hash_key=self._hash_key,
             position=self._position)
 
@@ -110,3 +112,6 @@ class ImageMetadata(object):
             os.remove(self.path)
         except FileNotFoundError:
             pass
+
+def get_images(connection, label_type, label_name):
+    pass

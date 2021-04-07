@@ -1,17 +1,16 @@
 from uuid import uuid4
 
-import tkinter as tk
-from PIL import ImageTk, Image
+
 import imagehash
 
 from tools import image_capture
-from controllers.rectangles import rectangles as rt
+from tools.detection.modeling import models as mdl
 from models import images as im
 
 from data import engine
 
 class CaptureZone(image_capture.ImagesHandler):
-    def __init__(self, rid, rectangle, project, thread_pool, hashes, capture_tool):
+    def __init__(self, rid, rectangle, project, thread_pool, hashes, capture_tool, rectangle_labels):
         """
 
         Parameters
@@ -21,8 +20,11 @@ class CaptureZone(image_capture.ImagesHandler):
         project: models.projects.Project
         thread_pool: concurrent.futures.ThreadPoolExecutor
         capture_tool: tools.image_capture.ImageCaptureTool
+        rectangle_labels: models.rectangle_labels.RectangleLabels
         """
+
         self._rectangle = rectangle
+        self._rectangle_labels = rectangle_labels
 
         self._thread_pool = thread_pool
 
@@ -45,6 +47,8 @@ class CaptureZone(image_capture.ImagesHandler):
         self._in_view = False
 
         self._capture_tool = capture_tool
+
+        self._detector = mdl.Detector()
 
     @property
     def rid(self):
@@ -93,6 +97,10 @@ class CaptureZone(image_capture.ImagesHandler):
         return meta
 
     @property
+    def project_name(self):
+        return self._project.name
+
+    @property
     def in_view(self):
         return self._in_view
 
@@ -100,28 +108,21 @@ class CaptureZone(image_capture.ImagesHandler):
     def in_view(self, value):
         self._in_view = value
 
-    @property
-    def label_name(self):
-        return self._rectangle.label_name
-
-    @property
-    def label_type(self):
-        return self._rectangle.label_type
-
     def get_labels(self, connection):
-        project = self._project
+        return self._rectangle_labels.get_labels(connection)
 
-        rct = self._rectangle
-        res = []
+    def get_label_instances(self, connection, label_type, label_name):
+        return self._project.get_label_instances(connection, label_name, label_type)
 
-        for instance in project.get_label_instances(
-                connection, rct.label_name, rct.label_type):
-            res.append(instance["instance_name"])
-
-        return tuple(res)
-
-    def get_images(self, connection):
+    def get_images(self, connection, label_type, label_name):
+        connection.execute(label_name=label_name, )
         return self._rectangle.get_images(connection)
+
+    def set_detection(self, detection):
+        self._detector.set_detection(detection)
+
+    def detect(self, image):
+        return self._detector.detect(image)
 
     def process_image(self, image):
         """

@@ -2,10 +2,13 @@ from concurrent import futures
 
 from controllers.rectangles import rectangles as rt
 
+from models import rectangle_labels as rl
+
 from tools.detection import capture
 from tools.detection import sampling
 from tools.detection import samples
 from tools.detection.filtering import filtering, filters
+
 
 from tools import windows
 
@@ -26,6 +29,7 @@ class DetectionTools(object):
         self._windows_controller = wc = windows.WindowController(wm)
 
         wc.start(container)
+
         self._filtering_model = fm = filtering.FilteringModel()
         self._filtering = flt = filtering.FilteringController(fm)
 
@@ -37,10 +41,16 @@ class DetectionTools(object):
         fm.add_filter_observer(spl)
         fm.add_filter_observer(sc)
 
-        spm.add_capture_zone_observer(flt)
-        spm.add_capture_zone_observer(spl)
-        spm.add_capture_zone_observer(sc)
-        spm.add_sample_observer(spl)
+        # spm.add_capture_zone_observer(flt)
+        # spm.add_capture_zone_observer(spl)
+        # spm.add_capture_zone_observer(sc)
+
+        # spm.add_sample_observer(spl)
+
+        sc.add_samples_observer(flt)
+        sc.add_samples_observer(spl)
+
+        # spl.add_images_observer(sc)
 
         wm.add_window(sc)
         wm.add_window(spl)
@@ -96,20 +106,26 @@ class DetectionTools(object):
         hashes = self._hashes
 
         #todo: set detection model
+        # note: depending on where we load the rectangles, we can set caching on rectangles
 
         for rct in project.get_rectangles(connection):
-            # filter cz that we can capture
-            if rct.capture:
+            labels = rl.RectangleLabels(rct)
+
+            cap_labels = [label for label in labels.get_labels(connection) if label.capture]
+
+            #create capturable rectangles
+            if cap_labels:
                 for instance in rct.get_instances(connection):
                     x0, y0, x1, y1 = instance.bbox
                     rid = canvas.create_rectangle(x0-1, y0-1, x1, y1, width=1, dash=(4, 1))
-                    instances[rid] = cz = capture.CaptureZone(
+                    instances[rid] = capture.CaptureZone(
                         rid,
                         instance,
                         project,
                         pool,
                         hashes,
-                        main_frame.capture_tool)
+                        main_frame.capture_tool,
+                        labels)
 
                     # cz.initialize(connection)
             capture_state.initialize(instances.values())
@@ -168,8 +184,8 @@ class DetectionTools(object):
 
             if not drawn_instance:
                 self._drawn_instance = rid
-                self._samples_model.set_capture_zone(rct)
+                self._sampling.set_capture_zone(rct)
 
             elif rid != drawn_instance:
                 self._drawn_instance = rid
-                self._samples_model.set_capture_zone(rct)
+                self._sampling.set_capture_zone(rct)

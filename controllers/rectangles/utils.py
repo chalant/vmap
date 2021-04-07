@@ -1,5 +1,7 @@
 from abc import abstractmethod, ABC
 
+from models import rectangle_labels as rl
+
 class RectangleFactory(ABC):
     @abstractmethod
     def create_rectangle(self, instance, x, y):
@@ -20,14 +22,29 @@ class RectangleFactory(ABC):
 
 class RectangleWrapper(object):
     def __init__(self, rectangle, rid, instance, container=None):
+        """
+
+        Parameters
+        ----------
+        rectangle: models.rectangles.Rectangle
+        rid: int
+        instance: models.rectangles.RectangleInstance
+        container
+        """
         self._components = []
         self._container = container
         self._rectangle = rectangle
+
+        self._rectangle_labels = rl.RectangleLabels(rectangle)
 
         self._cursor = -1
         self._rid = rid
         self._top_left = instance.top_left
         self._instance = instance
+
+    @property
+    def labels(self):
+        return self._rectangle_labels
 
     @property
     def rid(self):
@@ -37,29 +54,6 @@ class RectangleWrapper(object):
     def rid(self, value):
         self._rid = value
 
-    @property
-    def label_name(self):
-        return self._rectangle.label_name
-
-    @label_name.setter
-    def label_name(self, value):
-        self._rectangle.label_name = value
-
-    @property
-    def label_type(self):
-        return self._rectangle.label_type
-
-    @label_type.setter
-    def label_type(self, value):
-        self._rectangle.label_type = value
-
-    @property
-    def label(self):
-        return self._rectangle.label
-
-    @label.setter
-    def label(self, value):
-        self._rectangle.label = value
 
     @property
     def bbox(self):
@@ -123,10 +117,13 @@ class RectangleWrapper(object):
         self._components.append(rid)
 
     def submit(self, connection):
+        #submit labels and instances
         self._instance.submit(connection)
+        self._rectangle_labels.submit(connection)
 
     def delete(self, connection):
         self._instance.delete(connection)
+        self._rectangle_labels.delete(connection)
 
     def __iter__(self):
         return self

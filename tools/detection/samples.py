@@ -97,23 +97,6 @@ class SamplesModel(object):
 
         self.position = 0
 
-    def set_capture_zone(self, capture_zone):
-        """
-
-        Parameters
-        ----------
-        capture_zone: tools.detection.capture.CaptureZone
-
-        Returns
-        -------
-
-        """
-        self._capture_zone = capture_zone
-
-        with engine.connect() as connection:
-            for obs in self._cz_obs:
-                obs.capture_zone_update(connection, capture_zone)
-
     def add_sample(self, image, label):
         cz = self._capture_zone
 
@@ -170,7 +153,10 @@ class SamplesView(object):
         self._max_row = None
         self._step = None
 
+        self._samples = None
+
         self._position = 0
+        self._image_observers = []
 
     def clear(self):
         images = self._images
@@ -221,19 +207,20 @@ class SamplesView(object):
     def activate(self):
         self._canvas["state"] = tk.NORMAL
 
-    def capture_zone_update(self, connection, capture_zone):
+    def samples_update(self, samples):
         """
 
         Parameters
         ----------
-        capture_zone: tools.detection.capture.CaptureZone
+        samples: tools.detection.sampling.Samples
 
         Returns
         -------
 
         """
 
-        self._draw_samples(capture_zone.width, self._model.get_samples(connection))
+        with engine.connect() as connection:
+            self._draw_samples(samples.width, samples.get_images(connection))
 
         if not self._motion_bind:
             self._canvas.bind("<Motion>", self._on_motion)
@@ -301,6 +288,9 @@ class SamplesView(object):
         self._max_row = max_row
         self._step = step
 
+        for obs in self._image_observers:
+            obs.images_update(images.values())
+
 
     def enable_filters(self, filters):
         for image in self._images.values():
@@ -364,6 +354,9 @@ class SamplesView(object):
         else:
             self._mh = mh
             canvas.configure(scrollregion=(0, 0, mw, mh))
+
+    def add_image_observer(self, observer):
+        self._image_observers.append(observer)
 
     def _on_motion(self, event):
         canvas = self._canvas
@@ -492,7 +485,7 @@ class SamplesView(object):
 
             pos = len(items) - 1
 
-            self._model.position = pos if pos > 0 else 0
+            self._controller.samples.position = pos if pos > 0 else 0
 
         canvas.bind("<Motion>", self._on_motion)
 
@@ -509,16 +502,32 @@ class SamplesController(object):
 
         self._view = SamplesView(self, model)
 
+        self.samples = None
+
     def view(self):
         return self._view
 
-    def capture_zone_update(self, connection, capture_zone):
+    # def capture_zone_update(self, connection, capture_zone):
+    #     view = self._view
+    #     if not capture_zone.classifiable:
+    #         view.deactivate() #deactive sampling
+    #     else:
+    #         view.activate()
+    #         view.capture_zone_update(connection, capture_zone)
+
+    def samples_update(self, samples):
+        sp = self.samples
+
+        if sp:
+            sp.clear_image_observers()
+
+        self.samples = samples
+
         view = self._view
-        if not capture_zone.classifiable:
-            view.deactivate() #deactive sampling
-        else:
-            view.activate()
-            view.capture_zone_update(connection, capture_zone)
+
+        samples.add_image_observer(view)
+
+        view.samples_update(samples)
 
     def filters_update(self, filters):
         """
@@ -539,6 +548,5 @@ class SamplesController(object):
         else:
             view.disable_filters(filters)
 
-    def new_sample(self, img, meta):
-        view = self._view
-        view.new_sample(img, meta)
+    def add_images_observer(self, observer):
+        self._view.add_image_observer(observer)

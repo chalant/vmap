@@ -61,18 +61,6 @@ class MainWindow(object):
     def _on_exit(self):
         self._manager.exit()
 
-    @property
-    def state(self):
-        return self._state
-
-    @state.setter
-    def state(self, value):
-        self._state = value
-
-    @property
-    def height(self):
-        return self._main_frame.w_height
-
     def close(self):
         self._main_frame.stop()
 

@@ -76,16 +76,19 @@ class Editing(object):
             canvas["cursor"] = "hand2"
 
             canvas.itemconfigure(res, outline="red")
-            rct = self._mapper.get_rectangle(res)
 
-            if self._text:
-                canvas.delete(self._text)
+            # rct = self._mapper.get_rectangle(res)
 
-            x0, y0, x1, y1 = rct.bbox
+            # if self._text:
+            #     canvas.delete(self._text)
 
-            x, y = round((x1 + x0) / 2), y0
+            # x0, y0, x1, y1 = rct.bbox
+            #
+            # x, y = round((x1 + x0) / 2), y0
 
-            self._text = canvas.create_text(x, y, text=rct.label_name)
+            #todo: we need to display all the label names
+
+            # self._text = canvas.create_text(x, y, text=rct.label_name)
 
         else:
             self._unbind()

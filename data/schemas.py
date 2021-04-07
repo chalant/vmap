@@ -79,9 +79,7 @@ def build_schema(meta):
         Column("height", Integer, nullable=False),
         Column("width", Integer, nullable=False),
         # project are per-project
-        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
-        Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False),
-        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False))
+        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False))
 
     Table(
         "rectangle_instances",
@@ -113,16 +111,23 @@ def build_schema(meta):
         #multiple label_instances can share the same cz
     )
 
+    Table("rectangle_labels",
+          meta,
+          Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id")),
+          Column("label_name", String, ForeignKey("labels.label_name")),
+          Column("label_type", String, ForeignKey("labels.label_type")))
+
     Table(
         "images",
         meta,
         Column("image_id", String, primary_key=True),
         Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
         # each image is mapped to an instance id
-        Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id"), nullable=False),
+        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
+        Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
+        Column("label_instance_name", String, nullable=False),
         Column("hash_key", String, nullable=False),
-        Column("position", Integer, nullable=False),
-        Column("label_instance_name", String, nullable=False)
+        Column("position", Integer, nullable=False)
     )
 
 _BUILT = False

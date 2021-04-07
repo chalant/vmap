@@ -11,6 +11,7 @@ class NewProject(object):
         ----------
         container
         projects: models.projects.Projects
+        controller
         """
         self._container = container
         self._projects = projects

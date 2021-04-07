@@ -10,6 +10,7 @@ from data import engine
 from controllers.rectangles import rectangles as rt
 from tools.detection.filtering import filters
 
+
 class ImageWrapper(object):
     def __init__(self, image):
         self.array = np.asarray(image)
@@ -142,7 +143,7 @@ class FilteringModel(object):
         for p in self._filter_pipeline:
             im.array = p.apply(im.array)
 
-        return im.image()
+        return im.array
 
     def create_filter(self, filter_type, filter_name, position):
         return self._filters.create_filter(filter_type, filter_name, position)
@@ -269,7 +270,7 @@ class FilteringController(object):
         self._group = None
         self._prev_group = None
 
-        self._capture_zone = None
+        self._samples = None
         self._data_changed = False
 
         model.add_data_observers(self)
@@ -277,46 +278,46 @@ class FilteringController(object):
     def view(self):
         return self._view
 
-    def capture_zone_update(self, connection, capture_zone):
+    def samples_update(self, samples):
         """
 
-                Parameters
-                ----------
-                connection
-                capture_zone: tools.detection.capture.CaptureZone
+        Parameters
+        ----------
+        samples: tools.detection.sampling.Samples
 
-                Returns
-                -------
+        Returns
+        -------
 
-                """
+        """
 
         #todo: disable save and commit button
 
         # if we already have a capture zone, we need to save the filters
-        cz = self._capture_zone
+        cz = self._samples
         view = self._view
 
         if cz:
             if self._data_changed:
                self.save()
 
-        self._capture_zone = capture_zone
+        self._samples = samples
 
-        try:
-            self._group = group = filters.get_filter_group(
-                connection,
-                capture_zone.label_name,
-                capture_zone.label_type)
+        with engine.connect() as connection:
+            try:
+                self._group = group = filters.get_filter_group(
+                    connection,
+                    samples.label_name,
+                    samples.label_type)
 
-            if group["committed"] == True:
-                self._set_command_state("Save", view.file_menu, tk.DISABLED)
-                self._set_command_state("Commit", view.file_menu, tk.DISABLED)
+                if group["committed"] == True:
+                    self._set_command_state("Save", view.file_menu, tk.DISABLED)
+                    self._set_command_state("Commit", view.file_menu, tk.DISABLED)
 
-            # todo: we need to display a warning box, if there are unsaved filters.
-            self._model.import_filters(connection, group)
+                # todo: we need to display a warning box, if there are unsaved filters.
+                self._model.import_filters(connection, group)
 
-        except:
-            pass
+            except:
+                pass
 
 
     def _disable_command(self, name, menu):

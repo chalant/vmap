@@ -1,3 +1,4 @@
+from collections import defaultdict
 from functools import partial
 
 import tkinter as tk
@@ -10,18 +11,21 @@ class Initial(object):
 
         Parameters
         ----------
-        manager: controllers.tools.mapping.MappingTool
+        manager: tools.mapping.MappingTool
         '''
 
         self._mapper = manager
 
-        self._options = m = tk.Menu(self._mapper.canvas, tearoff=False)
+        self._options = m = tk.Menu(manager.canvas, tearoff=False)
 
         self._rectangle = None
         self._rid = None
         self._text = None
 
-        m.add_command(label="Set Label", command=self._on_set_label)
+        self._labels = {}
+
+        m.add_command(label="Add Label", command=self._on_set_label)
+        m.add_command(label="Remove Label", command=self._on_remove_label)
         m.add_command(label="Edit", command=self._on_edit)
         m.add_command(label="Copy", command=self._on_clone)
         m.add_command(label="Delete", command=self._on_delete)
@@ -31,10 +35,13 @@ class Initial(object):
         m.entryconfig("Delete", state="disabled")
         m.entryconfig("Copy", state="disabled")
         m.entryconfig("Edit", state="disabled")
-        m.entryconfig("Set Label", state="disabled")
+        m.entryconfig("Add Label", state="disabled")
+        m.entryconfig("Remove Label", state="disabled")
 
     def on_right_click(self, event):
-        res = self._mapper.select_rectangle(event.x, event.y)
+        mapper = self._mapper
+
+        res = mapper.select_rectangle(event.x, event.y)
         options = self._options
 
         if res:
@@ -42,12 +49,16 @@ class Initial(object):
             options.entryconfig("Copy", state="normal")
             options.entryconfig("Edit", state="normal")
             options.entryconfig("Delete", state="normal")
-            options.entryconfig("Set Label", state="normal")
+            options.entryconfig("Add Label", state="normal")
+
+            if self._labels:
+                options.entryconfig("Remove Label", state="normal")
         else:
             options.entryconfig("Copy", state="disabled")
             options.entryconfig("Edit", state="disabled")
             options.entryconfig("Delete", state="disabled")
-            options.entryconfig("Set Label", state="disabled")
+            options.entryconfig("Add Label", state="disabled")
+            options.entryconfig("Remove Label", state="disabled")
 
         options.tk_popup(event.x_root, event.y_root)
 
@@ -66,39 +77,58 @@ class Initial(object):
             self._rid = None
 
     def on_motion(self, event):
-        canvas = self._mapper.canvas
-        res = self._mapper.select_rectangle(event.x, event.y)
+        mapper = self._mapper
+
+        canvas = mapper.canvas
+        res = mapper.select_rectangle(event.x, event.y)
 
         if res:
             if res != self._rid:
+                rct = mapper.get_rectangle(res)
+                # load labels
+                labels = rct.labels
+
+                dct = defaultdict(list)
+
+                with engine.connect() as connection:
+                    for label in labels.get_labels(connection):
+                        dct[label.label_type].append(label)
+
+                self._labels = dct
+
                 self._unbind()
 
             self._rid = res
 
             canvas.itemconfigure(res, outline="red")
-            rct = self._mapper.get_rectangle(res)
 
-            if self._text:
-                canvas.delete(self._text)
+            #todo: display all associated labels
 
-            x0, y0, x1, y1 = rct.bbox
+            # rct = self._mapper.get_rectangle(res)
 
-            x, y = round((x1 + x0)/2), y0
-
-            self._text = canvas.create_text(x, y, text=rct.label_name)
+            # if self._text:
+            #     canvas.delete(self._text)
+            #
+            # x0, y0, x1, y1 = rct.bbox
+            #
+            # x, y = round((x1 + x0)/2), y0
+            #
+            # self._text = canvas.create_text(x, y, text=rct.label_name)
 
         else:
-            if self._text:
-                canvas.delete(self._text)
+            # if self._text:
+            #     canvas.delete(self._text)
             self._unbind()
+            self._labels = {}
 
     def _on_close(self):
         pass
 
     def _selected_label(self, label):
         rct = self._mapper.get_rectangle(self._mapper.selected_rectangle)
-        rct.label = label
-        print("Selected Label", type(rct))
+        labels = rct.labels
+
+        labels.add_label(label["label_name"], label["label_type"])
 
     def _on_set_label(self):
         project = self._mapper.project
@@ -116,6 +146,31 @@ class Initial(object):
                     lbm.add_command(
                         label=name,
                         command=partial(self._selected_label, lb))
+
+    def _on_remove_label(self):
+        mapper = self._mapper
+        types_menu = tk.Menu(mapper.canvas, tearoff=False)
+
+        dct = self._labels
+
+        for type_ in dct.keys():
+            labels = dct[type_]
+            class_menu = tk.Menu(types_menu, tearoff=False)
+            types_menu.add_cascade(label=type_, menu=class_menu)
+
+            for label in labels:
+                class_menu.add_command(
+                    label=label.label_name,
+                    command=partial(self._remove_label, label)
+                )
+
+        x, y = self._clicked
+
+        types_menu.tk_popup(x, y)
+
+    def _remove_label(self, label):
+        with engine.connect() as connection:
+            label.delete(connection)
 
     def _on_draw(self):
         self._mapper.state = self._mapper.drawing
