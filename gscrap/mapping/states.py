@@ -1,5 +1,4 @@
-import xdo
-from xdo.xdo import libxdo
+
 
 from collections import namedtuple
 
@@ -34,15 +33,13 @@ def get_absolute_geometry(root, win):
             break
         win = parent
 
-    return MyGeom(x, y, geom.height, geom.width)
+    return x, y, geom.width, geom.height
 
-def get_window_bbox(geom):
+def to_bbox(x, y, w, h):
     """
     Returns (x1, y1, x2, y2) relative to the top-left of the screen.
     """
-    x = geom.x
-    y = geom.y
-    return (x, y, x + geom.width, y + geom.height)
+    return (x, y, x + w, y + h)
 
 class State(object):
     def on_capture(self):
@@ -55,89 +52,6 @@ class State(object):
         pass
 
     def on_resize(self, event):
-        pass
-
-class Initial(State):
-    def __init__(self, manager):
-        """
-
-        Parameters
-        ----------
-        manager: mapping.main_frame.MainFrame
-        """
-        self._manager = manager
-        self._container = self._get_container(self._manager)
-
-        self._xdo = xdo.Xdo()
-
-        self._img = None
-        self._img_item = None
-
-
-    def on_capture(self):
-        self._manager.capture_state.on_capture()
-
-    def on_window_selection(self):
-        self._manager.container["cursor"] = "target"
-        self._manager.container.grab_set_global()
-        self._manager.container.bind('<Button-1>', self._on_click)
-        self._manager.container.bind('<Button-3>', self._on_abort)
-
-    def on_mapping(self):
-        self._manager.mapping_state.on_mapping()
-
-    def on_resize(self, event):
-        pass
-
-    def update(self):
-        self._manager.capture_button["state"] = "disabled"
-        self._manager.capture_button["text"] = "Start Capture"
-
-    def _on_abort(self, event):
-        self._manager.container.grab_release()
-        self._manager.container["cursor"] = "arrow"
-
-    def _on_click(self, event):
-
-        try:
-            win_id = self._xdo.get_window_at_mouse()
-            self._manager.container.grab_release()
-
-            container = self._container
-            container["cursor"] = "arrow"
-
-            self._xdo.activate_window(win_id)
-            self._xdo.wait_for_window_active(win_id)
-
-            w = self._manager.width
-            h = self._manager.height
-
-            #set window size
-            if w:
-                self._xdo.set_window_size(win_id, w, h)
-                libxdo.xdo_wait_for_window_size(self._xdo._xdo, win_id, w, h, 0, 0)
-
-            dsp = Xlib.display.Display()
-            root = dsp.screen().root
-
-            geom = get_absolute_geometry(root, get_active_window(dsp, root))
-
-            img = self._manager.capture_tool.initialize(get_window_bbox(geom))
-
-            #todo: only change state if the image was mapping_active
-            self._manager.mapping_state = cst = self._manager.mapping_active
-            cst.update()
-
-            self._manager.state = self._manager.window_selected
-            self._manager.on_window_selected(geom.width, geom.height, img)
-        except:
-            self._manager.container.grab_release()
-        # self._manager.display(self._p)
-
-    def _get_container(self, manager):
-        return manager.container
-
-    def stop(self):
         pass
 
 class WindowSelected(State):
@@ -254,52 +168,27 @@ class NotCapturing(CaptureState):
     def stop(self):
         pass
 
-class MappingState(object):
-    def on_mapping(self):
-        pass
-
-class MappingActive(MappingState):
-    def __init__(self, manager):
+class MappingInactive(object):
+    def __init__(self, controller, view):
         """
 
         Parameters
         ----------
-        manager: controllers.main_frame.MainFrame
-        """
-        self._manager = manager
-
-    def on_mapping(self):
-        self._manager.mapping_tool.start(self._manager.template_image)
-        self._manager.mapping_state = self._manager.mapping_inactive
-        self._manager.mapping_state.update()
-
-    def update(self):
-        self._manager.mapping_button["state"] = tk.ACTIVE
-
-    def update_image(self, image):
-        pass
-
-    def stop(self):
-        pass
-
-class MappingInactive(MappingState):
-    def __init__(self, manager):
+        controller: gscrap.mapping.controller.MappingController
+        view: gscrap.mapping.view.MainView
         """
 
-        Parameters
-        ----------
-        manager: controllers.main_frame.MainFrame
-        """
-        self._manager = manager
+        self._controller = controller
+        self._view = view
 
     def on_mapping(self):
         pass
 
     def update(self):
-        self._manager.mapping_button["state"] = tk.DISABLED
+        self._view.mapping_button["state"] = tk.DISABLED
 
     def update_image(self, image):
-        self._manager.mapping_tool.update_image(image)
+        self._controller.mapping_tool.update_image(image)
 
     def stop(self):
         pass

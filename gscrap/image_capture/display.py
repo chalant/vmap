@@ -39,7 +39,3 @@ class DisplayFactory(image_capture.ImageHandlerFactory):
 
     def _create_handler(self, rectangle):
         return Display(self._canvas, rectangle)
-
-def display(image, canvas):
-    img = ImageTk.PhotoImage(image)
-    return img, canvas.create_image(0, 0, image=img, anchor=tk.NW)

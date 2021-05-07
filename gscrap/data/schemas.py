@@ -8,7 +8,7 @@ from sqlalchemy import (
     Table,
     Float)
 
-from tools.detection.data import schema as mld
+from gscrap.data.filters import schema as mld
 
 meta = MetaData()
 

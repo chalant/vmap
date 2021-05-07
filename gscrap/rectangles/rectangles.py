@@ -2,7 +2,7 @@ import math
 
 import typing
 
-from rectangles import utils
+from gscrap.rectangles import utils
 
 def tree_iterator(instances, start):
     '''

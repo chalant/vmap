@@ -2,8 +2,8 @@ from os.path import join
 
 from sqlalchemy import engine
 
-from data.paths import root
-from data import schemas
+from gscrap.data.paths import root
+from gscrap.data import schemas
 
 _ENGINE = engine.create_engine("sqlite:////{}".format(join(root(), "data.db")))
 
