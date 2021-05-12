@@ -1,14 +1,6 @@
-from functools import partial
-
 import tkinter as tk
 
-from gscrap.mapping.tools import mapping, detection
-
-from gscrap.image_capture import image_capture
-
 from gscrap.mapping import states
-
-from gscrap.data import engine
 
 class MainView(object):
     def __init__(self, root, controller):
@@ -120,8 +112,6 @@ class MainView(object):
         self.width = None
         self.height = None
 
-        self._detection_tool = detection.DetectionTools(right_frame, self.canvas)
-
         root = container.winfo_toplevel()
         root.wm_minsize(800, right_frame.winfo_height()) #set minimum height to toolbar
 
@@ -150,63 +140,63 @@ class MainView(object):
     def _on_y_scroll(self, *args):
         self.canvas.yview(*args)
 
-    def _on_update(self):
-        img = self.capture_tool.capture()
-        self._interface.update_template(self.width, self.height, img)
+    # def _on_update(self):
+    #     img = self.capture_tool.capture()
+    #     self._interface.update_template(self.width, self.height, img)
 
-    def initialize(self, project):
-        """
-
-        Parameters
-        ----------
-        project: models.projects.Project
-
-        Returns
-        -------
-
-        """
-
-        # if not self._initialized:
-        with engine.connect() as con:
-
-            self.mapping_tool = mapping.MappingTool(
-                self.container,
-                project)
-
-            self.mapping_tool.on_close(self.mapping_tool_close)
-
-            self.capture_tool = image_capture.CaptureLoop(30)
-            # load capture areas (if any)
-
-            # #todo: should only pass project as argument to capture tool.
-            # self.capture_tool.add_handlers(project.get_rectangles(con))
-
-            # create image_handlers. each display is bound to a cz
-            self.window_selection_button["state"] = "normal"
-            self.state = self.initial  # set state to initial
-            self.mapping_state.update()
-
-            project.load_template(partial(self.display, project))  # load template and display it
-            project.template_update(partial(self.update_display, project))  # gets notified on new template write
-            project.on_update(self.update)
-
-            self.height = project.height
-            self.width = project.width
-
-            self._initialized = True
-
-            # else:
-            #     pass
-                # self.stop()
-                #
-                # # if self.template_image:
-                # #     self.canvas.delete(self.img_item) #delete image
-                # #     self.template_image = None
-                # self.capture_tool.clear() #remove all image handlers
-                #
-                # # self._initialized = False
-                #
-                # self.capture_tool.add_handlers(project.get_rectangles(con))
+    # def initialize(self, project):
+    #     """
+    #
+    #     Parameters
+    #     ----------
+    #     project: models.projects.Project
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #
+    #     # if not self._initialized:
+    #     with engine.connect() as con:
+    #
+    #         self.mapping_tool = mapping.MappingTool(
+    #             self.container,
+    #             project)
+    #
+    #         self.mapping_tool.on_close(self.mapping_tool_close)
+    #
+    #         self.capture_tool = image_capture.CaptureLoop(30)
+    #         # load capture areas (if any)
+    #
+    #         # #todo: should only pass project as argument to capture tool.
+    #         # self.capture_tool.add_handlers(project.get_rectangles(con))
+    #
+    #         # create image_handlers. each display is bound to a cz
+    #         self.window_selection_button["state"] = "normal"
+    #         self.state = self.initial  # set state to initial
+    #         self.mapping_state.update()
+    #
+    #         project.load_template(partial(self.display, project))  # load template and display it
+    #         project.template_update(partial(self.update_display, project))  # gets notified on new template write
+    #         project.on_update(self.update)
+    #
+    #         self.height = project.height
+    #         self.width = project.width
+    #
+    #         self._initialized = True
+    #
+    #         # else:
+    #         #     pass
+    #             # self.stop()
+    #             #
+    #             # # if self.template_image:
+    #             # #     self.canvas.delete(self.img_item) #delete image
+    #             # #     self.template_image = None
+    #             # self.capture_tool.clear() #remove all image handlers
+    #             #
+    #             # # self._initialized = False
+    #             #
+    #             # self.capture_tool.add_handlers(project.get_rectangles(con))
 
     def display(self, image):
         self.template_image = image
@@ -219,33 +209,3 @@ class MainView(object):
         self.height = h = image.height()
 
         canvas.config(scrollregion=(0, 0, w, h), height=h, width=w)
-
-    def update_display(self, project, image):
-        if self._img:
-            self._img.paste(image)
-            self.template_image = image #override template_image
-            self.update(project)
-            self.mapping_state.update_image(image)
-        else:
-            #create image item
-            self.display(project, image)
-
-    def update(self, project):
-        with engine.connect() as con:
-            self._detection_tool.clear()
-            self._detection_tool.start(project, con, self.capture_state, self)
-
-    def mapping_tool_close(self, data):
-        self.mapping_state = self.mapping_active
-        self.mapping_state.update()
-
-    def on_window_selected(self, width, height, img=None):
-        self._interface.update_template(width, height, img)
-        self.state = self.window_selected
-        self._update_button["state"] = tk.ACTIVE
-        # self.capture_tool.initialize(img) #initialize all image handlers
-
-    def stop(self):
-        self._state.stop()
-        self.capture_state.stop()
-        self.mapping_state.stop()

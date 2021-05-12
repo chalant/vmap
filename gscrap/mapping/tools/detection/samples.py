@@ -241,7 +241,6 @@ class SamplesView(object):
         y = 1
 
         i = 0
-        m = 0
         h = 0
         wd = 0
 
@@ -262,7 +261,7 @@ class SamplesView(object):
             if i == max_row:
                 i = 0
                 y += meta.height + 2
-                m = x - step
+                # m = x - step
                 x = step
 
             h = meta.height

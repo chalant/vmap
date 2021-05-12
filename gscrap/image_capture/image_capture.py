@@ -60,7 +60,7 @@ class CaptureLoop(object):
     # def _from_bytes(self, data):
     #     return Image.frombytes("RGB", data.size, data.bgra, "raw", "BGRX")
 
-    def start(self, fps=None):
+    def start(self, handler, fps=None):
         '''
 
         Parameters
@@ -71,10 +71,6 @@ class CaptureLoop(object):
         -------
 
         '''
-        handler = self._handler
-
-        if handler == None:
-            raise AttributeError("Image handler not set")
 
         self._stop = False
         self._stop_evt.clear()

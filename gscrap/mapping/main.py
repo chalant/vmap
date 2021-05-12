@@ -4,6 +4,10 @@ from gscrap.mapping import controller as ctl
 
 from gscrap.projects import projects as pj
 
+from gscrap.data import data
+
+data.build()
+
 FONT = ("Mono", 11)
 
 class WindowManager(object):

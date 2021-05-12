@@ -7,11 +7,9 @@ from sqlalchemy import text
 
 from gscrap.data import engine
 from gscrap.data.rectangles import rectangles
-from gscrap.data import data
 from gscrap.data import paths
 from gscrap.data import io
-
-data.build() #populate database
+from gscrap.data.images import videos
 
 _GET_LEAF_PROJECT_TYPES = text(
     """
@@ -107,7 +105,7 @@ _ADD_IMAGE = text(
 )
 
 class Project(object):
-    def __init__(self, name, type_, width=None, height=None, is_new=True):
+    def __init__(self, name, type_, width=None, height=None):
         self._name = name
         self._type = type_
 
@@ -115,7 +113,6 @@ class Project(object):
         self._height = height
 
         self._update = False
-        self._is_new = is_new
 
         self._labels = {}
 
@@ -214,6 +211,9 @@ class Project(object):
                 r_instance_id=instance_id):
             yield element
 
+    def get_video_metadata(self, connection):
+        return videos.get_metadata(connection, self.name)
+
     def get_label_components(self, connection, label_id):
         pass
 
@@ -286,8 +286,7 @@ class Projects(object):
                 row["project_name"],
                 row["project_type"],
                 row["width"],
-                row["height"],
-                False)
+                row["height"])
 
     def get_project_names(self, connection):
         for row in connection.execute(_GET_PROJECTS):

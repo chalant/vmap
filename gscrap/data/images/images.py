@@ -25,7 +25,7 @@ _ADD_IMAGE_METADATA = text(
 
 _DELETE_IMAGE_METADATA = text(
     """
-    DELETE FROM IMAGES
+    DELETE FROM images
     WHERE image_id=:image_id AND project_name=:project_name
     """
 )

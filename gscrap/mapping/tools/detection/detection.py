@@ -7,9 +7,11 @@ from gscrap.data import engine, rectangle_labels as rl
 from gscrap.mapping.tools.detection import sampling, samples, capture
 from gscrap.mapping.tools.detection.filtering import filtering
 
-from gscrap.tools import windows
+from gscrap.windows import windows
 
-class DetectionTools(object):
+from gscrap.mapping.tools import tools
+
+class DetectionTools(tools.Tool):
     def __init__(self, capture_tool, main_view):
         """
 
@@ -19,6 +21,8 @@ class DetectionTools(object):
         main_view: gscrap.mapping.view.MainView
         """
 
+        self.name = "Detection"
+
         self._capture_tool = capture_tool
         self._canvas = main_view.canvas
         self._container = container = main_view.right_frame
@@ -26,7 +30,7 @@ class DetectionTools(object):
         self._window_manager = wm = windows.WindowModel(400, 500)
         self._windows_controller = wc = windows.WindowController(wm)
 
-        wc.start(container)
+        self._view = wc.start(container)
 
         self._filtering_model = fm = filtering.FilteringModel()
         self._filtering = flt = filtering.FilteringController(fm)
@@ -78,7 +82,10 @@ class DetectionTools(object):
         self._height = 0
         self._width = 0
 
-    def start(self, project):
+    def get_view(self):
+        return self._view
+
+    def start_tool(self, project):
         """
 
         Parameters
@@ -132,7 +139,7 @@ class DetectionTools(object):
         canvas.bind("<Motion>", self.on_motion)
         canvas.bind("<Button-1>", self.on_left_click)
 
-    def clear(self):
+    def clear_tool(self):
         canvas = self._canvas
         instances = self._instances
 

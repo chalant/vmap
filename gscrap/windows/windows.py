@@ -81,7 +81,7 @@ class WindowView(object):
         canvas.bind("<Button-4>", self._on_mouse_wheel)
         canvas.bind("<Button-5>", self._on_mouse_wheel)
 
-        return canvas
+        return frame
 
     def close(self):
         frame = self._frame
@@ -119,7 +119,7 @@ class WindowController(object):
         self._model = model
 
     def start(self, container):
-        self._view.render(container)
+        return self._view.render(container)
 
     def close(self):
         self._view.close()

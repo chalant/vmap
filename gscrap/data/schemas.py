@@ -1,5 +1,4 @@
 from sqlalchemy import (
-    MetaData,
     Column,
     ForeignKey,
     String,
@@ -7,10 +6,6 @@ from sqlalchemy import (
     Boolean,
     Table,
     Float)
-
-from gscrap.data.filters import schema as mld
-
-meta = MetaData()
 
 def build_schema(meta):
     # there is a hierarchy with project types (ex: game -> cards -> poker)
@@ -130,12 +125,12 @@ def build_schema(meta):
         Column("position", Integer, nullable=False)
     )
 
-_BUILT = False
-
-def create_all(engine):
-    global _BUILT
-    if not _BUILT:
-        mld.build_schema(meta)
-        build_schema(meta)
-        meta.create_all(engine)
-        _BUILT = True
+    Table(
+        "videos",
+        meta,
+        Column("video_id", String, primary_key=True),
+        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
+        Column("fps", Integer, nullable=False),
+        Column("codec", String, nullable=False),
+        Column("extension", String, nullable=False)
+    )

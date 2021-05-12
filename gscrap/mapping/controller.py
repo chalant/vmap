@@ -1,5 +1,7 @@
 import tkinter as tk
 
+from concurrent import futures
+
 from gscrap.tools import window_selection as ws
 
 from gscrap.mapping import view as vw
@@ -7,11 +9,14 @@ from gscrap.mapping.tools.mapping import mapping
 from gscrap.mapping.tools.detection import detection
 from gscrap.mapping import menu as mn
 
-from gscrap.image_capture import image_capture as ic
+from gscrap.mapping.tools.capture import capture
+from gscrap.mapping.tools import tools
 
 
 class MappingController(object):
     def __init__(self, projects, root):
+        self._thread_pool = pool = futures.ThreadPoolExecutor(10)
+
         self._view = mv = vw.MainView(root, self)
 
         projects.add_observer(self) #register to projects
@@ -34,11 +39,12 @@ class MappingController(object):
         # self.mapping_inactive = states.MappingInactive(self, mv)
         # self.mapping_state = self.mapping_inactive
 
-        #todo: add capture tool
+        self._tools = tls = tools.ToolsController(root)
+        self._detection_tool = dtc = detection.DetectionTools(self, mv)
+        self._capture_tool = cpt = capture.CaptureTool(pool)
 
-        self._detection_tool = detection.DetectionTools(self, mv)
-
-        self._looper = ic.CaptureLoop()
+        tls.add_tool(dtc, "Detection")
+        tls.add_tool(cpt, "Capture")
 
         self._current_project = None
 
@@ -84,11 +90,13 @@ class MappingController(object):
 
             view.display(template)
 
-            self._detection_tool.start(project)
+            self._detection_tool.start_tool(project)
 
             #initialize mapping tool
             mapping_tool.set_template(template)
             mapping_tool.set_project(project)
+
+            view.window_selection_button["state"] = tk.NORMAL
 
         if project.width: #project has a template
             view.mapping_button["state"] = tk.NORMAL
@@ -104,22 +112,27 @@ class MappingController(object):
         # todo:
         #  if there is already an existing project, we need to close it properly
         #  (save it, or create a dialog box to confirm save?)
-        #
+        #  also, if we're capturing and/or mapping, we need to save and stop everything
+
         self._menu.new_dialog.start()
 
     def open_project(self):
         # todo:
         #  if there is already an existing project, we need to close it properly
         #  (save it, or create a dialog box to confirm save?)
-        #
+        #  also, if we're capturing and/or mapping, we need to save and stop everything
+
         self._menu.open_dialog.start()
 
     def window_selection(self):
         #todo: activate image capture tool...
 
-
         view = self._view
         window_selector = self._window_selector
+        capture_tool = self._capture_tool
+
+        def on_error():
+            pass
 
         def on_abort():
             self._window_selected = False
@@ -130,18 +143,26 @@ class MappingController(object):
 
             project = self._current_project
 
-            if project:
-                width = project.width
+            width = project.width
 
-                if width:
-                    window_selector.resize_window(
-                        event.window_id,
-                        width,
-                        project.height)
-                else:
-                    #set project width and height to the captured selected window
-                    project.width = event.width
-                    project.height = event.height
+            if width:
+                window_selector.resize_window(
+                    event.window_id,
+                    width,
+                    project.height)
+            else:
+                #set project width and height to the captured selected window
+                project.width = event.width
+                project.height = event.height
+
+            #change the values of the window event
+            event.width = project.width
+            event.height = project.height
+
+            #initialize capture tool
+            #todo: a project can have multiple footages
+            # we need to add an "video" option in the menu bar, where we can open footages etc.
+            capture_tool.initialize(project, event)
 
             view.container["cursor"] = "arrow"
 
@@ -149,7 +170,6 @@ class MappingController(object):
             view.capture_button["text"] = "Start Capture"
 
             view.window_selection_button["text"] = "Unbind Window"
-            view.window_selection_button["state"] = tk.DISABLED
 
             view.mapping_button["state"] = tk.NORMAL
 
@@ -158,33 +178,42 @@ class MappingController(object):
 
             window_selector.start_selection(
                 on_selected,
-                on_abort)
+                on_abort,
+                on_error)
 
-    def unbind_window(self):
-        view = self._view
+        else:
+            capture_tool.stop_capture()
 
-        self._window_selected = False
+            self._capturing = False
 
-        #todo: disable capture loop
+            view.capture_button["state"] = tk.DISABLED
+            view.capture_button["text"] = "Start Capture"
 
-        view.capture_button["state"] = tk.DISABLED
-        view.capture_button["text"] = "Start Capture"
+            view.window_selection_button["text"] = "Select Window"
+            view.window_selection_button["state"] = tk.NORMAL
 
-        view.window_selection_button["text"] = "Select Window"
-        view.window_selection_button["state"] = tk.NORMAL
+            self._window_selected = False
 
     #image navigation functions
 
     def start_capture(self):
+        view = self._view
         tool = self._capture_tool
+        tool.start_capture()
 
-        tool.start()
+        view.capture_button["text"] = "Stop Capture"
+
+        self._capturing = True
 
     def stop_capture(self):
         tool = self._capture_tool
-
+        view = self._view
         #stop capture
-        tool.stop()
+        tool.stop_capture()
+
+        view.capture_button["text"] = "Start Capture"
+
+        self._capturing = False
 
     def next_frame(self):
         img = self._capture_tool.next_frame()

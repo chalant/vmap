@@ -4,6 +4,7 @@ from os import mkdir
 _ROOT = expanduser("~/.gmap")
 _IMAGES = "images"
 _TEMPLATES = 'templates'
+_VIDEOS = 'videos'
 
 def global_path(pth):
     return join(_ROOT, pth)
@@ -17,6 +18,9 @@ def templates():
 def images():
     return global_path(_IMAGES)
 
+def videos():
+    return global_path(_VIDEOS)
+
 try:
     mkdir(_ROOT)
 except FileExistsError:
@@ -29,5 +33,10 @@ except FileExistsError:
 
 try:
     mkdir(images())
+except FileExistsError:
+    pass
+
+try:
+    mkdir(videos())
 except FileExistsError:
     pass

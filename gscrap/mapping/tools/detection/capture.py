@@ -1,15 +1,13 @@
 from uuid import uuid4
 
-
 import imagehash
 
-from gscrap.image_capture import image_capture
 from gscrap.detection import models as mdl
 from gscrap.data.images import images as im
 
 from gscrap.data import engine
 
-class CaptureZone(image_capture.ImageHandler):
+class CaptureZone(object):
     def __init__(
             self,
             rid,
