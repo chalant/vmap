@@ -1,7 +1,7 @@
 from sqlalchemy import text
 
-from data.base import _Element
-from data.labels import _Label
+from gscrap.data.base import _Element
+from gscrap.data.labels import _Label
 
 ADD_PROJECT_TYPE = text(
     """

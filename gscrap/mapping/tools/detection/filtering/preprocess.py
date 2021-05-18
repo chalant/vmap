@@ -8,6 +8,7 @@ from gscrap.rectangles import rectangles as rct
 
 from gscrap.data.filters import filters
 
+
 class Rectangle(object):
     def __init__(self, rid, tid, rct_idx, txt_idx, bbox, filter_):
         self._rid = rid

@@ -70,7 +70,7 @@ class WindowSelected(State):
 
     def on_window_selection(self):
         self._manager.state = self._manager.initial
-        self._manager.window_selection_button["text"] = "Select Window"
+        self._manager.window_selection["text"] = "Select Window"
 
     def on_mapping(self):
         self._manager.mapping_state.on_mapping()
@@ -89,7 +89,7 @@ class WindowSelected(State):
 
     def update(self):
         self._manager.capture_button["state"] = "normal"
-        self._manager.window_selection_button["text"] = "Unbind Window"
+        self._manager.window_selection["text"] = "Unbind Window"
 
     def stop(self):
         pass
@@ -124,7 +124,7 @@ class Capturing(CaptureState):
 
     def update(self):
         self._manager.capture_button["text"] = "Stop Capture"
-        self._manager.window_selection_button["state"] = "normal"
+        self._manager.window_selection["state"] = "normal"
 
     def initialize(self, handlers):
         capture_tool = self._manager.capture_tool
@@ -158,7 +158,7 @@ class NotCapturing(CaptureState):
 
     def update(self):
         self._manager.capture_button["text"] = "Resume Capture"
-        self._manager.window_selection_button["state"] = "normal"
+        self._manager.window_selection["state"] = "normal"
 
     def initialize(self, handlers):
         capture_tool = self._manager.capture_tool

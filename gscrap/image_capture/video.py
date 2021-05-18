@@ -5,8 +5,9 @@ import cv2
 
 from gscrap.image_capture import image_capture as ic
 from gscrap.image_capture import utils as imu
+from gscrap.image_capture import image_filters as imf
 
-class ImageBuffer(object):
+class ThreadImageBuffer(object):
     def __init__(self, num_buffers=2):
         self._num_buffers = num_buffers
 
@@ -36,7 +37,7 @@ class VideoRecorder(ic.ImageHandler):
         super(VideoRecorder, self).__init__(xywh)
         self._path = path
 
-        self._image_buffer = im_bfr = ImageBuffer()
+        self._image_buffer = im_bfr = ThreadImageBuffer()
 
         self._frame_buffer = im_bfr.get_buffer()
 
@@ -103,4 +104,106 @@ class VideoRecorder(ic.ImageHandler):
         #put back the frame buffer
         image_buffer.put_buffer(frame_buffer)
 
+class VideoNavigator(object):
+    def __init__(self, video_reader):
+        """
 
+        Parameters
+        ----------
+        video_reader: VideoReader
+        trimmer:
+        """
+        self._video = None
+        self._reader = video_reader
+        self._indices = []
+
+        self._index = -1
+        self._max = 0
+
+        self._current_frame = None
+
+    def initialize(self, video_metadata):
+        if self._video:
+            self._video.release()
+
+        self._index = 0
+
+        self._video = video = cv2.VideoCapture(video_metadata.path)
+        self._metadata = video_metadata
+        self._indices.clear()
+
+        ret, frame = video.read()
+
+        self._current_frame = frame
+
+        if ret:
+            self._indices.append(0)
+
+        return ret, frame
+
+    def has_next(self):
+        return self._index < self._max
+
+    def has_prev(self):
+        return self._index > 0
+
+    def next_frame(self):
+        index = self._index
+        video = self._video
+        indices = self._indices
+
+        if index < self._max - 1:
+            index += 1
+            video.set(cv2.CAP_PROP_POS_FRAMES, indices[index])
+            ret, frame = video.read()
+        else:
+            ind, ret, frame = self._reader.next_frame(
+                video,
+                index,
+                self._current_frame)
+
+            if ind != indices[-1]:
+                video.set(cv2.CAP_PROP_POS_FRAMES, ind)
+                indices.append(ind) #add found index to indices
+                index += 1
+
+        self._index = index
+
+        return ret, frame
+
+    def previous_frame(self):
+        index = self._index
+
+        if index > 0:
+            index -= 1
+
+        video = self._video
+        video.set(cv2.CAP_PROP_POS_FRAMES, self._indices[index])
+
+        self._index = index
+
+        return video.read()
+
+    def reset(self):
+        index = 0
+
+        video = self._video
+        video.set(cv2.CAP_PROP_POS_FRAMES, self._indices[index])
+
+        self._index = index
+
+class VideoReader(object):
+    def __init__(self, filter_=None):
+        self._filter = filter_ if filter_ else imf.NullImageFilter()
+
+    def next_frame(self, video, index, prev_frame):
+        filter_ = self._filter
+        ind = index
+
+        ret, frame = video.read()
+
+        while not filter_.different(prev_frame, frame):
+            ind += 1
+            ret, frame = video.read()
+
+        return ind, ret, frame

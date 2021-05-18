@@ -3,9 +3,8 @@ import tkinter as tk
 from gscrap.data import engine
 from gscrap.data import io
 
-from gscrap.rectangles import utils as rectangle_utils
 from gscrap.mapping.tools.mapping import mapping_states as states
-from gscrap.rectangles import rectangles
+from gscrap.rectangles import rectangles, utils as rectangle_utils
 
 from gscrap.utils import generators
 

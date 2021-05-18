@@ -1,5 +1,6 @@
 from gscrap.data import builder
 
+
 def build():
     with builder.build() as bld:
         if bld:

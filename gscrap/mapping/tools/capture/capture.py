@@ -1,47 +1,78 @@
-from gscrap.image_capture import image_capture as ic
 from gscrap.image_capture import video as vd
 
 from gscrap.mapping.tools import tools
+from gscrap.mapping.tools.capture import recording
+from gscrap.mapping.tools.capture import navigation
+
 from gscrap.windows import windows
 
-class ImageReader(object):
-    pass
-
 class CaptureTool(tools.Tool):
-    def __init__(self, thread_pool):
-        self._looper = ic.CaptureLoop()
-        self._video_recorder = None
-        self._thread_pool = thread_pool
-        self._fps = 30
+    def __init__(
+            self,
+            main_view,
+            main_controller,
+            thread_pool):
 
-    def initialize(self, window):
-        pass
+        """
 
-    def initialize(self, path, window, fps=30, buffer_size=10):
-        #todo: frame per second are also bound to the project.
-        # project can have multiple footage.
+        Parameters
+        ----------
+        main_view: gscrap.mapping.view.MainView
+        main_controller: gscrap.mapping.controller.MappingController
+        thread_pool:
+        """
 
-        self._video_recorder = vd.VideoRecorder(
-            path,
-            window.xywh,
-            buffer_size
+        self._main_controller = main_controller
+
+        self._window_manager = wm = windows.WindowModel(400, 500)
+        self._window_controller = wc = windows.WindowController(wm)
+
+        self._container = container = main_view.right_frame
+
+        self._recorder = recorder = recording.RecordingController(
+            thread_pool,
+            container,
+            self._video_update
         )
 
-        self._fps = fps
+        #todo: set a video filter
+        self._navigator = navigator = navigation.NavigationController(
+            vd.VideoNavigator(vd.VideoReader()),
+            main_controller.template_update
+        )
 
-    def get_view(self):
-        return
+        wc.add_window(recorder)
+        wc.add_window(navigator)
+
+        def null_callback(event):
+            return
+
+        self._callback = null_callback
+
+    def bind_window(self, window):
+        self._recorder.set_window(window)
+
+    def _video_update(self, video_metadata):
+        self._navigator.set_video_metadata(video_metadata)
+
+        self._callback(video_metadata)
+
+    def on_video_update(self, callback):
+        self._callback = callback
+
+    def get_view(self, container):
+        return self._window_controller.start(container)
 
     def start_tool(self, project):
         pass
 
     def clear_tool(self):
+        #clear data
         pass
 
-    def start_capture(self):
-        self._looper.start(
-            self._video_recorder,
-            self._fps)
+    def unbind_window(self):
+        self._recorder.unbind_window()
 
-    def stop_capture(self):
-        self._looper.stop()
+    def stop(self):
+        #todo: stop recording loop
+        pass

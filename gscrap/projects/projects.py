@@ -5,9 +5,8 @@ from PIL import Image
 
 from sqlalchemy import text
 
-from gscrap.data import engine
+from gscrap.data import engine, paths
 from gscrap.data.rectangles import rectangles
-from gscrap.data import paths
 from gscrap.data import io
 from gscrap.data.images import videos
 

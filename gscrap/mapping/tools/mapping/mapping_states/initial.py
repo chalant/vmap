@@ -5,6 +5,7 @@ import tkinter as tk
 
 from gscrap.data import engine
 
+
 class Initial(object):
     def __init__(self, manager):
         '''

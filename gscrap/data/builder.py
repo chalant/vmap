@@ -1,8 +1,8 @@
 from itertools import chain
 
-from data import engine
-from data.project_types import _ProjectType
-from data.labels import _LabelType
+from gscrap.data import engine
+from gscrap.data.project_types import _ProjectType
+from gscrap.data.labels import _LabelType
 
 CLEAR_TABLE = '''
     DELETE FROM {};

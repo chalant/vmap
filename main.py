@@ -6,18 +6,19 @@ from gscrap.projects import projects as pj
 
 from gscrap.data import data
 
-data.build()
+data.build() #build data
 
-FONT = ("Mono", 11)
+# FONT = ("Mono", 11)
 
 class WindowManager(object):
     #manages all windows
     def __init__(self):
-        self._root = tk.Tk()
+        self._root = root = tk.Tk()
         # self._right_frame = tk.LabelFrame(self._root, width=500, height=500)
         # self._main_frame.pack()
-        self._root.title("GMAP")
-        self._container = container = tk.Frame(self._root)
+        root.title("GMAP")
+
+        self._container = container = tk.Frame(root)
 
         container.pack(fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
@@ -54,12 +55,13 @@ class MainWindow(object):
         manager: WindowManager
         """
 
-        root = self._manager.root
+
 
         self._manager = manager
 
+        root = manager.container
         self._projects = projects = pj.Projects()
-        self._mapping_controller = ctl.MappingController(root, projects)
+        self._mapping_controller = ctl.MappingController(projects, root)
 
     def _on_exit(self):
         self._manager.exit()

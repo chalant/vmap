@@ -3,6 +3,7 @@ import tkinter as tk
 from gscrap.data import engine
 from gscrap.projects import dialogs
 
+
 class Interface(object):
     def __init__(self, container, manager, projects):
         """
@@ -62,7 +63,7 @@ class Interface(object):
         self._new_project.start(self._initialize)
 
     def _initialize(self, project):
-        self._manager.initialize(project)
+        self._manager.bind_window(project)
 
         # self._input.set(project.name)
         # self._selection.set(project.project_type)
@@ -101,7 +102,8 @@ class MenuBar(object):
 
         self.menu_bar = menu = tk.Menu(root, tearoff=False)
 
-        root.config(menu=menu)
+        tp = root.winfo_toplevel()
+        tp.config(menu=menu)
 
         self.open_dialog = dialogs.OpenProject(menu, projects)
         self.new_dialog = dialogs.NewProject(menu, projects)

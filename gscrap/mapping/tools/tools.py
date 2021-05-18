@@ -1,10 +1,11 @@
 from abc import abstractmethod, ABC
 
 from tkinter import ttk
+import tkinter as tk
 
 class Tool(ABC):
     @abstractmethod
-    def get_view(self):
+    def get_view(sel, container):
         raise NotImplementedError
 
     @abstractmethod
@@ -18,11 +19,13 @@ class Tool(ABC):
 
 class ToolsView(object):
     def __init__(self, container, controller):
-        self.tabs = tabs = ttk.Notebook(container)
+        self.frame = frame = tk.Frame(container)
+        self.tabs = tabs = ttk.Notebook(frame)
 
         tabs.bind("<<NotebookTabChanged>>", controller.on_tab_selected)
+        tabs.pack(expand=1, fill=tk.BOTH)
 
-        tabs.pack(expand=1, fill="both")
+        frame.pack(expand=1, fill=tk.BOTH)
 
 class ToolsController(object):
     def __init__(self, container):
@@ -35,8 +38,15 @@ class ToolsController(object):
         self._project = None
 
     def add_tool(self, tool, name):
-        self._view.tabs.add(tool.get_view(), text=name)
+        view = self._view
+        frame = tool.get_view(view.tabs)
+
+        view.tabs.add(frame, text=name)
+
         self._tools[name] = tool
+
+        root = view.tabs.winfo_toplevel()
+        root.wm_minsize(800, frame.winfo_height())
 
     def set_project(self, project):
         self._project = project
@@ -57,8 +67,8 @@ class ToolsController(object):
         tools = self._tools
 
         #clear any loaded data (samples etc.) and mouse bindings etc.
-        if ct:
-            tools[ct].clear()
+        if ct != None:
+            tools[ct].clear_tool()
 
         self._current_tool = name
 

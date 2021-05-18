@@ -1,6 +1,7 @@
 from abc import abstractmethod, ABC
 
-from models import rectangle_labels as rl
+from gscrap.data import rectangle_labels as rl
+
 
 class RectangleFactory(ABC):
     @abstractmethod

@@ -42,40 +42,58 @@ class LoadRecordView(object):
 class RecordingView(object):
     def __init__(self, controller):
         self.record_button = None
-        self.stop_record = None
 
         self._controller = controller
 
     def render(self, container):
         frame = tk.Frame(container)
 
-        menu = tk.Frame(frame)
+        bar = tk.Frame(frame)
 
         controller = self._controller
 
-        self.new_button = tk.Menubutton(
-            menu,
-            text="New",
-            state=tk.DISABLED,
-            command=controller.on_new
-        )
+        self.file_mb = file_mb = tk.Menubutton(bar, text="File")
 
-        self.open_button = tk.Menubutton(
-            menu,
-            text="Open",
-            state=tk.DISABLED,
-            command = controller.on_open
-        )
+        self.file_menu = file_menu = tk.Menu(file_mb, tearoff=0)
 
-        self.record_button = tk.Button(
+        file_menu.add_command(label="New", command=controller.on_new)
+        file_menu.add_command(label="Open", command=controller.on_load)
+
+        file_menu.entryconfig("New", state=tk.DISABLED)
+        file_menu.entryconfig("Open", state=tk.DISABLED)
+
+        file_mb.config(menu=file_menu)
+
+        # self.new_button = tk.Menubutton(
+        #     bar,
+        #     text="New",
+        #     state=tk.DISABLED,
+        #     command=controller.on_new
+        # )
+        #
+        # self.open_button = tk.Menubutton(
+        #     bar,
+        #     text="Open",
+        #     state=tk.DISABLED,
+        #     command = controller.on_open
+        # )
+
+        self.record_button = rb = tk.Button(
             frame,
-            text="Start",
+            text="Record",
             state=tk.DISABLED,
             command=controller.on_record
         )
 
+        frame.pack(expand=1, fill=tk.X)
+        bar.pack(side=tk.TOP, fill=tk.X, expand=1)
+        file_mb.pack(side=tk.LEFT)
+        rb.pack()
+
+        return frame
+
 class RecordingController(object):
-    def __init__(self, thread_pool, container):
+    def __init__(self, thread_pool, container, callback=None):
         self._container = container
 
         self._view = RecordingView(self)
@@ -101,6 +119,11 @@ class RecordingController(object):
         self._meta = None
 
         self._record_observers = []
+
+        def null_callback(event):
+            pass
+
+        self._callback = callback if callback else null_callback
 
     def view(self):
         return self._view
@@ -138,14 +161,14 @@ class RecordingController(object):
         self._window = window
 
         if self._project:
-            view.new_button["state"] = tk.NORMAL
-            view.open_button["state"] = tk.NORMAL
+            view.file_menu.entryconfig("New", state=tk.NORMAL)
+            view.file_menu.entryconfig("Open", state=tk.NORMAL)
 
     def unbind_window(self):
         view = self._view
 
-        view.new_button["state"] = tk.DISABLED
-        view.open_button["state"] = tk.DISABLED
+        view.file_menu.entryconfig("New", state=tk.DISABLED)
+        view.file_menu.entryconfig("Open", state=tk.DISABLED)
 
     def on_new_confirm(self, video_params):
         view = self._view
@@ -170,8 +193,7 @@ class RecordingController(object):
             meta.submit(connection)
 
         #notify observers that there is a new record
-        for obs in self._record_observers:
-            obs.record_update(meta)
+        self._callback(meta)
 
     def on_new_abort(self):
         view = self._view
@@ -180,8 +202,7 @@ class RecordingController(object):
 
     def on_load_confirm(self, video_meta):
         # notify observers that we opened a new record
-        for obs in self._record_observers:
-            obs.record_update(video_meta)
+        self._callback(video_meta)
 
     def on_load_abort(self):
         pass

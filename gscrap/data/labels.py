@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
-from data.base import _Element
+from gscrap.data.base import _Element
 
 ADD_LABEL_TYPE = text(
     """

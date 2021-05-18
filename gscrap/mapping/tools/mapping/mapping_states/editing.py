@@ -2,6 +2,7 @@ import tkinter as tk
 
 from gscrap.rectangles import rectangles
 
+
 class Editing(object):
     # todo: should be able to resize the cz
     def __init__(self, manager):

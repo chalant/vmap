@@ -1,8 +1,6 @@
-from concurrent import futures
-
 from gscrap.rectangles import rectangles as rt
 
-from gscrap.data import engine, rectangle_labels as rl
+from gscrap.data import rectangle_labels as rl, engine
 
 from gscrap.mapping.tools.detection import sampling, samples, capture
 from gscrap.mapping.tools.detection.filtering import filtering
@@ -11,8 +9,9 @@ from gscrap.windows import windows
 
 from gscrap.mapping.tools import tools
 
-class DetectionTools(tools.Tool):
-    def __init__(self, capture_tool, main_view):
+
+class DetectionTool(tools.Tool):
+    def __init__(self, capture_tool, main_view, thread_pool):
         """
 
         Parameters
@@ -21,16 +20,14 @@ class DetectionTools(tools.Tool):
         main_view: gscrap.mapping.view.MainView
         """
 
-        self.name = "Detection"
+        #todo: add video navigation for capture zone:
+        # need filters etc.
 
         self._capture_tool = capture_tool
         self._canvas = main_view.canvas
-        self._container = container = main_view.right_frame
 
         self._window_manager = wm = windows.WindowModel(400, 500)
         self._windows_controller = wc = windows.WindowController(wm)
-
-        self._view = wc.start(container)
 
         self._filtering_model = fm = filtering.FilteringModel()
         self._filtering = flt = filtering.FilteringController(fm)
@@ -57,9 +54,9 @@ class DetectionTools(tools.Tool):
 
         # spl.add_images_observer(sc)
 
-        wm.add_window(sc)
-        wm.add_window(spl)
-        wm.add_window(flt)
+        wc.add_window(sc)
+        wc.add_window(spl)
+        wc.add_window(flt)
 
         self._instances = {}
 
@@ -71,7 +68,7 @@ class DetectionTools(tools.Tool):
 
         self._project = None
 
-        self._thread_pool = futures.ThreadPoolExecutor(10)
+        self._thread_pool = thread_pool
 
         self._drawn_instance = None
 
@@ -82,8 +79,8 @@ class DetectionTools(tools.Tool):
         self._height = 0
         self._width = 0
 
-    def get_view(self):
-        return self._view
+    def get_view(self, container):
+        return self._windows_controller.start(container)
 
     def start_tool(self, project):
         """
@@ -96,6 +93,8 @@ class DetectionTools(tools.Tool):
         -------
         None
         """
+
+        print("Loading Data!")
 
         canvas = self._canvas
 
@@ -195,3 +194,9 @@ class DetectionTools(tools.Tool):
             elif rid != drawn_instance:
                 self._drawn_instance = rid
                 self._sampling.set_capture_zone(rct)
+
+    def set_video_metadata(self, video_meta):
+        self._video_meta = video_meta
+
+    def stop(self):
+        pass

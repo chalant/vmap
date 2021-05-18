@@ -469,6 +469,7 @@ class FilteringView(object):
 
         self.add_button = add = tk.Menubutton(menu, text="Add")
         self._file_mb = file_mb = tk.Menubutton(menu, text="File")
+
         self.file_menu = file_menu = tk.Menu(file_mb, tearoff=0)
 
         self._filter_menu = fm = tk.Menu(add, tearoff=0)

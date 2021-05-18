@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
-from gscrap.data import images
+from gscrap.data.images import images
 from gscrap.data import engine
 
 _SELECT_RECTANGLES = text(

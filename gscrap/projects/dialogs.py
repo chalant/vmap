@@ -2,6 +2,7 @@ import tkinter as tk
 
 from gscrap.data import engine
 
+
 class NewProject(object):
     # todo: add Cancel Button
     def __init__(self, container, projects):
