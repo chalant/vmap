@@ -120,3 +120,15 @@ class MenuBar(object):
         with engine.connect() as connection:
             if list(projects.get_project_names(connection)):
                 file_menu.entryconfig("Open", state=tk.ACTIVE)
+
+    def disable_menu(self):
+        fm = self.file_menu
+
+        fm.entryconfig("Open", state=tk.DISABLED)
+        fm.entryconfig("New", state=tk.DISABLED)
+
+    def enable_menu(self):
+        fm = self.file_menu
+
+        fm.entryconfig("Open", state=tk.NORMAL)
+        fm.entryconfig("New", state=tk.NORMAL)

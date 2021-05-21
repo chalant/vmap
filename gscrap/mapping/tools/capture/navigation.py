@@ -5,21 +5,25 @@ import cv2
 from PIL import Image, ImageTk
 
 class NavigationView(object):
-    def __init__(self, controller):
-        self._controller = controller
-
+    def __init__(self, width, height):
         self.next_frame = None
         self.previous_frame = None
 
         self.thumbnail = None
         self.canvas = None
 
+        self.width = width
+        self.height = height
+
     def render(self, container):
         frame = tk.Frame(container)
 
         controller = self._controller
 
-        self.canvas = canvas = tk.Canvas(frame, width=160, height=90)
+        self.canvas = canvas = tk.Canvas(
+            frame,
+            width=self.width,
+            height=self.height)
 
         commands = tk.Frame(frame)
 
@@ -48,6 +52,9 @@ class NavigationView(object):
 
         return frame
 
+    def set_controller(self, controller):
+        self._controller = controller
+
 class NavigationController(object):
     def __init__(self, video_navigator, callback=None):
         """
@@ -58,7 +65,7 @@ class NavigationController(object):
         callback: function
         """
 
-        self._view = NavigationView(self)
+        self._view = None
 
         def null_callback(img):
             pass
@@ -69,7 +76,7 @@ class NavigationController(object):
         self._video = None
 
         self._current_frame = None
-        self.thumbnail = ImageTk.PhotoImage(Image.new('RGB', (160, 90)))
+        self.thumbnail = None
 
         self._video_navigator = video_navigator
 
@@ -97,7 +104,14 @@ class NavigationController(object):
 
         self._video_navigator.reset()
 
-        self._thumbnail.paste(Image.new('RGB', (160, 90)))
+        self.thumbnail.paste(Image.new('RGB', (view.width, view.height)))
+
+    def set_view(self, view):
+        self._view = view
+        self.thumbnail = ImageTk.PhotoImage(
+            Image.new('RGB', (view.width, view.height)))
+
+        view.set_controller(self)
 
     def set_video_metadata(self, video_meta):
         view = self._view
@@ -105,11 +119,11 @@ class NavigationController(object):
         # create thumbnail
         ret, frame = self._video_navigator.initialize(video_meta)
 
-        thumbnail = self._thumbnail
+        thumbnail = self.thumbnail
 
 
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        image.thumbnail((160, 90))
+        image.thumbnail((view.width, view.height))
 
         if ret:
             thumbnail.paste(image)

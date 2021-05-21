@@ -154,11 +154,20 @@ class RecordingController(object):
 
     def set_project(self, project):
         self._project = project
+        view = self._view
+
+        # todo: open is only active is we have videos saved...
+
+        if self._window:
+            view.file_menu.entryconfig("New", state=tk.NORMAL)
+            view.file_menu.entryconfig("Open", state=tk.NORMAL)
 
     def set_window(self, window):
         view = self._view
 
         self._window = window
+
+        #todo: open is only active is we have videos saved...
 
         if self._project:
             view.file_menu.entryconfig("New", state=tk.NORMAL)

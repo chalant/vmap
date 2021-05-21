@@ -4,14 +4,12 @@ from gscrap.data import rectangle_labels as rl, engine
 
 from gscrap.mapping.tools.detection import sampling, samples, capture
 from gscrap.mapping.tools.detection.filtering import filtering
+from gscrap.mapping.tools import tools
 
 from gscrap.windows import windows
 
-from gscrap.mapping.tools import tools
-
-
 class DetectionTool(tools.Tool):
-    def __init__(self, capture_tool, main_view, thread_pool):
+    def __init__(self, main_view, thread_pool):
         """
 
         Parameters
@@ -23,7 +21,6 @@ class DetectionTool(tools.Tool):
         #todo: add video navigation for capture zone:
         # need filters etc.
 
-        self._capture_tool = capture_tool
         self._canvas = main_view.canvas
 
         self._window_manager = wm = windows.WindowModel(400, 500)
@@ -94,8 +91,6 @@ class DetectionTool(tools.Tool):
         None
         """
 
-        print("Loading Data!")
-
         canvas = self._canvas
 
         self._height = project.height
@@ -108,7 +103,9 @@ class DetectionTool(tools.Tool):
         pool = self._thread_pool
         hashes = self._hashes
 
-        capture_tool = self._capture_tool
+        #todo: set capture tool!!!
+
+        capture_tool = None
 
         #todo: set detection model
         # note: depending on where we load the rectangles, we can set caching on rectangles
@@ -149,6 +146,7 @@ class DetectionTool(tools.Tool):
 
         instances.clear()
         canvas.unbind("<Motion>")
+        canvas.unbind("<Button-1>")
 
     def get_capture_zones(self):
         return self._instances.values()
@@ -196,7 +194,8 @@ class DetectionTool(tools.Tool):
                 self._sampling.set_capture_zone(rct)
 
     def set_video_metadata(self, video_meta):
-        self._video_meta = video_meta
+        #todo: we can now navigate through videos...
+        self._navigator.set_video_metadata(video_meta)
 
     def stop(self):
         pass

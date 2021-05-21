@@ -26,6 +26,8 @@ class MappingTool(rectangle_utils.RectangleFactory):
         self._width = 0
         self._aborted = False
 
+        self._photo_image = None
+
         self.initial = states.Initial(self)
         self.editing = states.Editing(self)
         self.cloning = states.Cloning(self)
@@ -207,6 +209,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
         root.bind("<Configure>", self._on_drag)
         root.protocol("WM_DELETE_WINDOW", self._on_close)
+
         canv.bind("<Button-1>", self._on_left_click)
         canv.bind("<Button-3>", self._on_right_click)
         canv.bind("<Motion>", self._on_motion)
@@ -214,7 +217,8 @@ class MappingTool(rectangle_utils.RectangleFactory):
         image = self._photo_image
 
         self._img_item = canv.create_image(0, 0, image=image, anchor=tk.NW)
-        canv.config(width=image.width, height=image.height)
+
+        canv.config(width=image.width(), height=image.height())
 
         self._width = image.width()
         self._height = image.height()
@@ -276,7 +280,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
     def _on_motion(self, event):
         self._state.on_motion(event)
 
-    def _on_close(self, callback):
+    def _on_close(self):
         self._root.destroy()
         self._root = None
         self._canvas = None
@@ -303,7 +307,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
         self._all_instances.clear()
 
         self._state = self.initial
-        self.project.update()
+
         self._close_callback(None)
 
     def _on_drag(self, event):

@@ -12,6 +12,9 @@ from gscrap.detection import models as mdl
 from gscrap.data import engine
 from gscrap.data.images import images
 
+from gscrap.mapping.tools.capture import navigation
+from gscrap.image_capture import video as vd
+
 _GET_IMAGE = text(
     """
     SELECT *
@@ -150,6 +153,8 @@ class SamplingView(object):
 
         self.label_instance = None
 
+        self.navigation_view = navigation.NavigationView(80, 80)
+
 
     def capture_zone_update(self, connection, capture_zone):
         """
@@ -177,7 +182,10 @@ class SamplingView(object):
         self._frame = frame = tk.Frame(container)
 
         self._canvas_frame = cf = tk.Frame(frame)
+
         self.canvas = cv = tk.Canvas(cf, width=80, height=80, bg="white")
+
+        nav = self.navigation_view.render(cf)
 
         self._label_frame = lf = tk.Frame(frame)
         self._label_type = lt = tk.Label(lf, text="Type")
@@ -214,7 +222,7 @@ class SamplingView(object):
         self._menu_button = mb = tk.Menubutton(lf, text="Commands")
         self.menu = menu = tk.Menu(mb, tearoff=0)
 
-        menu.add_command(label="Update", command=controller.update)
+        # menu.add_command(label="Update", command=controller.update)
         menu.add_command(label="Save", command=controller.save)
         menu.add_command(label="Detect", command=controller.detect)
         # self.update_button = ub = tk.Button(cmd, text="Update", command=controller.update)  # update thumbnail
@@ -223,13 +231,15 @@ class SamplingView(object):
 
         menu.entryconfig("Save", state=tk.DISABLED)
         menu.entryconfig("Detect", state=tk.DISABLED)
-        menu.entryconfig("Update", state=tk.DISABLED)
+        # menu.entryconfig("Update", state=tk.DISABLED)
 
 
         frame.grid(row=0, column=0)
         cf.grid(row=1, column=0)
 
-        cv.grid(row=0, column=0)
+        # cv.grid(row=0, column=0)
+        nav.grid(row=0, column=0)
+
         lf.grid(row=1, column=1, sticky=tk.NW)
         cmd.grid(row=0, column=0, sticky=tk.NW)
 
@@ -299,8 +309,7 @@ class SamplingController(object):
 
         self._model = model
         self._filtering_model = filtering_model
-        self._sampling_view = SamplingView(self, model)
-
+        self._sampling_view = view = SamplingView(self, model)
 
         self._image = None
 
@@ -322,6 +331,12 @@ class SamplingController(object):
         self._samples = None
         self._detection = False
 
+        self._navigator = navigator = navigation.NavigationController(
+            vd.VideoNavigator(vd.VideoReader()),
+        )
+
+        navigator.set_view(view.navigation_view)
+
     def view(self):
         return self._sampling_view
 
@@ -331,6 +346,9 @@ class SamplingController(object):
     def update(self):
         self._image = image = self._capture_zone.capture()
         self._sampling_view.update_thumbnail(image)
+
+    def _frame_update(self, image):
+        pass
 
     def close(self):
         self._sampling_view.close()
@@ -421,7 +439,7 @@ class SamplingController(object):
 
         self._thumbnail_set = True
 
-        sv.menu.entryconfig("Update", state=tk.ACTIVE)
+        # sv.menu.entryconfig("Update", state=tk.ACTIVE)
 
         view.label_type_options["state"] = tk.ACTIVE
 
@@ -476,6 +494,9 @@ class SamplingController(object):
 
     def images_update(self, images):
         self._image_source.set_images(images)
+
+    def set_video_metadata(self, video_meta):
+        self._navigator.set_video_metadata(video_meta)
 
     def add_samples_observer(self, observer):
         self._samples_observers.append(observer)

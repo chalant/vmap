@@ -72,6 +72,9 @@ class WindowView(object):
 
     def add_window(self, window):
         view = window.view()
+        if view == None:
+            raise ValueError("View not set!")
+
         canvas = self._canvas
 
         h = self._height

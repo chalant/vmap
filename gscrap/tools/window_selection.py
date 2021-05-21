@@ -47,17 +47,19 @@ def to_bbox(x, y, w, h):
 
 
 class WindowSelectionEvent(object):
-    __slots__ = ('bbox', 'window_id')
+    __slots__ = ('xywh', 'window_id', 'width', 'height')
 
-    def __init__(self, bbox, win_id):
-        self.bbox = bbox
+    def __init__(self, xywh, win_id):
+        self.xywh = xywh
         self.window_id = win_id
+
+        x, y , w, h  = xywh
+
+        self.width = w
+        self.height = h
 
 
 class WindowSelector(object):
-    # todo: the window selector should be decoupled from a particular view and controller
-    # => window selector should have observers
-    # specify width or height to resize on selection
     def __init__(self, container):
         """
 
@@ -88,7 +90,7 @@ class WindowSelector(object):
             self._on_error_callback = on_error
 
         container.grab_set_global()
-
+        container["cursor"] = "target"
         container.bind('<Button-1>', self._on_click)
         container.bind('<Button-3>', self._on_abort)
 
@@ -99,8 +101,13 @@ class WindowSelector(object):
         #     view.window_selection_button["text"] = "Select Window"
 
     def resize_window(self, win_id, width, height):
-        self._xdo.set_window_size(win_id, width, height)
-        libxdo.xdo_wait_for_window_size(self._xdo._xdo, win_id, width, height, 0, 0)
+        width = int(width)
+        height = int(height)
+
+        xdo_ = self._xdo
+        xdo_.set_window_size(win_id, width, height)
+
+        libxdo.xdo_wait_for_window_size(xdo_._xdo, win_id, width, height, 0, 0)
 
     # def update(self):
     #     self._view.capture_button["state"] = "disabled"
@@ -126,12 +133,15 @@ class WindowSelector(object):
             dsp = Xlib.display.Display()
             root = dsp.screen().root
 
-            x, y, w, h = get_absolute_geometry(root, get_active_window(dsp, root))
-
             self._on_selected_callback(WindowSelectionEvent(
-                to_bbox(x, y, w, h),
+                get_absolute_geometry(root, get_active_window(dsp, root)),
                 win_id))
         except:
             container.grab_release()
             self._on_error_callback()
+
+        container["cursor"] = "arrow"
+
+        container.unbind("<Button-1>")
+        container.unbind("<Button-3>")
         # self._manager.display(self._p)

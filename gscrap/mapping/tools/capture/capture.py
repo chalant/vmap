@@ -41,6 +41,9 @@ class CaptureTool(tools.Tool):
             main_controller.template_update
         )
 
+        nv = navigation.NavigationView(160, 90)
+        navigator.set_view(nv)
+
         wc.add_window(recorder)
         wc.add_window(navigator)
 
@@ -64,7 +67,7 @@ class CaptureTool(tools.Tool):
         return self._window_controller.start(container)
 
     def start_tool(self, project):
-        pass
+        self._recorder.set_project(project)
 
     def clear_tool(self):
         #clear data

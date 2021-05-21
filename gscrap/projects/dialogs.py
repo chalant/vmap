@@ -21,7 +21,8 @@ class NewProject(object):
         self._project_name = None
         self._project_type = None
 
-    def start(self):
+    def start(self, callback):
+        self._callback = callback
         self._root = root = tk.Toplevel(self._container)
 
         # root.update()
@@ -95,9 +96,9 @@ class NewProject(object):
         self._root.destroy()
 
     def _on_done(self):
-        self._projects.create_project(
+        self._callback(self._projects.create_project(
             self._project_name.get(),
-            self._project_type.get())
+            self._project_type.get()))
         self._close()
 
     def _on_cancel(self):
@@ -119,7 +120,8 @@ class OpenProject(object):
         self._project_name = None
         self._callback = None
 
-    def start(self):
+    def start(self, callback):
+        self._callback = callback
         self._root = root = tk.Toplevel(self._container)
 
         root.attributes('-topmost', 'true')
@@ -180,7 +182,7 @@ class OpenProject(object):
     def _on_done(self):
         selection = self._project_name.get()
         if selection:
-            self._projects.open_project(selection)
+            self._callback(self._projects.open_project(selection))
         self._on_close()
 
     def _on_close(self):

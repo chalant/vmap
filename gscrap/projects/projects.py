@@ -1,3 +1,4 @@
+import os
 from os import path
 from functools import partial
 
@@ -8,7 +9,8 @@ from sqlalchemy import text
 from gscrap.data import engine, paths
 from gscrap.data.rectangles import rectangles
 from gscrap.data import io
-from gscrap.data.images import videos
+from gscrap.data.images import videos as vds
+from gscrap.data.images import images as img
 
 _GET_LEAF_PROJECT_TYPES = text(
     """
@@ -113,10 +115,6 @@ class Project(object):
 
         self._update = False
 
-        self._labels = {}
-
-        self._rectangles = rectangles.Rectangles(self)
-
         self._template_path = path.join(paths.templates(), name)
 
         def null_callback(data):
@@ -124,10 +122,6 @@ class Project(object):
 
         self._update_callback = null_callback
         self._template_callback = null_callback
-
-    @property
-    def rectangles(self):
-        return self._rectangles
 
     @property
     def name(self):
@@ -183,10 +177,10 @@ class Project(object):
             parent = connection.execute(_GET_PROJECT_TYPE, project_type=parent).fetchone()["parent_project_type"]
 
     def get_rectangles(self, connection):
-        return self._rectangles.get_rectangles(connection, self.name)
+        return rectangles.get_rectangles(connection, self.name)
 
     def create_rectangle(self, width, height):
-        return self._rectangles.create_rectangle(width, height, self.name)
+        return rectangles.create_rectangle(width, height, self.name)
 
     def get_label_types(self, connection):
         for row in connection.execute(_GET_LABEL_TYPES):
@@ -211,7 +205,7 @@ class Project(object):
             yield element
 
     def get_video_metadata(self, connection):
-        return videos.get_metadata(connection, self.name)
+        return vds.get_metadata(connection, self.name)
 
     def get_label_components(self, connection, label_id):
         pass
@@ -225,38 +219,45 @@ class Project(object):
             height=self.height)
 
     def delete(self, connection):
+
+        name = self.name
+
         connection.execute(
             _DELETE_PROJECT,
-            project_name=self.name)
+            project_name=name)
+
+        #delete all elements related to the project
+        vds.delete_for_project(connection, name)
+        img.delete_for_project(connection, name)
+        rectangles.delete_for_project(connection, name)
+
+        io.execute(self._delete_template)
+
+    def _delete_template(self):
+        tp = self._template_path
+
+        if path.exists(tp):
+            os.remove(tp)
 
     def store_template(self, image):
         io.execute(partial(self._store_template, image=image))
 
-    def load_template(self, callback):
-        io.execute(partial(self._load_image, callback=callback))
+    def load_template(self, callback, on_error):
+        io.execute(partial(self._load_image, callback=callback, on_error=on_error))
 
     def template_update(self, callback):
         self._template_callback = callback
 
-    def _load_image(self, callback):
+    def _load_image(self, callback, on_error):
         try:
             # with open(self._template_path) as f:
             callback(Image.open(self._template_path, formats=("PNG",)))
-        except FileNotFoundError:
-            pass
+        except FileNotFoundError as e:
+            on_error(e)
 
     def _store_template(self, image):
         image.save(self._template_path, "PNG")
         self._template_callback(image)
-
-    def clear(self):
-        self._labels.clear()
-
-    def on_update(self, callback):
-        self._update_callback = callback
-
-    def update(self):
-        self._update_callback(self)
 
     def add_image(self, connection, image_id, label_instance_id, r_instance_id, hash_key, position):
         connection.execute(
@@ -270,13 +271,8 @@ class Project(object):
         )
 
 class Projects(object):
-    def __init__(self):
-        self._observers = []
-
     def create_project(self, name, type_):
-        project = Project(name, type_)
-        for obs in self._observers:
-            obs.project_update(project)
+        return Project(name, type_)
 
     def open_project(self, project_name):
         with engine.connect() as con:
@@ -294,6 +290,3 @@ class Projects(object):
     def get_project_types(self, connection):
         for row in connection.execute(_GET_LEAF_PROJECT_TYPES):
             yield row["project_type"]
-
-    def add_observer(self, observer):
-        self._observers.append(observer)

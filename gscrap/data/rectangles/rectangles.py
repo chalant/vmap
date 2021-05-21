@@ -201,18 +201,18 @@ class RectangleInstance(object):
         return components
 
     def delete(self, connection):
+        id_ = self._id
+
         connection.execute(
             _DELETE_RECTANGLE_INSTANCE,
-            r_instance_id=self._id
+            r_instance_id=id_
         )
 
         # remove components
         connection.execute(
             _DELETE_RECTANGLE_COMPONENT,
-            r_instance_id=self._id
+            r_instance_id=id_
         )
-
-        self._rectangle.delete(connection)
 
     def create_instance(self, x, y):
         return self._rectangle.create_instance(x, y)
@@ -239,8 +239,7 @@ class Rectangle(object):
         '_id',
         '_project_name',
         '_width',
-        '_height',
-        '_num_instances',
+        '_height'
     ]
 
     def __init__(self, id_, project_name, width, height):
@@ -249,8 +248,6 @@ class Rectangle(object):
 
         self._width = width
         self._height = height
-
-        self._num_instances = 0
 
     @property
     def project_name(self):
@@ -296,17 +293,16 @@ class Rectangle(object):
                 container_id)
 
     def create_instance(self, x, y, container=None):
-        self._num_instances += 1
         return RectangleInstance(uuid4().hex, self, x, y, container)
 
     def delete(self, connection):
-        self._num_instances -= 1
+        connection.execute(
+            _DELETE_RECTANGLE,
+            rectangle_id=self._id)
 
-        #delete cz if there is no more instance
-        if self._num_instances == 0:
-            connection.execute(
-                _DELETE_RECTANGLE,
-                rectangle_id=self._id)
+        #deletes instances and components
+        for instance in self.get_instances(connection):
+            instance.delete(connection)
 
     def get_images(self, connection):
         rectangle = self
@@ -351,19 +347,19 @@ class Rectangle(object):
     def __eq__(self, other):
         return other.id == self._id
 
-class Rectangles(object):
-    def __init__(self, project):
-        super(Rectangles, self).__init__()
+def get_rectangles(connection, project_name):
+    for row in connection.execute(_SELECT_RECTANGLES, project_name=project_name):
+        yield Rectangle(
+            row["rectangle_id"],
+            row["project_name"],
+            row["width"],
+            row["height"])
 
-        self.project = project
+def create_rectangle(width, height, project_name):
+    return Rectangle(uuid4().hex, project_name, width, height)
 
-    def create_rectangle(self, w, h, project_name):
-        return Rectangle(uuid4().hex, project_name, w, h)
-
-    def get_rectangles(self, connection, project_name):
-        for row in connection.execute(_SELECT_RECTANGLES, project_name=project_name):
-            yield Rectangle(
-                row["rectangle_id"],
-                row["project_name"],
-                row["width"],
-                row["height"])
+def delete_for_project(connection, project_name):
+    #delete all rectangles associated with the project
+    # this will delete all the rectangle dependencies
+    for rectangle in get_rectangles(connection, project_name):
+        rectangle.delete(connection)

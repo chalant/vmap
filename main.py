@@ -6,6 +6,8 @@ from gscrap.projects import projects as pj
 
 from gscrap.data import data
 
+from gscrap.tools import window_selection as ws
+
 data.build() #build data
 
 # FONT = ("Mono", 11)
@@ -61,7 +63,10 @@ class MainWindow(object):
 
         root = manager.container
         self._projects = projects = pj.Projects()
-        self._mapping_controller = ctl.MappingController(projects, root)
+        self._mapping_controller = ctl.MappingController(
+            projects,
+            root,
+            ws.WindowSelector(manager.root))
 
     def _on_exit(self):
         self._manager.exit()

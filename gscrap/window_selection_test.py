@@ -16,7 +16,8 @@ def select_window():
 
 def on_selected(event):
     win_id = event.window_id
-    selector.resize_window(win_id, 400, 400)
+    print(event.width, event.height, win_id)
+    selector.resize_window(win_id, 1024, 600)
 
 def on_abort():
     print("Aborted!!!")

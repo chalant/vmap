@@ -26,6 +26,13 @@ _DELETE_VIDEO_META = text(
     """
 )
 
+_DELETE_ALL_PROJECT_VIDEOS = text(
+"""
+    DELETE FROM videos
+    WHERE project_name=:project_name
+    """
+)
+
 class VideoMetadata(object):
     __slots__ = ('fps', 'project_name', 'video_id', '_path', 'codec', 'extension')
 
@@ -58,10 +65,11 @@ class VideoMetadata(object):
             fps=self.fps
         )
 
-    def delete(self, connection):
+    def delete(self, connection, project_name):
         connection.execute(
             _DELETE_VIDEO_META,
-            video_id=self.video_id
+            video_id=self.video_id,
+            project_name=project_name
         )
 
         try:
@@ -78,3 +86,9 @@ def get_metadata(connection, project_name):
             res['fps'],
             res['codec'],
             res['extension'])
+
+def delete_for_project(connection, project_name):
+    connection.execute(
+        _DELETE_VIDEO_META,
+        project_name=project_name
+    )

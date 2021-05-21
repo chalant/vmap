@@ -30,6 +30,13 @@ _DELETE_IMAGE_METADATA = text(
     """
 )
 
+_DELETE_ALL_PROJECT_IMAGES = text(
+    """
+    DELETE FROM images
+    WHERE project_name=:project_name
+    """
+)
+
 class ImageMetadata(object):
     __slots__ = ['_id', '_project_name', '_rectangle', '_hash_key', '_position', '_label', '_image']
 
@@ -112,3 +119,9 @@ class ImageMetadata(object):
             os.remove(self.path)
         except FileNotFoundError:
             pass
+
+def delete_for_project(connection, project_name):
+    connection.execute(
+        _DELETE_ALL_PROJECT_IMAGES,
+        project_name=project_name
+    )

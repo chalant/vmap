@@ -2,7 +2,7 @@ import tkinter as tk
 
 from concurrent import futures
 
-from gscrap.tools import window_selection as ws
+from PIL import ImageTk
 
 import gscrap.mapping.view as vw
 
@@ -13,15 +13,11 @@ from gscrap.mapping.tools import tools
 
 import gscrap.mapping.menu as mn
 
-
-
 class MappingController(object):
-    def __init__(self, projects, root):
+    def __init__(self, projects, root, window_selector):
         self._thread_pool = pool = futures.ThreadPoolExecutor(10)
 
         self._view = mv = vw.MainView(root, self)
-
-        projects.add_observer(self) #register to projects
 
         mv.mapping_button["state"] = tk.DISABLED
 
@@ -32,13 +28,13 @@ class MappingController(object):
         self._menu_controller = mn.MenuBarController(menu, projects)
 
         # main states
-        self._window_selector = ws.WindowSelector(root)
+        self._window_selector = window_selector
 
         self._window_selected = False
         self._mapping_active = False
 
         self._tools = tls = tools.ToolsController(mv.right_frame)
-        self._detection_tool = dtc = detection.DetectionTool(self, mv, pool)
+        self._detection_tool = dtc = detection.DetectionTool(mv, pool)
         self._capture_tool = cpt = capture.CaptureTool(mv, self, pool)
 
         tls.add_tool(dtc, "Detection")
@@ -53,50 +49,69 @@ class MappingController(object):
         self._template = None
 
     def on_mapping(self):
-        menu = self._menu
         view = self._view
+        menu = self._menu
 
-        def on_close():
+        def on_close(event):
             # called when mapping tool closes
             self._mapping_active = False
 
             # enable menu bar
-            self._menu.menu_bar["state"] = tk.NORMAL
             self._view.mapping_button["state"] = tk.NORMAL
+            menu.enable_menu()
 
-            #todo: load capture zones
+            #todo: reload capture zones (tools -> reload)
 
         if not self._mapping_active:
-            menu.menu_bar["state"] = tk.DISABLED
+            view.window_selection["state"] = tk.DISABLED
             view.mapping_button["state"] = tk.DISABLED
+
+            menu.disable_menu()
+
 
             self._mapping_tool.start(on_close)
             self._mapping_active = True
 
     def project_update(self, project):
+        """
+
+        Parameters
+        ----------
+        project: gscrap.projects.Project
+
+        Returns
+        -------
+
+        """
         view = self._view
         mapping_tool = self._mapping_tool
 
         def template_load(image):
             #callback for when a template is loaded
+
             view.mapping_button["state"] = tk.NORMAL
 
-            self._template = template = tk.PhotoImage(image)
+            self._template = template = ImageTk.PhotoImage(image)
 
             view.display(template)
 
-            self._detection_tool.start_tool(project)
-
+            # self._detection_tool.start_tool(project)
+            self._tools.set_project(project)
             #initialize mapping tool
             mapping_tool.set_template(template)
             mapping_tool.set_project(project)
 
             view.window_selection["state"] = tk.NORMAL
 
+        def on_error(error):
+            pass
+
         if project.width: #project has a template
             view.mapping_button["state"] = tk.NORMAL
             #load template image
-            project.load_template(template_load)
+            project.load_template(template_load, on_error)
+
+        self._current_project = project
 
 
     def template_update(self, image):
@@ -118,15 +133,14 @@ class MappingController(object):
         #  (save it, or create a dialog box to confirm save?)
         #  also, if we're capturing and/or mapping, we need to save and stop everything
 
-        self._menu.new_dialog.start()
+        self._menu.new_dialog.start(self.project_update)
 
     def open_project(self):
         # todo:
         #  if there is already an existing project, we need to close it properly
         #  (save it, or create a dialog box to confirm save?)
         #  also, if we're capturing and/or mapping, we need to save and stop everything
-
-        self._menu.open_dialog.start()
+        self._menu.open_dialog.start(self.project_update)
 
     def window_selection(self):
         #todo: activate image capture tool...
@@ -134,13 +148,14 @@ class MappingController(object):
         view = self._view
         window_selector = self._window_selector
         capture_tool = self._capture_tool
+        detection_tool = self._detection_tool
 
         def on_error():
             pass
 
         def on_abort():
             self._window_selected = False
-            view.container["cursor"] = "arrow"
+            # view.container["cursor"] = "arrow"
 
         def on_selected(event):
             self._window_selected = True
@@ -166,7 +181,7 @@ class MappingController(object):
             #initialize capture tool
             capture_tool.bind_window(event)
 
-            view.container["cursor"] = "arrow"
+            # view.container["cursor"] = "arrow"
 
             # view.capture_button["state"] = tk.NORMAL
             # view.capture_button["text"] = "Start Capture"
@@ -176,7 +191,7 @@ class MappingController(object):
             view.mapping_button["state"] = tk.NORMAL
 
         if not self._window_selected:
-            view.container["cursor"] = "target"
+            # view.container["cursor"] = "target"
 
             window_selector.start_selection(
                 on_selected,
