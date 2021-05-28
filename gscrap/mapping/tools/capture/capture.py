@@ -1,8 +1,7 @@
-from gscrap.image_capture import video as vd
+from gscrap.image_capture import video_recorder as vd
 
-from gscrap.mapping.tools import tools
+from gscrap.mapping.tools import tools, navigation
 from gscrap.mapping.tools.capture import recording
-from gscrap.mapping.tools.capture import navigation
 
 from gscrap.windows import windows
 
@@ -37,7 +36,6 @@ class CaptureTool(tools.Tool):
 
         #todo: set a video filter
         self._navigator = navigator = navigation.NavigationController(
-            vd.VideoNavigator(vd.VideoReader()),
             main_controller.template_update
         )
 

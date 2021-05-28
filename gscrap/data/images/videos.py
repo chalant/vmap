@@ -14,8 +14,8 @@ _GET_VIDEOS_META = text(
 
 _ADD_VIDEO_META = text(
     """
-    INSERT OR REPLACE INTO videos(video_id, project_name, fps)
-    VALUES (:video_id, :project_name, :fps)
+    INSERT OR REPLACE INTO videos(video_id, project_name, fps, byte_size)
+    VALUES (:video_id, :project_name, :fps, byte_size)
     """
 )
 
@@ -34,35 +34,37 @@ _DELETE_ALL_PROJECT_VIDEOS = text(
 )
 
 class VideoMetadata(object):
-    __slots__ = ('fps', 'project_name', 'video_id', '_path', 'codec', 'extension')
+    __slots__ = ('fps', 'project_name', 'video_id', '_path', 'byte_size', 'mode')
 
     def __init__(
             self,
             project_name,
             video_id,
             fps,
-            codec="XVID",
-            extension=".avi"):
+            byte_size,
+            mode="RGB"):
 
         self.project_name = project_name
         self.video_id = video_id
         self.fps = fps
-        self.codec = codec
+        self.byte_size = byte_size
+        self.mode = mode
 
         self._path = os.path.join(
             paths.videos(),
-            self.video_id + '.' + extension)
+            self.video_id)
 
     @property
     def path(self):
         return self._path
 
     def submit(self, connection):
-        connection.submit(
+        connection.execute(
             _ADD_VIDEO_META,
             project_name=self.project_name,
             video_id=self.video_id,
-            fps=self.fps
+            fps=self.fps,
+            byte_size=self.byte_size
         )
 
     def delete(self, connection, project_name):
@@ -84,8 +86,7 @@ def get_metadata(connection, project_name):
             project_name,
             res['video_id'],
             res['fps'],
-            res['codec'],
-            res['extension'])
+            res['byte_size'])
 
 def delete_for_project(connection, project_name):
     connection.execute(

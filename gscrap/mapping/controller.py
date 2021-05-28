@@ -58,6 +58,8 @@ class MappingController(object):
 
             # enable menu bar
             self._view.mapping_button["state"] = tk.NORMAL
+            self._view.window_selection["state"] = tk.NORMAL
+
             menu.enable_menu()
 
             #todo: reload capture zones (tools -> reload)
@@ -68,9 +70,10 @@ class MappingController(object):
 
             menu.disable_menu()
 
-
             self._mapping_tool.start(on_close)
+
             self._mapping_active = True
+
 
     def project_update(self, project):
         """

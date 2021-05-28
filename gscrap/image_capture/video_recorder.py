@@ -3,9 +3,11 @@ import threading
 
 import cv2
 
-from gscrap.image_capture import image_capture as ic
+from gscrap.image_capture import capture_loop as ic
 from gscrap.image_capture import utils as imu
-from gscrap.image_capture import image_filters as imf
+from gscrap.image_capture import image_comparators as imf
+from gscrap.image_capture import video_writer as vw
+from gscrap.image_capture import video_reader as vr
 
 class ThreadImageBuffer(object):
     def __init__(self, num_buffers=2):
@@ -33,13 +35,27 @@ class ThreadImageBuffer(object):
             self._queue.appendleft(buffer)
 
 class VideoRecorder(ic.ImageHandler):
-    def __init__(self, path, xywh, thread_pool, buffer_size=1):
+    def __init__(self, video_meta, xywh, thread_pool, buffer_size=1):
+        """
+
+        Parameters
+        ----------
+        video_meta: gscrap.data.images.videos.VideoMetadata
+        xywh
+        thread_pool
+        buffer_size
+        """
         super(VideoRecorder, self).__init__(xywh)
-        self._path = path
+
+        self._path = video_meta.path
+
+        self._meta = video_meta
 
         self._image_buffer = im_bfr = ThreadImageBuffer()
 
         self._frame_buffer = im_bfr.get_buffer()
+
+        self._frame_size = video_meta.byte_size
 
         self._buffer_size = buffer_size
         self._thread_pool = thread_pool
@@ -49,19 +65,24 @@ class VideoRecorder(ic.ImageHandler):
         self._writer = None
         self._dimensions = None
 
+        self._lock = threading.Lock()
+
     def capture_initialize(self, data):
-        self._frame_size = data.frame_byte_size / 1000
+        # xywh = self.xywh
+        #
+        # self._dimensions = (xywh[2], xywh[3])
 
-        xywh = self.xywh
-        self._dimensions = dimensions = (xywh[2], xywh[3])
+        self._writer = writer = vw.VideoWriter(self._meta)
 
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        writer.open()
 
-        self._writer = cv2.VideoWriter(
-            self._path + ".avi",
-            fourcc,
-            data.fps,
-            (dimensions))
+        # fourcc = cv2.VideoWriter_fourcc(*self._codec)
+        #
+        # self._writer = cv2.VideoWriter(
+        #     self._path,
+        #     fourcc,
+        #     data.fps,
+        #     (dimensions))
 
     def process_image(self, image):
         frame_buffer = self._frame_buffer
@@ -78,7 +99,9 @@ class VideoRecorder(ic.ImageHandler):
         #write to file each time we exceed the threshold
         if cbs >= self._buffer_size:
             #submit a copy of the frame buffer
-            self._thread_pool.submit(self._write_to_file, frame_buffer, image_buffer)
+            # self._thread_pool.submit(self._write_to_file, frame_buffer, image_buffer)
+
+            self._write_to_file(frame_buffer, image_buffer)
 
             #get a new frame buffer
             self._frame_buffer = image_buffer.get_buffer()
@@ -90,6 +113,8 @@ class VideoRecorder(ic.ImageHandler):
         self._thread_pool.submit(frame_buffer, self._image_buffer)
         frame_buffer.clear()
 
+        self._writer.close()
+
 
     def _write_to_file(self, frame_buffer, image_buffer):
         to_np_arr = imu.bytes_to_numpy_array
@@ -97,24 +122,23 @@ class VideoRecorder(ic.ImageHandler):
 
         writer = self._writer
 
-        for frame in frame_buffer:
-            to_np_arr(frame, dims)
-            writer.write(frame)
+        with self._lock:
+            for frame in frame_buffer:
+                writer.write(to_np_arr(frame, dims))
 
         #put back the frame buffer
         image_buffer.put_buffer(frame_buffer)
 
 class VideoNavigator(object):
-    def __init__(self, video_reader):
+    def __init__(self, comparator=None):
         """
 
         Parameters
         ----------
-        video_reader: VideoReader
-        trimmer:
+        comparator: gscrap.image_capture.image_comparators.ImageComparator
         """
         self._video = None
-        self._reader = video_reader
+        self._comparator = comparator if comparator else imf.NullImageComparator()
         self._indices = []
 
         self._index = -1
@@ -123,16 +147,19 @@ class VideoNavigator(object):
         self._current_frame = None
 
     def initialize(self, video_metadata):
-        if self._video:
-            self._video.release()
+        # if self._video:
+        #     self._video.release()
 
         self._index = 0
 
-        self._video = video = cv2.VideoCapture(video_metadata.path)
+        self._video = video = vr.FrameSeeker(video_metadata)
+
+        # self._video = video = cv2.VideoCapture(video_metadata.path)
         self._metadata = video_metadata
         self._indices.clear()
 
-        ret, frame = video.read()
+        #todo
+        frame = video.read(self._index)
 
         self._current_frame = frame
 
@@ -140,6 +167,10 @@ class VideoNavigator(object):
             self._indices.append(0)
 
         return ret, frame
+
+    @property
+    def current_frame(self):
+        return self._current_frame
 
     def has_next(self):
         return self._index < self._max
@@ -157,10 +188,12 @@ class VideoNavigator(object):
             video.set(cv2.CAP_PROP_POS_FRAMES, indices[index])
             ret, frame = video.read()
         else:
-            ind, ret, frame = self._reader.next_frame(
+            ind, ret, frame = self._next_frame(
                 video,
                 index,
-                self._current_frame)
+                self._current_frame,
+                self._comparator
+            )
 
             if ind != indices[-1]:
                 video.set(cv2.CAP_PROP_POS_FRAMES, ind)
@@ -170,6 +203,17 @@ class VideoNavigator(object):
         self._index = index
 
         return ret, frame
+
+    def _next_frame(self, video, index, prev_frame, comparator):
+        ind = index
+
+        ret, frame = video.read()
+
+        while not comparator.different_image(prev_frame, frame):
+            ind += 1
+            ret, frame = video.read()
+
+        return ind, ret, frame
 
     def previous_frame(self):
         index = self._index
@@ -192,18 +236,5 @@ class VideoNavigator(object):
 
         self._index = index
 
-class VideoReader(object):
-    def __init__(self, filter_=None):
-        self._filter = filter_ if filter_ else imf.NullImageFilter()
-
-    def next_frame(self, video, index, prev_frame):
-        filter_ = self._filter
-        ind = index
-
-        ret, frame = video.read()
-
-        while not filter_.different(prev_frame, frame):
-            ind += 1
-            ret, frame = video.read()
-
-        return ind, ret, frame
+    def set_comparator(self, comparator):
+        self._comparator = comparator

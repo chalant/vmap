@@ -6,6 +6,8 @@ import time
 
 from Xlib import display, X
 
+from gscrap.data.images import videos as vd
+
 def snapshot(rt, xywh):
     w = xywh[2]
     h = xywh[3]
@@ -28,7 +30,7 @@ def capture(ltwh):
 class InitialData(object):
     def __init__(self, frame_byte_size, fps):
         self.fps = fps if fps else 30
-        self.frame_size = frame_byte_size
+        self.frame_byte_size = frame_byte_size
 
 class CaptureLoop(object):
     def __init__(self):
@@ -80,9 +82,11 @@ class CaptureLoop(object):
         handler.capture_initialize(
             InitialData(len(snapshot(dsp, handler.xywh)), fps))
 
+        self._handler = handler
+
         if fps:
             def start_capped():
-                self._start_capped(dsp, 1 / fps)
+                self._start_capped(dsp, 1/fps)
 
             thread = threading.Thread(target=start_capped)
         else:
@@ -108,7 +112,7 @@ class CaptureLoop(object):
             #         dsp,
             #         tuple(map(operator.add, handler.ltwh, shift))))
 
-            handler.process_image(snapshot(display, handler.ltwh))
+            handler.process_image(snapshot(display, handler.xywh))
 
             # fps =  1 / (time.time() - t0)
             # print(fps)
@@ -122,7 +126,7 @@ class CaptureLoop(object):
         while not self._stop:
             t0 = time.time()
 
-            handler.process_image(snapshot(display, handler.ltwh))
+            handler.process_image(snapshot(display, handler.xywh))
 
             sleep = target + t0 - time.time()
 
@@ -130,8 +134,8 @@ class CaptureLoop(object):
                 sleep = 0
             self._stop_evt.wait(sleep)
 
-            # fps =  1 / (time.time() - t0)
-            # print(fps)
+            fps =  1 / (time.time() - t0)
+            print(fps)
 
     # def initialize(self, image):
     #     e1 = self._left
@@ -149,6 +153,7 @@ class CaptureLoop(object):
     def stop(self):
         self._stop = True
         self._stop_evt.set()
+        self._handler.capture_stop()
 
 class ImageHandler(ABC):
     def __init__(self, xywh):

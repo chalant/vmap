@@ -2,7 +2,8 @@ from gscrap.rectangles import rectangles as rt
 
 from gscrap.data import rectangle_labels as rl, engine
 
-from gscrap.mapping.tools.detection import sampling, samples, capture
+from gscrap.mapping.tools.detection import samples, capture
+from gscrap.mapping.tools.detection.sampling import sampling as sp
 from gscrap.mapping.tools.detection.filtering import filtering
 from gscrap.mapping.tools import tools
 
@@ -32,7 +33,7 @@ class DetectionTool(tools.Tool):
         self._samples_model = spm = samples.SamplesModel()
         self._samples = spl = samples.SamplesController(spm)
 
-        self._sampling = sc = sampling.SamplingController(spm, fm)
+        self._sampling = sc = sp.SamplingController(spm, fm)
 
         fm.add_filter_observer(spl)
         fm.add_filter_observer(sc)
@@ -194,8 +195,7 @@ class DetectionTool(tools.Tool):
                 self._sampling.set_capture_zone(rct)
 
     def set_video_metadata(self, video_meta):
-        #todo: we can now navigate through videos...
-        self._navigator.set_video_metadata(video_meta)
+        self._sampling.set_video_metadata(video_meta)
 
     def stop(self):
         pass

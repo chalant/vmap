@@ -2,9 +2,9 @@ import tkinter as tk
 
 from PIL import ImageTk
 
-from gscrap.image_capture import image_capture
+from gscrap.image_capture import capture_loop
 
-class Display(image_capture.ImageHandler):
+class Display(capture_loop.ImageHandler):
     def __init__(self, canvas, rectangle):
         super(Display, self).__init__(rectangle)
         self._editor = canvas
@@ -30,7 +30,7 @@ class Display(image_capture.ImageHandler):
             self._flag = True
         self._photo_image.paste(image)
 
-class DisplayFactory(image_capture.ImageHandlerFactory):
+class DisplayFactory(capture_loop.ImageHandlerFactory):
     def __init__(self, canvas):
         super(DisplayFactory, self).__init__()
         self._canvas = canvas

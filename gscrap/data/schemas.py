@@ -131,6 +131,6 @@ def build_schema(meta):
         Column("video_id", String, primary_key=True),
         Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
         Column("fps", Integer, nullable=False),
-        Column("codec", String, nullable=False),
-        Column("extension", String, nullable=False)
+        Column("byte_size", Integer, nullable=False),
+        Column("mode", String, nullable=False),
     )

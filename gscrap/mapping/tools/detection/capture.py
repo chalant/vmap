@@ -7,7 +7,6 @@ from gscrap.data.images import images as im
 
 from gscrap.data import engine
 
-
 class CaptureZone(object):
     def __init__(
             self,

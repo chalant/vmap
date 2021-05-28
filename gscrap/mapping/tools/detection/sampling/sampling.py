@@ -8,12 +8,15 @@ from tkinter import ttk
 from PIL import ImageTk, Image
 import numpy as np
 
+from gscrap.image_capture import image_comparators as ic
+
 from gscrap.detection import models as mdl
 from gscrap.data import engine
 from gscrap.data.images import images
 
-from gscrap.mapping.tools.capture import navigation
-from gscrap.image_capture import video as vd
+from gscrap.mapping.tools import navigation
+
+from gscrap.mapping.tools.detection.sampling import label_comparator as lc
 
 _GET_IMAGE = text(
     """
@@ -23,6 +26,10 @@ _GET_IMAGE = text(
     ORDER BY position ASC
     """
 )
+
+def crop_image(bbox, image):
+    x0, y0, x1, y1 = bbox
+    return image[y0:y1, x0:x1, :]
 
 class Samples(object):
     def __init__(self, capture_zone, label):
@@ -144,7 +151,6 @@ class SamplingView(object):
         self._label_frame = None
         self._label = None
         self._label_options = None
-        self.canvas = None
 
         self._commands = None
         self.update_button = None
@@ -182,8 +188,6 @@ class SamplingView(object):
         self._frame = frame = tk.Frame(container)
 
         self._canvas_frame = cf = tk.Frame(frame)
-
-        self.canvas = cv = tk.Canvas(cf, width=80, height=80, bg="white")
 
         nav = self.navigation_view.render(cf)
 
@@ -272,26 +276,15 @@ class SamplingView(object):
 
         return frame
 
-    def filter_update(self, filters):
-        # todo: apply filter on image
-        pass
-
     def update_thumbnail(self, img):
         self._thumbnail.paste(img)
 
+    def delete_thumbnail(self, tid):
+        self.navigation_view.canvas.delete(tid)
+
     def create_thumbnail(self, image):
         self._thumbnail = tn = ImageTk.PhotoImage(image)
-        controller = self._controller
-
-        controller.set_image(image)
-        canvas = self.canvas
-
-        return canvas.create_image(
-            canvas.winfo_width() / 2,
-            canvas.winfo_height() / 2,
-            anchor=tk.CENTER,
-            image=tn)
-
+        return self.navigation_view.set_thumbnail(tn)
 
     def close(self):
         self._frame.destroy()
@@ -309,6 +302,7 @@ class SamplingController(object):
 
         self._model = model
         self._filtering_model = filtering_model
+
         self._sampling_view = view = SamplingView(self, model)
 
         self._image = None
@@ -329,26 +323,37 @@ class SamplingController(object):
         self._image_source = ImageSource(filtering_model)
 
         self._samples = None
-        self._detection = False
 
-        self._navigator = navigator = navigation.NavigationController(
-            vd.VideoNavigator(vd.VideoReader()),
-        )
+        self._navigator = navigator = navigation.NavigationController(self._frame_update)
 
         navigator.set_view(view.navigation_view)
+
+        #detectors
+
+        self._dm_detector = dmd = mdl.DifferenceMatching(self._image_source)
+        self._tesseract = trt = mdl.Tesseract()
+
+        #comparators
+        #todo: maybe use factory pattern for building comparators
+
+        #keep these these references so that we can update the det
+        dlc = lc.DifferentLabel(dmd)
+        ulc = lc.UnknownLabel(trt)
+
+        #keep a reference to this so that we can change the threshold
+        self._ms_comparator = msc = ic.MeanSquaredError()
+
+        self._dlc = ic.Cropper(ic.Branching(msc, dlc))
+        self._ulc = ic.Cropper(ic.Branching(msc, ulc))
+
 
     def view(self):
         return self._sampling_view
 
-    def set_image(self, image):
-        self._image = image
-
-    def update(self):
-        self._image = image = self._capture_zone.capture()
-        self._sampling_view.update_thumbnail(image)
-
     def _frame_update(self, image):
-        pass
+        self._sampling_view.update_thumbnail(
+            self._apply_filters(
+                self._filtering_model, image))
 
     def close(self):
         self._sampling_view.close()
@@ -374,27 +379,41 @@ class SamplingController(object):
 
         view = self._sampling_view
         label_type = self._label_type
+        capture_zone = self._capture_zone
 
         self._label_class = label_class = view.label_class.get()
 
         with engine.connect() as connection:
             view.label_instance_options['values'] = tuple([
                 instance['instance_name'] for instance in
-                self._capture_zone.get_label_instances(
+                capture_zone.get_label_instances(
                     connection,
                     label_type,
                     label_class)])
 
         view.label_instance_options["state"] = tk.ACTIVE
 
+        #todo: do nothing if this raises a stopiteration error
         samples = next((l for l in self._labels[label_type] if l.label_name == label_class))
 
+        navigator = self._navigator
+
+        #update navigator and detection
+
         if samples.classifiable:
+            comparator = self._dlc
             view.menu.entryconfig("Save", state=tk.ACTIVE)
-            samples.set_detection(mdl.DifferenceMatching(self._image_source))
+            samples.set_detection(self._dm_detector)
         else:
+            comparator = self._ulc
+            #can't save an unclassifiable element
             view.menu.entryconfig("Save", state=tk.DISABLED)
-            samples.set_detection(mdl.Tesseract())
+            samples.set_detection(self._tesseract)
+
+        navigator.set_image_comparator(comparator)
+        comparator.set_bbox(capture_zone.bbox)
+
+        navigator.restart()
 
         view.menu.entryconfig("Detect", state=tk.ACTIVE)
 
@@ -415,7 +434,7 @@ class SamplingController(object):
         self._label = label
 
     def detect(self):
-        detected = self._samples.detect(self._filtering_model.filter_image(np.asarray(self._image)))
+        detected = self._samples.detect(self._filtering_model.filter_image(self._image))
 
         self._sampling_view.label_instance.set(detected)
 
@@ -425,17 +444,15 @@ class SamplingController(object):
     def disable_filters(self):
         self._filtering_model.disable_filtering()
 
-    def create_thumbnail(self, view, capture_zone):
-        sv = self._sampling_view
+    def create_thumbnail(self, view, capture_zone, frame):
         cz = self._capture_zone
         item = self._item
 
         if item and cz:
-            view.canvas.delete(item)
+            view.delete_thumbnail(item)
 
-        self._capture_zone = capture_zone
-        self._image = image = capture_zone.capture()
-        self._item = sv.create_thumbnail(image)
+        self._image = image = crop_image(capture_zone.bbox, frame)
+        self._item = view.create_thumbnail(Image.fromarray(image))
 
         self._thumbnail_set = True
 
@@ -447,6 +464,7 @@ class SamplingController(object):
         #     sv.menu.entryconfig("Save", state=tk.ACTIVE)
 
     def set_capture_zone(self, capture_zone):
+
         with engine.connect() as connection:
             sv = self._sampling_view
 
@@ -465,8 +483,12 @@ class SamplingController(object):
             sv.label_type_options["values"] = tuple(labels.keys())
 
             # sv.capture_zone_update(connection, capture_zone)
+            frame = self._navigator.current_frame
 
-            self.create_thumbnail(sv, capture_zone)
+            if frame:
+                self.create_thumbnail(sv, capture_zone, frame)
+
+            self._capture_zone = capture_zone
 
     def filters_update(self, filters):
         """
@@ -479,18 +501,16 @@ class SamplingController(object):
         -------
 
         """
-        view = self._sampling_view
         image = self._image
 
         if image:
-            if filters.filters_enabled:
-                # if not self._filters_on:
-                view.update_thumbnail(Image.fromarray(filters.filter_image(np.asarray(image))))
-                self._filters_on = True
-            else:
-                if self._filters_on:
-                    view.update_thumbnail(image)
-                    self._filters_on = False
+            self._sampling_view.update_thumbnail(
+                self._apply_filters(filters, image))
+
+    def _apply_filters(self, filters, image):
+        if filters.filters_enabled:
+            return Image.fromarray(filters.filter_image(image))
+        return Image.fromarray(image)
 
     def images_update(self, images):
         self._image_source.set_images(images)

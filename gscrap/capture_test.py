@@ -1,4 +1,4 @@
-from image_capture import image_capture as ic
+from image_capture import capture_loop as ic
 from Xlib import display, X
 import time
 
