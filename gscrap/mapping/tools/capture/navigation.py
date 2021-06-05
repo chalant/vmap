@@ -42,6 +42,12 @@ class CaptureNavigationController(object):
 
         self.thumbnail_image = image
 
+    def disable_read(self):
+        self._navigator.disable_read()
+
+    def enable_read(self):
+        self._navigator.enable_read()
+
     def view(self):
         return self._view
 

@@ -5,21 +5,25 @@ _ROOT = expanduser("~/.gmap")
 _IMAGES = "images"
 _TEMPLATES = 'templates'
 _VIDEOS = 'videos'
+_TMP = 'tmp'
 
-def global_path(pth):
+def absolute_path(pth):
     return join(_ROOT, pth)
 
 def root():
     return _ROOT
 
 def templates():
-    return global_path(_TEMPLATES)
+    return absolute_path(_TEMPLATES)
 
 def images():
-    return global_path(_IMAGES)
+    return absolute_path(_IMAGES)
 
 def videos():
-    return global_path(_VIDEOS)
+    return absolute_path(_VIDEOS)
+
+def tmp():
+    return absolute_path(_TMP)
 
 try:
     mkdir(_ROOT)
@@ -38,5 +42,10 @@ except FileExistsError:
 
 try:
     mkdir(videos())
+except FileExistsError:
+    pass
+
+try:
+    mkdir(tmp())
 except FileExistsError:
     pass

@@ -6,7 +6,7 @@ import time
 
 from Xlib import display, X
 
-from gscrap.data.images import videos as vd
+#todo: abstract capture tool so that depending on os...
 
 def snapshot(rt, xywh):
     w = xywh[2]

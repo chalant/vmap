@@ -1,12 +1,8 @@
-from uuid import uuid4
+from datetime import datetime, timedelta
 
 import tkinter as tk
 
-from gscrap.image_capture import capture_loop as ic
 from gscrap.image_capture import video_recorder as vd
-
-from gscrap.data.images import videos as vds
-from gscrap.data import engine
 
 _BUFFER_SIZE = 10 #10 mb
 
@@ -14,48 +10,23 @@ class VideoParams(object):
     def __init__(self, fps):
         self.fps = fps
 
-class NewRecordView(object):
-    def __init__(self, on_confirm):
-        self.fps_label = None
-        self.fps_input = None
-        self.fps = 30
+class VariableLabel(object):
+    def __init__(self, container, name, row, value):
+        self.frame = frame = container
+        self.var = var = tk.StringVar(frame, value=value)
+        self.var_container = vc = tk.Label(frame, textvariable=var, width=15)
+        self.label = label = tk.Label(frame, text=name)
 
-        self._on_confirm = on_confirm
+        vc.grid(column=0, row=row)
+        label.grid(column=1, row=row)
 
-    def render(self, container):
-        frame = tk.Frame(container)
-        options = tk.Frame(container)
-        buttons = tk.Frame(container)
-
-        option_list = (60,)
-
-        self.fps = fps = tk.IntVar(options, value=30)
-
-        self.fps_label = fps_label = tk.Label(options, text="FPS")
-        self.fps_input = fps_input = tk.OptionMenu(options, fps, *option_list)
-
-        self.confirm = confirm = tk.Button(
-            buttons,
-            text="Confirm",
-            command=self._set_params)
-
-        options.pack(fill=tk.BOTH, side=tk.TOP)
-        buttons.pack(fill=tk.BOTH, side=tk.TOP)
-
-        fps_label.grid(row=0, column=0)
-        fps_input.grid(row=0, column=1)
-        confirm.pack()
         frame.pack()
 
-    def _set_params(self):
-        self._on_confirm(VideoParams(self.fps.get()))
+    def set(self, value):
+        self.var.set(value)
 
-class LoadRecordView(object):
-    def __init__(self, on_confirm):
-        self._on_confirm = on_confirm
-
-    def render(self, container):
-        pass
+    def get(self):
+        return self.var.get()
 
 class RecordingView(object):
     def __init__(self, controller):
@@ -66,23 +37,10 @@ class RecordingView(object):
         self.frame = None
 
     def render(self, container):
-        self.frame = frame = tk.Frame(container)
+        self.frame = frame = tk.LabelFrame(container, text="Recorder")
 
-        bar = tk.Frame(frame)
 
         controller = self._controller
-
-        self.file_mb = file_mb = tk.Menubutton(bar, text="File")
-
-        self.file_menu = file_menu = tk.Menu(file_mb, tearoff=0)
-
-        file_menu.add_command(label="New", command=controller.on_new)
-        file_menu.add_command(label="Open", command=controller.on_load)
-
-        file_menu.entryconfig("New", state=tk.DISABLED)
-        file_menu.entryconfig("Open", state=tk.DISABLED)
-
-        file_mb.config(menu=file_menu)
 
         # self.new_button = tk.Menubutton(
         #     bar,
@@ -98,53 +56,73 @@ class RecordingView(object):
         #     command = controller.on_open
         # )
 
+        self.record_frame = rf = tk.Frame(frame)
+
         self.record_button = rb = tk.Button(
-            frame,
+            rf,
             text="Record",
             state=tk.DISABLED,
-            command=controller.on_record
-        )
+            command=controller.on_record,
+            width=5)
 
         frame.pack(expand=1, fill=tk.X)
-        bar.pack(side=tk.TOP, fill=tk.X, expand=1)
-        file_mb.pack(side=tk.LEFT)
+
         rb.pack()
+        rf.pack(side=tk.LEFT)
+
+        self.info_frame = info = tk.Frame(frame)
+
+        self.frames = VariableLabel(info, "Frames", 0, 0.0)
+        self.fps = VariableLabel(info, "FPS", 1, 0.0)
+        self.size = VariableLabel(info, "Size", 2, "0KB")
+        self.time = VariableLabel(info, "Time", 3, "00:00:00.00")
+
+        info.pack()
 
         return frame
 
 class RecordingController(object):
-    def __init__(self, thread_pool, container, callback=None):
-        self._container = container
-
+    def __init__(self, recording_callback=None):
         self._view = RecordingView(self)
 
-        self._top_level = None
-        self._new_view = NewRecordView(self.on_new_confirm)
-        self._load_view = LoadRecordView(self.on_load_confirm)
+        self._readers = []
 
-        self._looper = ic.CaptureLoop()
+        self._top_level = None
 
         self._recording = False
 
-        self._window_set = False
-
-        self._project = None
         self._window = None
 
         self._vid_params = None
 
-        self._thread_pool = thread_pool
-
-        self._recorder = None
+        self._recorder = vd.RecordingProcess(self._recording_update)
 
         self._meta = None
-
-        self._record_observers = []
 
         def null_callback(event):
             pass
 
-        self._callback = callback if callback else null_callback
+        self._callback = recording_callback if recording_callback else null_callback
+
+        self._frames = 0
+        self._size = 0
+        self._time = datetime.strptime("00:00:00.00","%H:%M:%S.%f")
+
+    def _recording_update(self, data):
+        view = self._view
+
+        view.frames.set(self._frames + data["frames"])
+        view.fps.set(data["fps"])
+        view.size.set("{}{}".format(self._size + data["size"], "KB"))
+        dt = data["time"]
+
+        t = self._time + timedelta(
+            hours=dt.hour,
+            minutes=dt.minute,
+            seconds=dt.second,
+            microseconds=dt.microsecond)
+
+        view.time.set(t.strftime("%H:%M:%S.%f")[:11])
 
     def view(self):
         return self._view
@@ -152,151 +130,52 @@ class RecordingController(object):
     def on_record(self):
         recording = self._recording
         view = self._view
-        looper = self._looper
+        window = self._window
+
+        recorder = self._recorder
 
         if not recording:
             view.record_button["text"] = "Pause"
-            looper.start(self._recorder, self._meta.fps)
+            # looper.start(self._recorder, self._meta.fps)
+            recorder.start_recording(
+                self._meta,
+                window.xywh[0],
+                window.xywh[1])
+
             self._recording = True
         else:
+            view = self._view
+
+            self._frames = int(view.frames.get())
+            self._size = int(view.size.get()[:4])
+            self._time = datetime.strptime(view.time.get(), "%H:%M:%S.%f")
+
             view.record_button["text"] = "Resume"
-            looper.stop()
+            # looper.stop()
+
+            #disable read
+            for reader in self._readers:
+                reader.disable_read()
+
+            recorder.stop_recording()
+
+            for reader in self._readers:
+                reader.enable_read(self._meta)
+
             self._recording = False
 
-    def on_new(self):
+    def add_reader(self, reader):
+        self._readers.append(reader)
 
-        def on_abort():
-            self._new_abort()
-            window.grab_release()
-            window.destroy()
-
-        self._top_level = window = tk.Toplevel(self._view.frame)
-
-        window.grab_set()
-
-        window.title("New Record")
-        window.geometry("294x150")
-
-        window.resizable(False, False)
-
-        window.wm_attributes("-topmost", 1)
-        window.protocol("WM_DELETE_WINDOW", on_abort)
-
-        def alarm(event):
-            window.focus_force()
-            window.bell()
-
-        window.bind("<FocusOut>", alarm)
-
-        self._new_view.render(window)
-
-    def on_load(self):
-
-        def on_abort():
-            self._load_abort()
-            window.destroy()
-            window.grab_release()
-
-        self._top_level = window = tk.Toplevel(self._view.frame)
-
-        window.grab_set()
-
-        window.title("Load Record")
-        window.geometry("294x150")
-
-        window.resizable(False, False)
-        window.wm_attributes("-topmost", 1)
-
-        window.protocol("WM_DELETE_WINDOW", on_abort)
-
-        def alarm(event):
-            window.focus_force()
-            window.bell()
-
-        window.bind("<FocusOut>", alarm)
-
-        self._load_view.render(window)
-
-    def _has_videos(self, project):
-        with engine.connect() as connection:
-            try:
-                next(project.get_video_metadata(connection))
-                return True
-            except StopIteration:
-                return False
-
-    def set_project(self, project):
-        self._project = project
-        view = self._view
-
-        if self._window:
-            view.file_menu.entryconfig("New", state=tk.NORMAL)
-
-            if self._has_videos(project):
-                view.file_menu.entryconfig("Open", state=tk.NORMAL)
-
-    def set_window(self, window):
-        view = self._view
-
+    def set_record_info(self, video_metadata, window):
+        self._meta = video_metadata
+        self._view.record_button["state"] = tk.NORMAL
         self._window = window
-        project = self._project
-
-        if project:
-            view.file_menu.entryconfig("New", state=tk.NORMAL)
-
-            if self._has_videos(project):
-                view.file_menu.entryconfig("Open", state=tk.NORMAL)
 
     def unbind_window(self):
-        view = self._view
-
+        self._view.record_button["state"] = tk.DISABLED
+        self._recorder.stop_recording()
         self._window = None
 
-        view.file_menu.entryconfig("New", state=tk.DISABLED)
-        view.file_menu.entryconfig("Open", state=tk.DISABLED)
-
-    def on_new_confirm(self, video_params):
-        view = self._view
-        project = self._project
-        window = self._window
-
-        view.record_button["state"] = tk.NORMAL
-
-        self._meta = meta = vds.VideoMetadata(
-            project.name,
-            uuid4().hex,
-            len(ic.capture(window.xywh)),
-            video_params.fps)
-
-
-        self._recorder = vd.VideoRecorder(
-            meta,
-            window.xywh,
-            self._thread_pool,
-            _BUFFER_SIZE)
-
-        #save metadata
-        with engine.connect() as connection:
-            meta.submit(connection)
-
-        self._top_level.destroy()
-
-        #notify observers that there is a new record
-        self._callback(meta)
-
-    def _new_abort(self):
-        view = self._view
-
-        view.record_button["state"] = tk.DISABLED
-
-    def on_load_confirm(self, video_meta):
-        # notify observers that we opened a new record
-        self._callback(video_meta)
-
-        self._top_level.destroy()
-
-    def _load_abort(self):
-        pass
-
-    def add_record_observer(self, observer):
-        self._record_observers.append(observer)
+    def stop(self):
+        self._recorder.stop_recording()

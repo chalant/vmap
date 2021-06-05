@@ -132,5 +132,8 @@ def build_schema(meta):
         Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
         Column("fps", Integer, nullable=False),
         Column("byte_size", Integer, nullable=False),
+        Column("width", Integer, nullable=False),
+        Column("height", Integer, nullable=False),
         Column("mode", String, nullable=False),
+        Column("frames", Integer, nullable=False)
     )

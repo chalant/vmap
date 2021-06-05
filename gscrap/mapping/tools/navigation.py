@@ -1,10 +1,8 @@
 import tkinter as tk
 
-import cv2
-
 from PIL import Image, ImageTk
 
-from gscrap.image_capture import video_recorder as vd
+from gscrap.image_capture import video_navigators as vn
 
 class NavigationView(object):
     def __init__(self, width, height):
@@ -63,6 +61,9 @@ class NavigationView(object):
     def set_controller(self, controller):
         self._controller = controller
 
+#todo: we need to know when the reach the end of a video (disable next frame button)
+#todo:
+
 class NavigationController(object):
     def __init__(self, callback=None):
         """
@@ -86,10 +87,28 @@ class NavigationController(object):
         self.background = None
         self._meta = None
 
-        self._video_navigator = vd.VideoNavigator()
+        self._video_navigator = vn.VideoNavigator()
+
+        self._initialized = False
 
     def view(self):
         return self._view
+
+    def disable_read(self):
+        view = self._view
+
+        view.next_frame["state"] = tk.DISABLED
+        view.previous_frame["state"] = tk.DISABLED
+
+    def enable_read(self, video_metadata):
+        #initialize reader in case it is a new record
+        if not self._initialized:
+            self._video_navigator.initialize(video_metadata)
+
+        view = self._view
+
+        view.next_frame["state"] = tk.NORMAL
+        view.previous_frame["state"] = tk.NORMAL
 
     @property
     def current_frame(self):
@@ -115,27 +134,30 @@ class NavigationController(object):
             self._start(meta)
 
     def _start(self, video_meta):
-        view = self._view
+        #todo: we should register for any new video write event
+        try:
+            view = self._view
 
-        # create thumbnail
-        ret, frame = self._video_navigator.initialize(video_meta)
+            # create thumbnail
+            self._video_navigator.initialize(video_meta)
 
-        # thumbnail = self.thumbnail
+            # thumbnail = self.thumbnail
 
 
-        # image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        # image.thumbnail((view.width, view.height))
-        #
-        # self.thumbnail_image = image
-        #
-        # if ret:
-        #     thumbnail.paste(image)
+            # image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            # image.thumbnail((view.width, view.height))
+            #
+            # self.thumbnail_image = image
+            #
+            # if ret:
+            #     thumbnail.paste(image)
 
-        view.next_frame["state"] = tk.NORMAL
-        view.previous_frame["state"] = tk.NORMAL
+            view.next_frame["state"] = tk.NORMAL
+            view.previous_frame["state"] = tk.NORMAL
 
-        if ret:
-            self._callback(frame)  # update
+            # self._callback(frame)  # update
+        except EOFError:
+            pass
 
     def reset(self):
         view = self._view

@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+service Compressor{
+  rpc Compress(CompressionRequest) returns (CompressionReply) {}
+  rpc Join(JoinRequest) returns (JoinReply) {}
+}
+
+service Decompressor {
+  rpc Decompress(DecompressionRequest) returns (DecompressionReply) {}
+  rpc Join(JoinRequest) returns (JoinReply) {}
+}
+
+
+message JoinRequest {
+
+}
+
+message JoinReply {
+
+}
+
+message CompressionRequest {
+  string input_file = 1;
+  string output_file = 2;
+  uint32 byte_size = 3;
+  uint64 max_byte_size = 4;
+  uint64 cursor = 5;
+}
+
+message CompressionReply {
+  bool finished = 1;
+  uint64 size = 2;
+  uint64 cursor = 3;
+  bool interrupted = 4;
+}
+
+message DecompressionRequest {
+  string input_file = 1;
+  string output_file = 2;
+}
+
+message DecompressionReply {
+
+}
+
+message Metadata {
+  string frame_byte_size = 1;
+  repeated Index indices = 2;
+  uint64 total_frames = 3;
+  string file_path = 4; //data location
+  string frames_per_write = 5;
+}
+
+message Index {
+  //absolute index
+  uint64 abs_from = 1;
+  uint64 abs_to = 2;
+
+  //index in file
+  uint64 rel_from = 3;
+  uint64 rel_to = 4;
+
+  string container_file = 5; //container file name
+}
