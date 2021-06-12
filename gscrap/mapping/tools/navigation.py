@@ -61,9 +61,6 @@ class NavigationView(object):
     def set_controller(self, controller):
         self._controller = controller
 
-#todo: we need to know when the reach the end of a video (disable next frame button)
-#todo:
-
 class NavigationController(object):
     def __init__(self, callback=None):
         """
@@ -102,29 +99,75 @@ class NavigationController(object):
 
     def enable_read(self, video_metadata):
         #initialize reader in case it is a new record
-        if not self._initialized:
-            self._video_navigator.initialize(video_metadata)
+        navigator = self._video_navigator
+
+        self._start(video_metadata)
 
         view = self._view
 
-        view.next_frame["state"] = tk.NORMAL
-        view.previous_frame["state"] = tk.NORMAL
+        if navigator.has_next:
+            view.next_frame["state"] = tk.NORMAL
+
+        if navigator.has_prev:
+            view.previous_frame["state"] = tk.NORMAL
+
+        self._meta = video_metadata
 
     @property
     def current_frame(self):
         return self._video_navigator.current_frame
 
     def next_frame(self):
-        ret, frame = self._video_navigator.next_frame()
+        frame = self._next_frame(self._video_navigator)
 
-        if ret:
-            self._callback(frame)
+        image = Image.frombytes(
+            "RGB",
+            self._meta.dimensions,
+            frame,
+            "raw")
+
+        # image.thumbnail((view.width, view.height))
+        #
+        # self.background.paste(image)
+
+        self._callback(image)
 
     def prev_frame(self):
-        ret, frame = self._video_navigator.previous_frame()
+        frame = self._prev_frame(self._video_navigator)
 
-        if ret:
-            self._callback(frame)
+        image = Image.frombytes(
+            "RGB",
+            self._meta.dimensions,
+            frame,
+            "raw")
+
+        # image.thumbnail((view.width, view.height))
+        #
+        # self.background.paste(image)
+
+        self._callback(image)
+
+    def _next_frame(self, navigator):
+        frame = navigator.next_frame()
+        view = self._view
+
+        if not navigator.has_next:
+            view.next_frame["state"] = tk.DISABLED
+
+        view.previous_frame["state"] = tk.NORMAL
+
+        return frame
+
+    def _prev_frame(self, navigator):
+        frame = navigator.previous_frame()
+        view = self._view
+
+        if not navigator.has_prev:
+            view.previous_frame["state"] = tk.DISABLED
+
+        view.next_frame["state"] = tk.NORMAL
+
+        return frame
 
     def restart(self):
         meta = self._meta
@@ -134,30 +177,22 @@ class NavigationController(object):
             self._start(meta)
 
     def _start(self, video_meta):
-        #todo: we should register for any new video write event
-        try:
-            view = self._view
+        navigator = self._video_navigator
+        view = self._view
 
-            # create thumbnail
-            self._video_navigator.initialize(video_meta)
+        if video_meta.frames > 0:
+            navigator.initialize(video_meta)
+            self._initialized = True
 
-            # thumbnail = self.thumbnail
+            image = Image.frombytes(
+                "RGB",
+                video_meta.dimensions,
+                self._next_frame(navigator),
+                "raw")
 
+            image.thumbnail((view.width, view.height))
 
-            # image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            # image.thumbnail((view.width, view.height))
-            #
-            # self.thumbnail_image = image
-            #
-            # if ret:
-            #     thumbnail.paste(image)
-
-            view.next_frame["state"] = tk.NORMAL
-            view.previous_frame["state"] = tk.NORMAL
-
-            # self._callback(frame)  # update
-        except EOFError:
-            pass
+            self.background.paste(image)
 
     def reset(self):
         view = self._view
@@ -184,5 +219,3 @@ class NavigationController(object):
 
     def set_image_comparator(self, comparator):
         self._video_navigator.set_comparator(comparator)
-
-

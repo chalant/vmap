@@ -1,6 +1,5 @@
 from uuid import uuid4
 
-import imagehash
 
 from gscrap.detection import models as mdl
 from gscrap.data.images import images as im
@@ -14,8 +13,6 @@ class CaptureZone(object):
             rectangle,
             project,
             thread_pool,
-            hashes,
-            capture_tool,
             rectangle_labels):
 
         """
@@ -25,7 +22,6 @@ class CaptureZone(object):
         rectangle: models.rectangles.RectangleInstance
         project: models.projects.Project
         thread_pool: concurrent.futures.ThreadPoolExecutor
-        capture_tool: tools.image_capture.ImageCaptureTool
         rectangle_labels: models.rectangle_labels.RectangleLabels
         """
 
@@ -38,7 +34,6 @@ class CaptureZone(object):
         self._image_item = None
         self._rid = rid
 
-        self._hashes = hashes
 
         self._project = project
 
@@ -51,8 +46,6 @@ class CaptureZone(object):
         self._ltwh = (*self._rectangle.top_left, self._rectangle.width, self._rectangle.height)
 
         self._in_view = False
-
-        self._capture_tool = capture_tool
 
         self._detector = mdl.Detector()
 
@@ -92,15 +85,13 @@ class CaptureZone(object):
     def classifiable(self):
         return self._rectangle.rectangle.classifiable
 
-    def capture(self):
-        return self._capture_tool.capture_relative(self._ltwh)
-
-    def add_sample(self, image, label, position):
-        pn = self._project.name
+    def add_sample(self, image, label):
         rct = self._rectangle.rectangle
 
-        meta = self._create_metadata(
-            pn, rct, str(imagehash.average_hash(image)), position, label)
+        meta = im.create_image_metadata(
+            self._project.name, label["label_name"],
+            label["label_type"], label["instance_name"],
+            rct.width, rct.height)
 
         self._thread_pool.submit(self._save_image, meta, image)
 
@@ -117,7 +108,7 @@ class CaptureZone(object):
         return self._project.get_label_instances(connection, label_name, label_type)
 
     def get_images(self, connection, label_type, label_name):
-        return self._rectangle.get_images(connection)
+        return im.get_images(connection, self.project_name, label_type, label_name)
 
     def set_detection(self, detection):
         self._detector.set_detection(detection)
@@ -142,15 +133,6 @@ class CaptureZone(object):
     def handle_image(self, image):
         #called by another capture zone if it has observers
         pass
-
-    def _create_metadata(self, project_name, rct, hash_, position, label):
-        return im.ImageMetadata(
-            uuid4().hex,
-            project_name,
-            rct,
-            hash_,
-            position,
-            label)
 
     def _save_image(self, meta, image):
         with engine.connect() as connection:

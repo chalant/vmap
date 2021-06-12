@@ -48,6 +48,10 @@ class Tesseract(AbstractDetection):
 class DifferenceMatching(AbstractDetection):
     def __init__(self, image_source):
         self._image_source = image_source
+        self._threshold = DIFF_MAX
+
+    def set_threshold(self, value):
+        self._threshold = value
 
     def detect(self, img):
         source = self._image_source
@@ -59,10 +63,10 @@ class DifferenceMatching(AbstractDetection):
         for label, image in source.get_images():
             diff_img = cv2.absdiff(img, image)
 
-            rank_diff = int(np.sum(diff_img) / 255)
+            diff = int(np.sum(diff_img) / 255)
 
-            if rank_diff < best_match_diff:
-                best_match_diff = rank_diff
+            if diff < best_match_diff:
+                best_match_diff = diff
                 name = label
 
         #todo: we need to setup a detection threshold which determines the "tolerance", the lowest

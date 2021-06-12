@@ -1,93 +1,18 @@
 import os
-from collections import deque
+# from collections import deque
 import threading
 
 import subprocess
 
 from datetime import datetime
 
-import ffmpeg
 
-from gscrap.image_capture import capture_loop as ic
-from gscrap.image_capture import video_writer as vw
+# from gscrap.image_capture import capture_loop as ic
+# from gscrap.image_capture import video_writer as vw
 
 from gscrap.data import paths
 
-def read_video_params(path: str, stream_number: int = 0):
-    """
-    Read resolution and frame rate of the video
-    Args:
-        path (str): Path to input file
-        stream_number (int): Stream number to extract video parameters from
-    Returns:
-        dict: Dictionary with height, width and FPS of the video
-    """
-    if not os.path.isfile(path):
-        raise FileNotFoundError("{} does not exist".format(path))
-    probe = ffmpeg.probe(path)
-    video_streams = [s for s in probe['streams'] if s['codec_type'] == 'video']
-    stream_params = video_streams[stream_number]
-    fps_splitted = [int(x) for x in stream_params['avg_frame_rate'].split('/')]
-    fps = fps_splitted[0] if fps_splitted[1] == 1 else fps_splitted[0]/float(fps_splitted[1])
-    width = stream_params['width']
-    height = stream_params['height']
-    if 'nb_frames' in stream_params:
-        try:
-            length = int(stream_params['nb_frames'])
-        except ValueError:
-            length = None
-    else:
-        length = None
-    if 'rotate' in stream_params['tags']:
-        rotation = int(stream_params['tags']['rotate'])
-        if rotation%90==0 and rotation%180!=0:
-            width = stream_params['height']
-            height = stream_params['width']
-    params = {'width': width, 'height': height, 'fps': fps}
-    if length is not None:
-        params['length'] = length
-    return params
-
-class FrameSeeker(object):
-    def __init__(self, video_metadata):
-        self._params = read_video_params(video_metadata.path)
-        self._path = video_metadata.path
-
-    def seek(self, frame_index):
-        start_time = frame_index - 0.5 / self._params['fps']
-
-        process = subprocess.Popen(
-            ["ffmpeg",
-             "-nostdin",
-             "-ss", "{}".format(start_time),
-             "-i", "{}".format(self._path),
-             "-frames:v", "1",
-             "-f", "rawvideo",
-             "pipe:"
-             ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-
-        #todo: must decode into a numpy array?
-        return process.communicate()[0]
-
-class VideoReader(object):
-    def __init__(self, start_frame):
-        self._process = subprocess.Popen(
-            ["ffmpeg",
-             "",
-             "",
-             ]
-        )
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        pass
-
-class RecordingProcess(object):
+class Recorder(object):
     def __init__(self, callback=None):
         self._process = None
 
@@ -215,121 +140,121 @@ class RecordingProcess(object):
             self._process = None
 
 
-class ThreadImageBuffer(object):
-    def __init__(self, num_buffers=2):
-        self._num_buffers = num_buffers
-
-        self._queue = qu = deque()
-
-        for _ in range(num_buffers):
-            qu.append([])
-
-        self._lock = threading.Lock()
-
-    def get_buffer(self):
-        with self._lock:
-            try :
-                return self._queue.pop()
-            except IndexError:
-                #return a new buffer if the queue is empty
-                return []
-
-    def put_buffer(self, buffer):
-        with self._lock:
-            buffer.clear() #clear buffer
-            self._queue.appendleft(buffer)
-
-class VideoRecorder(ic.ImageHandler):
-    def __init__(self, video_meta, xywh, thread_pool, buffer_size=1):
-        """
-
-        Parameters
-        ----------
-        video_meta: gscrap.data.images.videos.VideoMetadata
-        xywh
-        thread_pool
-        buffer_size
-        """
-        super(VideoRecorder, self).__init__(xywh)
-
-        self._xywh = xywh
-        self._path = video_meta.path
-
-        self._meta = video_meta
-
-        self._image_buffer = im_bfr = ThreadImageBuffer()
-
-        self._frame_buffer = im_bfr.get_buffer()
-
-        self._frame_byte_size = video_meta.byte_size
-
-        self._buffer_size = buffer_size * 3
-        self._thread_pool = thread_pool
-
-        self._current_size = 0
-
-        self._writer = None
-        self._dimensions = None
-
-        self._lock = threading.Lock()
-
-    def capture_initialize(self, data):
-        # xywh = self.xywh
-        #
-        # self._dimensions = (xywh[2], xywh[3])
-
-        self._writer = vw.VideoWriter(self._meta)
-
-        # fourcc = cv2.VideoWriter_fourcc(*self._codec)
-        #
-        # self._writer = cv2.VideoWriter(
-        #     self._path,
-        #     fourcc,
-        #     data.fps,
-        #     (dimensions))
-
-    def process_image(self, image):
-        frame_buffer = self._frame_buffer
-        frame_buffer.append(image)
-
-        image_buffer = self._image_buffer
-
-        cbs = self._current_size
-
-        cbs += self._frame_byte_size
-
-        #write to file each time we exceed the threshold
-        if cbs >= self._buffer_size:
-            #submit a copy of the frame buffer
-            # self._thread_pool.submit(
-            #     self._write_to_file,
-            #     frame_buffer,
-            #     image_buffer)
-
-            self._write_to_file(frame_buffer, image_buffer)
-
-            #get a new frame buffer
-            self._frame_buffer = image_buffer.get_buffer()
-            self._current_size = 0 #reset current bytes
-
-    def capture_stop(self):
-        #write any remaining frames in the current buffer to file
-        frame_buffer = self._frame_buffer
-        # for frame in frame_buffer:
-        self._write_to_file(frame_buffer, self._image_buffer)
-        # self._thread_pool.submit(frame_buffer, self._image_buffer)
-        frame_buffer.clear()
-
-    def close(self):
-        self._writer.close()
-
-
-    def _write_to_file(self, frame_buffer, image_buffer):
-        writer = self._writer
-
-        with self._lock:
-            for frame in frame_buffer:
-                writer.write(frame)
-
-        #put back the frame buffer
-        image_buffer.put_buffer(frame_buffer)
+# class ThreadImageBuffer(object):
+#     def __init__(self, num_buffers=2):
+#         self._num_buffers = num_buffers
+#
+#         self._queue = qu = deque()
+#
+#         for _ in range(num_buffers):
+#             qu.append([])
+#
+#         self._lock = threading.Lock()
+#
+#     def get_buffer(self):
+#         with self._lock:
+#             try :
+#                 return self._queue.pop()
+#             except IndexError:
+#                 #return a new buffer if the queue is empty
+#                 return []
+#
+#     def put_buffer(self, buffer):
+#         with self._lock:
+#             buffer.clear() #clear buffer
+#             self._queue.appendleft(buffer)
+#
+# class VideoRecorder(ic.ImageHandler):
+#     def __init__(self, video_meta, xywh, thread_pool, buffer_size=1):
+#         """
+#
+#         Parameters
+#         ----------
+#         video_meta: gscrap.data.images.videos.VideoMetadata
+#         xywh
+#         thread_pool
+#         buffer_size
+#         """
+#         super(VideoRecorder, self).__init__(xywh)
+#
+#         self._xywh = xywh
+#         self._path = video_meta.path
+#
+#         self._meta = video_meta
+#
+#         self._image_buffer = im_bfr = ThreadImageBuffer()
+#
+#         self._frame_buffer = im_bfr.get_buffer()
+#
+#         self._frame_byte_size = video_meta.byte_size
+#
+#         self._buffer_size = buffer_size * 3
+#         self._thread_pool = thread_pool
+#
+#         self._current_size = 0
+#
+#         self._writer = None
+#         self._dimensions = None
+#
+#         self._lock = threading.Lock()
+#
+#     def capture_initialize(self, data):
+#         # xywh = self.xywh
+#         #
+#         # self._dimensions = (xywh[2], xywh[3])
+#
+#         self._writer = vw.VideoWriter(self._meta)
+#
+#         # fourcc = cv2.VideoWriter_fourcc(*self._codec)
+#         #
+#         # self._writer = cv2.VideoWriter(
+#         #     self._path,
+#         #     fourcc,
+#         #     data.fps,
+#         #     (dimensions))
+#
+#     def process_image(self, image):
+#         frame_buffer = self._frame_buffer
+#         frame_buffer.append(image)
+#
+#         image_buffer = self._image_buffer
+#
+#         cbs = self._current_size
+#
+#         cbs += self._frame_byte_size
+#
+#         #write to file each time we exceed the threshold
+#         if cbs >= self._buffer_size:
+#             #submit a copy of the frame buffer
+#             # self._thread_pool.submit(
+#             #     self._write_to_file,
+#             #     frame_buffer,
+#             #     image_buffer)
+#
+#             self._write_to_file(frame_buffer, image_buffer)
+#
+#             #get a new frame buffer
+#             self._frame_buffer = image_buffer.get_buffer()
+#             self._current_size = 0 #reset current bytes
+#
+#     def capture_stop(self):
+#         #write any remaining frames in the current buffer to file
+#         frame_buffer = self._frame_buffer
+#         # for frame in frame_buffer:
+#         self._write_to_file(frame_buffer, self._image_buffer)
+#         # self._thread_pool.submit(frame_buffer, self._image_buffer)
+#         frame_buffer.clear()
+#
+#     def close(self):
+#         self._writer.close()
+#
+#
+#     def _write_to_file(self, frame_buffer, image_buffer):
+#         writer = self._writer
+#
+#         with self._lock:
+#             for frame in frame_buffer:
+#                 writer.write(frame)
+#
+#         #put back the frame buffer
+#         image_buffer.put_buffer(frame_buffer)

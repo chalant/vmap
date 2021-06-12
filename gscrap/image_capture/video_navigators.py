@@ -1,8 +1,10 @@
+import numpy as np
+
 from gscrap.image_capture import video_reader as vr
 from gscrap.image_capture import image_comparators as imf
 
 class VideoNavigator(object):
-    def __init__(self, comparator=None):
+    def __init__(self, comparator=None, crop=None):
         """
 
         Parameters
@@ -14,25 +16,23 @@ class VideoNavigator(object):
         self._indices = []
 
         self._index = -1
-        self._max = 0
 
-        self._current_frame = None
+        self._current_frame = b''
+
+        self._frame_seeker = None
+        self._video_reader = None
+        self._crop = crop
 
     def initialize(self, video_metadata):
-        # if self._video:
-        #     self._video.release()
 
-        self._index = 0
+        self._frame_seeker = vr.FrameSeeker(video_metadata)
+        self._video_reader = vr.VideoReader(video_metadata)
 
-        self._seeker = seeker = vr.FrameSeeker(video_metadata)
-        self._video = video = vr.VideoReader(video_metadata)
-
-        # seeker.open()
-        # video.open()
-
-        # self._video = video = cv2.VideoCapture(video_metadata.path)
         self._metadata = video_metadata
         self._indices.clear()
+
+        # if video_metadata.frames > 0:
+        #     self._indices.append(0)
 
         # frame = seeker.read(self._index)
         #
@@ -50,15 +50,17 @@ class VideoNavigator(object):
     def current_frame(self):
         return self._current_frame
 
+    @property
     def has_next(self):
-        return self._index < self._max
+        return self._index < self._metadata.frames
 
+    @property
     def has_prev(self):
-        return self._index > self._max
+        return self._index > 0
 
     def next_frame(self):
         index = self._index
-        video = self._video
+        video = self._video_reader
         indices = self._indices
 
         # if index < self._max - 1:
@@ -68,31 +70,70 @@ class VideoNavigator(object):
         #     ret, frame = video.read()
         # else:
 
-        ind, frame = self._next_frame(
-            video,
-            index,
-            self._current_frame,
-            self._comparator
-        )
+        if not self._current_frame:
+            self._index += 1
+            self._indices.append(0)
 
-        if ind != indices[-1]:
-            indices.append(ind) #add found index to indices
-            index += 1
+            current_frame = self._frame_seeker.seek(0)
+            self._current_frame = current_frame
 
-            self._index = index
-            self._max = index
+            return current_frame
 
-            return True, frame
+        try:
+            self._index = index + 1
 
-        return False, frame
+            frame = self._frame_seeker.seek(indices[index + 1])
+            self._current_frame = frame
+
+            return frame
+
+        except IndexError:
+            li = indices[-1]
+
+            ind, frame = self._next_frame(
+                video,
+                li,
+                self._current_frame,
+                self._comparator
+            )
+
+            #advance the index if we found a new frame.
+
+            if ind != li:
+                indices.append(ind) #add found index to indices
+                self._index = index + 1
+
+            self._current_frame = frame
+            return frame
 
     def _next_frame(self, video, index, prev_frame, comparator):
         ind = index
 
-        for frame in video.read(index):
+        crop = self._crop
+
+        if crop:
+            x0, y0, x1, y1 = crop
+            dims = (x1 - x0, y1 - y0)
+        else:
+            dims = self._metadata.dimensions
+
+        res = np.array(dims)
+
+        for frame in video.read(index + 1, crop):
             ind += 1
-            if comparator.different_image(prev_frame, frame):
-                return ind, frame
+
+            #skip identical bytes
+            if frame == prev_frame:
+                #apply additional comparisons to the frames
+                continue
+
+            #skip identical frames using some comparator
+            if not comparator.different_image(
+                    np.frombuffer(prev_frame, np.uint8).reshape(*res[::-1], 3),
+                    np.frombuffer(frame, np.uint8).reshape(*res[::1], 3)):
+                continue
+
+            return ind, frame
 
         #return same index if no different image was found
         return ind, prev_frame
@@ -103,9 +144,9 @@ class VideoNavigator(object):
         if index > 0:
             index -= 1
             self._index = index
-            return True, self._seeker.read(self._indices[index])
+            return self._frame_seeker.seek(self._indices[index])
         else:
-            return False, self._current_frame
+            return self._current_frame
 
     def reset(self):
         self._index = 0

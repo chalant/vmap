@@ -48,7 +48,7 @@ def get_rectangles(instances, container=None):
 
     Parameters
     ----------
-    instances: typing.Dict[int, controllers.rectangles.utils.RectangleWrapper]
+    instances: typing.Dict[int, rectangles.utils.RectangleWrapper]
     container: controllers.rectangles.utils.RectangleWrapper
 
     Returns
@@ -159,6 +159,8 @@ def copy(instances, rectangle, dx, dy, factory, container_id=None):
         add_component(instances, container_id, last)
 
 def find_closest(instances, x, y):
+    #todo: should use lists instead of dictionaries
+
     #todo: need to optimize distance calculation.
     m_dist = None
     p = (x, y)

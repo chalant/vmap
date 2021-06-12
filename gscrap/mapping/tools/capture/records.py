@@ -1,8 +1,6 @@
 import tkinter as tk
 from uuid import uuid4
 
-from gscrap.image_capture import capture_loop as ic
-
 from gscrap.data.images import videos as vds
 from gscrap.data import engine
 
@@ -203,7 +201,6 @@ class RecordsController(object):
             project.name,
             uuid4().hex,
             video_params.fps,
-            len(ic.capture(window.xywh)),
             (int(project.width), int(project.height)))
 
         # self._recorder = vd.VideoRecorder(

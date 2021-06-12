@@ -1,81 +1,188 @@
-import lzma
+import os
 
-from PIL import Image
+import subprocess
 
 import numpy as np
 
-#todo: refactor this... major changes on how the data is stored
+import ffmpeg
 
-def from_bytes(meta, data):
-    return np.asarray(Image.frombytes(meta.mode, meta.dimensions, data, "raw"))
+def read_video_params(path: str, stream_number: int = 0):
+    """
+    Read resolution and frame rate of the video
+    Args:
+        path (str): Path to input file
+        stream_number (int): Stream number to extract video parameters from
+    Returns:
+        dict: Dictionary with height, width and FPS of the video
+    """
+    if not os.path.isfile(path):
+        raise FileNotFoundError("{} does not exist".format(path))
+    probe = ffmpeg.probe(path)
+    video_streams = [s for s in probe['streams'] if s['codec_type'] == 'video']
+    stream_params = video_streams[stream_number]
+    fps_splitted = [int(x) for x in stream_params['avg_frame_rate'].split('/')]
+    fps = fps_splitted[0] if fps_splitted[1] == 1 else fps_splitted[0]/float(fps_splitted[1])
+    width = stream_params['width']
+    height = stream_params['height']
+    if 'nb_frames' in stream_params:
+        try:
+            length = int(stream_params['nb_frames'])
+        except ValueError:
+            length = None
+    else:
+        length = None
+    if 'rotate' in stream_params['tags']:
+        rotation = int(stream_params['tags']['rotate'])
+        if rotation%90==0 and rotation%180!=0:
+            width = stream_params['height']
+            height = stream_params['width']
+    params = {'width': width, 'height': height, 'fps': fps}
+    if length is not None:
+        params['length'] = length
+    return params
 
 class FrameSeeker(object):
-    def __init__(self, video_meta):
-        """
+    def __init__(self, video_metadata):
+        self._meta = video_metadata
 
-        Parameters
-        ----------
-        video_meta: gscrap.data.images.videos.VideoMetadata
-        """
-        self._meta = video_meta
-        self._byte_size = video_meta.byte_size
-        self._file = None
+    def seek(self, frame_index, crop=None):
+        meta = self._meta
+        start_time = frame_index / meta.fps
 
-    def read(self, cursor):
-        file = self._file
+        if crop:
+            x0, y0, x1, y1 = crop
+            x, y, w, h = (x0, y0, x1 - x0, y1 - y0)
 
-        byte_size = self._byte_size
+            command = [
+                "ffmpeg",
+                "-nostdin",
+                "-ss", "{}".format(start_time),
+                "-i", "{}".format(meta.path),
+                "-pix_fmt", "rgb24",
+                "-filter:v", "crop={}:{}:{}:{}".format(w, h, x, y),
+                "-frames:v", "1",
+                "-f", "rawvideo",
+                "pipe:"
+             ]
+        else:
+            command = [
+                "ffmpeg",
+                "-nostdin",
+                "-ss", "{}".format(start_time),
+                "-i", "{}".format(meta.path),
+                "-pix_fmt", "rgb24",
+                "-frames:v", "1",
+                "-f", "rawvideo",
+                "pipe:"
+            ]
 
-        file.seek(byte_size * cursor)
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
 
-        data = file.read(byte_size)
+        return process.communicate()[0]
 
-        if not data:
-            raise EOFError("No Image")
+def read(video_metadata, from_=0, crop=None):
+    meta = video_metadata
+    start_time = from_ / meta.fps
 
-        return from_bytes(self._meta, lzma.decompress(data))
+    if crop:
+        x0, y0, x1, y1 = crop
+        x, y, w, h = (x0, y0, x1 - x0, y1 - y0)
 
-    def open(self):
-        if not self._file:
-            self._file = open(self._meta.path, "rb")
+        dims = np.array(w, h)
 
-    def close(self):
-        if self._file:
-            self._file.close()
-            self._file = None
+        command = [
+            "ffmpeg",
+            "-nostdin",
+            "-ss", "{}".format(start_time),
+            "-i", "{}".format(meta.path),
+            "-filter:v", "crop={}:{}:{}:{}".format(w, h, x, y),
+            "-pix_fmt", "rgb24",
+            "-f", "rawvideo",
+            "pipe:"]
+    else:
+        dims = np.array(meta.dimensions)
+
+        command = [
+            "ffmpeg",
+            "-nostdin",
+            "-ss", "{}".format(start_time),
+            "-i", "{}".format(meta.path),
+            "-pix_fmt", "rgb24",
+            "-f", "rawvideo",
+            "pipe:"
+        ]
+
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+
+    while True:
+        bytes_ = process.stdout.read(np.prod(dims) * 3)
+        if not bytes_:
+            process.terminate()
+            break
+        else:
+            yield bytes_
+
 
 class VideoReader(object):
-    def __init__(self, video_meta):
+    def __init__(self, video_metadata):
         """
 
         Parameters
         ----------
-        video_meta: gscrap.data.images.videos.VideoMetadata
+        video_metadata: gscrap.data.images.videos.VideoMetadata
         """
+        self._meta = video_metadata
 
-        self._meta = video_meta
-        self._byte_size = video_meta.byte_size
-        self._file = None
+    def read(self, from_=0, crop=None):
+        meta = self._meta
+        start_time = from_ / meta.fps
 
-    def open(self):
-        if not self._file:
-            self._file = open(self._meta.path, "rb")
+        if crop:
+            x0, y0, x1, y1 = crop
+            x, y, w, h = (x0, y0, x1 - x0, y1 - y0)
 
-    def close(self):
-        if self._file:
-            self._file.close()
-            self._file = None
+            dims = np.array(w, h)
 
-    def read(self, from_=0):
-        #reads until EOF starting from some point
-        file = self._file
-        byte_size = self._byte_size
+            command = [
+                "ffmpeg",
+                "-nostdin",
+                "-ss", "{}".format(start_time),
+                "-i", "{}".format(meta.path),
+                "-filter:v", "crop={}:{}:{}:{}".format(w, h, x, y),
+                "-pix_fmt", "rgb24",
+                "-f", "rawvideo",
+                "pipe:"]
+        else:
+            dims = np.array(meta.dimensions)
 
-        file.seek(from_ * byte_size)
+            command = [
+                "ffmpeg",
+                "-nostdin",
+                "-ss", "{}".format(start_time),
+                "-i", "{}".format(meta.path),
+                "-pix_fmt", "rgb24",
+                "-f", "rawvideo",
+                "pipe:"
+            ]
+
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
 
         while True:
-            data = file.read(byte_size)
-            if not data:
+            bytes_ = process.stdout.read(np.prod(dims) * 3)
+            if not bytes_:
+                process.terminate()
                 break
-
-            yield from_bytes(self._meta, lzma.decompress(data))
+            else:
+                yield bytes_

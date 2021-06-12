@@ -4,7 +4,14 @@ def build_schema(meta):
     Table(
         "models",
         meta,
-        Column("name", String, primary_key=True),
+        Column("name", String, primary_key=True)
+    )
+
+    #model parameters.
+    Table(
+        "difference_matching",
+        meta,
+        Column("threshold", Float, nullable=False)
     )
 
     #model associated with the label

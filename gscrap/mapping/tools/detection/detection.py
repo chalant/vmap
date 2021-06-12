@@ -2,9 +2,11 @@ from gscrap.rectangles import rectangles as rt
 
 from gscrap.data import rectangle_labels as rl, engine
 
-from gscrap.mapping.tools.detection import samples, capture
-from gscrap.mapping.tools.detection.sampling import sampling as sp
+from gscrap.mapping.tools.detection.sampling import sampling as spg
+from gscrap.mapping.tools.detection.sampling import samples as spl
 from gscrap.mapping.tools.detection.filtering import filtering
+from gscrap.mapping.tools.detection import capture
+
 from gscrap.mapping.tools import tools
 
 from gscrap.windows import windows
@@ -19,9 +21,6 @@ class DetectionTool(tools.Tool):
         main_view: gscrap.mapping.view.MainView
         """
 
-        #todo: add video navigation for capture zone:
-        # need filters etc.
-
         self._canvas = main_view.canvas
 
         self._window_manager = wm = windows.WindowModel(400, 500)
@@ -30,10 +29,10 @@ class DetectionTool(tools.Tool):
         self._filtering_model = fm = filtering.FilteringModel()
         self._filtering = flt = filtering.FilteringController(fm)
 
-        self._samples_model = spm = samples.SamplesModel()
-        self._samples = spl = samples.SamplesController(spm)
+        # self._samples_model = spm = samples.SamplesModel()
+        # self._samples = spl = samples.SamplesController(spm)
 
-        self._sampling = sc = sp.SamplingController(spm, fm)
+        self._sampling = sc = spg.SamplingController(fm)
 
         fm.add_filter_observer(spl)
         fm.add_filter_observer(sc)
@@ -48,12 +47,10 @@ class DetectionTool(tools.Tool):
         sc.add_samples_observer(flt)
         sc.add_samples_observer(spl)
 
-        spl.add_images_observer(sc)
-
         # spl.add_images_observer(sc)
 
         wc.add_window(sc)
-        wc.add_window(spl)
+        # wc.add_window(spl)
         wc.add_window(flt)
 
         self._instances = {}
@@ -123,7 +120,12 @@ class DetectionTool(tools.Tool):
                 if cap_labels:
                     for instance in rct.get_instances(connection):
                         x0, y0, x1, y1 = instance.bbox
-                        rid = canvas.create_rectangle(x0-1, y0-1, x1, y1, width=1, dash=(4, 1))
+                        rid = canvas.create_rectangle(
+                            x0-1, y0-1,
+                            x1, y1,
+                            width=1,
+                            dash=(4, 1))
+
                         instances[rid] = capture.CaptureZone(
                             rid,
                             instance,

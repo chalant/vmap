@@ -121,8 +121,6 @@ def build_schema(meta):
         Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
         Column("label_instance_name", String, nullable=False),
-        Column("hash_key", String, nullable=False),
-        Column("position", Integer, nullable=False)
     )
 
     Table(
@@ -135,5 +133,6 @@ def build_schema(meta):
         Column("width", Integer, nullable=False),
         Column("height", Integer, nullable=False),
         Column("mode", String, nullable=False),
-        Column("frames", Integer, nullable=False)
+        Column("frames", Integer, nullable=False),
+        Column("total_time", String, nullable=False)
     )

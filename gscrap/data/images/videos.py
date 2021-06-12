@@ -14,8 +14,8 @@ _GET_VIDEOS_META = text(
 
 _ADD_VIDEO_META = text(
     """
-    INSERT OR REPLACE INTO videos(video_id, project_name, fps, byte_size, width, height, mode, frame)
-    VALUES (:video_id, :project_name, :fps, :byte_size, :width, :height, :mode, :frame)
+    INSERT OR REPLACE INTO videos(video_id, project_name, fps, byte_size, width, height, mode, frames, total_time)
+    VALUES (:video_id, :project_name, :fps, :byte_size, :width, :height, :mode, :frames, :total_time)
     """
 )
 
@@ -34,17 +34,27 @@ _DELETE_ALL_PROJECT_VIDEOS = text(
 )
 
 class VideoMetadata(object):
-    __slots__ = ('fps', 'project_name', 'video_id', '_path', 'byte_size', 'dimensions', 'mode', 'frames')
+    __slots__ = (
+        'fps',
+        'project_name',
+        'video_id',
+        '_path',
+        'byte_size',
+        'dimensions',
+        'mode',
+        'frames',
+        'time')
 
     def __init__(
             self,
             project_name,
             video_id,
             fps,
-            byte_size,
             dimensions,
+            byte_size=0,
             mode="RGB",
-            frames=0):
+            frames=0,
+            total_time="00:00:00.00"):
 
         self.project_name = project_name
         self.video_id = video_id
@@ -53,6 +63,7 @@ class VideoMetadata(object):
         self.mode = mode
         self.dimensions = dimensions
         self.frames = frames
+        self.time = total_time
 
         self._path = os.path.join(
             paths.videos(),
@@ -73,7 +84,8 @@ class VideoMetadata(object):
             mode=self.mode,
             width=w,
             height=h,
-            frames=self.frames
+            frames=self.frames,
+            total_time=self.time
         )
 
     def delete(self, connection, project_name):
@@ -97,7 +109,8 @@ def get_metadata(connection, project_name):
             res['fps'],
             res['byte_size'],
             (res['width'], res['height']),
-            res["frames"]
+            res["frames"],
+            res["total_time"]
         )
 
 def delete_for_project(connection, project_name):

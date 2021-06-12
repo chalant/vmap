@@ -3,6 +3,8 @@ from os import path
 
 from PIL import Image
 
+from uuid import uuid4
+
 from sqlalchemy import text
 
 from gscrap.data import paths
@@ -12,7 +14,6 @@ _GET_IMAGE = text(
     SELECT *
     FROM images
     WHERE project_name=:project_name AND label_name=:label_name AND label_type=:label_type
-    ORDER BY position ASC
     """
 )
 
@@ -38,43 +39,35 @@ _DELETE_ALL_PROJECT_IMAGES = text(
 )
 
 class ImageMetadata(object):
-    __slots__ = ['_id', '_project_name', '_rectangle', '_hash_key', '_position', '_label', '_image']
+    __slots__ = [
+        '_id',
+        '_project_name',
+        '_label',
+        '_image',
+        '_width',
+        '_height']
 
     def __init__(
             self,
             id_,
             project_name,
-            rectangle,
-            hash_key,
-            position,
-            label):
+            label,
+            width,
+            height):
 
         self._id = id_
         self._project_name = project_name
-        self._rectangle = rectangle
-        self._hash_key = hash_key
-        self._position = position
         self._label = label
+        self._height = height
+        self._width = width
 
     @property
     def height(self):
-        return self._rectangle.height
+        return self._height
 
     @property
     def width(self):
-        return self._rectangle.width
-
-    @property
-    def hash_key(self):
-        return self._hash_key
-
-    @property
-    def position(self):
-        return self._position
-
-    @position.setter
-    def position(self, value):
-        self._position = value
+        return self._width
 
     @property
     def id(self):
@@ -88,10 +81,6 @@ class ImageMetadata(object):
     def label(self):
         return self._label
 
-    @property
-    def rectangle(self):
-        return self._rectangle
-
     def get_image(self):
         return Image.open(self.path, formats=("PNG",))
 
@@ -103,16 +92,13 @@ class ImageMetadata(object):
             project_name=self._project_name,
             label_type=label["label_type"],
             label_name=label["label_name"],
-            label_instance_name=label["instance_name"],
-            hash_key=self._hash_key,
-            position=self._position)
+            label_instance_name=label["instance_name"],)
 
     def delete_image(self, connection):
         connection.execute(
             _DELETE_IMAGE_METADATA,
             image_id=self._id,
-            project_name=self._project_name
-        )
+            project_name=self._project_name)
 
         try:
             #remove image from disk
@@ -123,5 +109,44 @@ class ImageMetadata(object):
 def delete_for_project(connection, project_name):
     connection.execute(
         _DELETE_ALL_PROJECT_IMAGES,
-        project_name=project_name
+        project_name=project_name)
+
+def get_images(
+        connection,
+        project_name,
+        label_type,
+        label_name):
+
+    for im in connection.execute(
+            _GET_IMAGE,
+        project_name=project_name,
+        label_type=label_type,
+        label_name=label_name):
+
+        yield ImageMetadata(
+            im["image_id"],
+            im["project_name"],
+            {'label_name': label_name,
+             'label_type': label_type,
+             'instance_name': im["label_instance_name"]},
+            im["width"],
+            im["height"])
+
+def create_image_metadata(
+        project_name,
+        label_name,
+        label_type,
+        instance_name,
+        width,
+        height):
+    return ImageMetadata(
+        uuid4().hex,
+        project_name,
+        {
+            'label_name': label_name,
+            'label_type': label_type,
+            'instance_name': instance_name
+        },
+        width,
+        height
     )

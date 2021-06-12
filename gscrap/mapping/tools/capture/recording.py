@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 
 import tkinter as tk
 
+from gscrap.data import engine
+
 from gscrap.image_capture import video_recorder as vd
 
 _BUFFER_SIZE = 10 #10 mb
@@ -42,20 +44,6 @@ class RecordingView(object):
 
         controller = self._controller
 
-        # self.new_button = tk.Menubutton(
-        #     bar,
-        #     text="New",
-        #     state=tk.DISABLED,
-        #     command=controller.on_new
-        # )
-        #
-        # self.open_button = tk.Menubutton(
-        #     bar,
-        #     text="Open",
-        #     state=tk.DISABLED,
-        #     command = controller.on_open
-        # )
-
         self.record_frame = rf = tk.Frame(frame)
 
         self.record_button = rb = tk.Button(
@@ -95,7 +83,7 @@ class RecordingController(object):
 
         self._vid_params = None
 
-        self._recorder = vd.RecordingProcess(self._recording_update)
+        self._recorder = vd.Recorder(self._recording_update)
 
         self._meta = None
 
@@ -106,14 +94,15 @@ class RecordingController(object):
 
         self._frames = 0
         self._size = 0
-        self._time = datetime.strptime("00:00:00.00","%H:%M:%S.%f")
+        self._time = None
 
     def _recording_update(self, data):
         view = self._view
+        meta = self._meta
 
-        view.frames.set(self._frames + data["frames"])
+        view.frames.set(meta.frames + data["frames"])
         view.fps.set(data["fps"])
-        view.size.set("{}{}".format(self._size + data["size"], "KB"))
+        view.size.set("{}{}".format(meta.byte_size + data["size"], "KB"))
         dt = data["time"]
 
         t = self._time + timedelta(
@@ -133,22 +122,19 @@ class RecordingController(object):
         window = self._window
 
         recorder = self._recorder
+        meta = self._meta
 
         if not recording:
             view.record_button["text"] = "Pause"
             # looper.start(self._recorder, self._meta.fps)
             recorder.start_recording(
-                self._meta,
+                meta,
                 window.xywh[0],
                 window.xywh[1])
 
             self._recording = True
         else:
             view = self._view
-
-            self._frames = int(view.frames.get())
-            self._size = int(view.size.get()[:4])
-            self._time = datetime.strptime(view.time.get(), "%H:%M:%S.%f")
 
             view.record_button["text"] = "Resume"
             # looper.stop()
@@ -159,8 +145,22 @@ class RecordingController(object):
 
             recorder.stop_recording()
 
+            size = view.size.get()
+            t = view.time.get()
+
+            # params = vd.read_video_params(meta.path)
+            #
+            # if 'length' in params:
+            #     meta.frames = params['length']
+            # else:
+            meta.frames = int(view.frames.get())
+
+            meta.byte_size = int(view.size.get()[:len(size) - 2])
+            meta.time = view.time.get()
+            meta.time = t
+
             for reader in self._readers:
-                reader.enable_read(self._meta)
+                reader.enable_read(meta)
 
             self._recording = False
 
@@ -172,10 +172,19 @@ class RecordingController(object):
         self._view.record_button["state"] = tk.NORMAL
         self._window = window
 
+        self._time = datetime.strptime(video_metadata.time,"%H:%M:%S.%f")
+
     def unbind_window(self):
         self._view.record_button["state"] = tk.DISABLED
         self._recorder.stop_recording()
         self._window = None
 
     def stop(self):
-        self._recorder.stop_recording()
+        #stop recording
+        if self._recording:
+            self.on_record()
+
+        if self._meta:
+            #submit changes to video metadata
+            with engine.connect() as connection:
+                self._meta.submit(connection)

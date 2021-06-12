@@ -163,7 +163,6 @@ class FilteringModel(object):
         for obs in self._filters_observers:
             obs.filters_update(self)
 
-
     def disable_filtering(self):
         self._enabled = False
 
