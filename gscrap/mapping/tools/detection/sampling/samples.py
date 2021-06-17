@@ -89,19 +89,8 @@ class Samples(object):
             len(grid.images),
             equal_fn)
 
-        #clear grid
-        grid.clear()
-
-        cz = self._capture_zone
-
         buffer = self._samples_buffer
         buffer.indices = set(indices)
-
-        #redraw every thing
-
-        grid.draw_images(
-            (cz.width, cz.height),
-            buffer)
 
     def _load_and_filter(self, filters):
         for image in self._image_grid.images:
@@ -122,15 +111,23 @@ class Samples(object):
         for sample in spl.load_samples(video_metadata, capture_zone.bbox):
             buffer.append(sample)
 
-        self._samples_buffer = samples = ArraySamplesBuffer(buffer)
+        self._capture_zone = capture_zone
+        self._samples_buffer = ArraySamplesBuffer(buffer)
 
-        grid = self._image_grid
+    def draw(self):
+        capture_zone = self._capture_zone
 
-        grid.clear()
+        if capture_zone:
+            grid = self._image_grid
+            grid.clear()
 
-        grid.draw_images(
-            (capture_zone.width, capture_zone.height),
-            samples)
+            grid.draw_images(
+                (capture_zone.width, capture_zone.height),
+                self._samples_buffer)
+
 
     def clear(self):
-        self._samples_buffer.clear()
+        buffer = self._samples_buffer
+
+        if buffer:
+            buffer.clear()

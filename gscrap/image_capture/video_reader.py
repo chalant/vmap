@@ -92,7 +92,7 @@ def read(video_metadata, from_=0, crop=None):
         x0, y0, x1, y1 = crop
         x, y, w, h = (x0, y0, x1 - x0, y1 - y0)
 
-        dims = np.array(w, h)
+        dims = np.array((w, h))
 
         command = [
             "ffmpeg",
@@ -130,6 +130,21 @@ def read(video_metadata, from_=0, crop=None):
         else:
             yield bytes_
 
+def get_thumbnail(video_metadata, dimensions):
+    command = [
+        "ffmpeg",
+        "-i", "{}".format(video_metadata.path),
+        "-pix_fmt", "rgb24",
+        "-filter:v", "scale={}:{}".format(*dimensions),
+        "-frames:v", "1",
+        "-f", "rawvideo",
+        "pipe:"]
+
+    return subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    ).communicate()[0]
 
 class VideoReader(object):
     def __init__(self, video_metadata):

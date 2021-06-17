@@ -44,6 +44,8 @@ class MappingController(object):
 
         cpt.on_video_update(self._video_update)
 
+        cpt.add_video_reader(dtc)
+
         self._current_project = None
 
         self._template = None
@@ -91,26 +93,24 @@ class MappingController(object):
 
         def template_load(image):
             #callback for when a template is loaded
-
-            view.mapping_button["state"] = tk.NORMAL
-
             self._template = template = ImageTk.PhotoImage(image)
 
             view.display(template)
 
             # self._detection_tool.start_tool(project)
             self._tools.set_project(project)
+
             #initialize mapping tool
             mapping_tool.set_template(template)
             mapping_tool.set_project(project)
 
             view.window_selection["state"] = tk.NORMAL
+            view.mapping_button["state"] = tk.NORMAL
 
         def on_error(error):
             pass
 
         if project.width: #project has a template
-            view.mapping_button["state"] = tk.NORMAL
             #load template image
             project.load_template(template_load, on_error)
 
@@ -121,7 +121,7 @@ class MappingController(object):
         self._template.paste(image)
 
     def _video_update(self, video_meta):
-        self._detection_tool.set_video_metadata(video_meta)
+        pass
 
     def stop(self):
         #todo save everything before closing...

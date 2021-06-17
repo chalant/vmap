@@ -1,19 +1,22 @@
 from collections import defaultdict
 
 import tkinter as tk
-from tkinter import ttk
 
-from PIL import ImageTk, Image
+from PIL import Image
 import numpy as np
 
 from gscrap.mapping.tools.detection import image_grid as ig
 from gscrap.mapping.tools.detection.sampling import samples as spl
 
 from gscrap.detection import models as mdl
+from gscrap.detection import utils as mdl_utils
 
 from gscrap.data import engine
 from gscrap.data.images import images
+
+from gscrap.mapping.tools.detection.sampling import view as vw
 from gscrap.mapping.tools import navigation
+
 
 def crop_image(bbox, image):
     x0, y0, x1, y1 = bbox
@@ -111,181 +114,8 @@ class ImageSource(object):
         for im in self._images:
             yield im.label, self._filtering_model.filter_image(np.asarray(im.image))
 
-
-class SamplingView(object):
-    def __init__(self, controller, image_grid):
-        """
-
-        Parameters
-        ----------
-        controller: SamplingController
-        """
-        self._controller = controller
-
-        self._sampling_frame = None
-        self._label_frame = None
-        self._label = None
-        self._label_options = None
-
-        self._commands = None
-        self.update_button = None
-        self.save = None
-        self.menu = None
-
-        self.label_instance = None
-
-        self.navigation_view = navigation.NavigationView(80, 80)
-
-        self._image_grid = image_grid
-
-    def capture_zone_update(self, connection, capture_zone):
-        """
-
-        Parameters
-        ----------
-        capture_zone: tools.detection.capture.CaptureZone
-
-        Returns
-        -------
-
-        """
-        # ops = self.label_instance_options
-        # # menu = ops["menu"]
-        # # controller = self._controller
-        #
-        #
-        # ops["values"] = tuple([label for label in capture_zone.get_labels(connection)])
-        # menu.add_command(label=label, command=controller.set_label)
-        pass
-
-    def render(self, container):
-        controller = self._controller
-
-        self._frame = frame = tk.Frame(container)
-        self._sampling_frame = sampling_frame = tk.Frame(frame)
-
-        self._canvas_frame = cf = tk.Frame(sampling_frame)
-
-        nav = self.navigation_view.render(cf)
-
-        self._label_frame = lf = tk.Frame(sampling_frame)
-        self._label_type = lt = tk.Label(lf, text="Type")
-        self._label_class = lc = tk.Label(lf, text="Class")
-        self._label_instance = li = tk.Label(lf, text="Label")
-
-        self.label_type = label_type = tk.StringVar(lf, "N/A")
-        self.label_class = label_class = tk.StringVar(lf, "N/A")
-        self.label_instance = label_instance = tk.StringVar(lf, "N/A")
-
-        self.label_instance_options = lio = ttk.Combobox(
-            lf, values=("N/A",),
-            textvariable=label_instance,
-            state='readonly')
-
-        self.label_type_options = lto = ttk.Combobox(
-            lf, values=("N/A",),
-            textvariable=label_type,
-            state='readonly')
-
-        self.label_class_options = lco = ttk.Combobox(
-            lf, values=("N/A",),
-            textvariable=label_class,
-            state='readonly')
-
-        label_class.trace("w", controller.set_label_class)
-        label_instance.trace("w", controller.set_label)
-        label_type.trace("w", controller.set_label_type)
-
-        self._filtering = flt = tk.Label(lf, text="Filters")
-        self._toggles = tlg = tk.Frame(lf)
-
-        self._filtering_on = flt_on = tk.Radiobutton(
-            tlg, text="On",
-            command=controller.enable_filters,
-            value=1)
-
-        self._filtering__off = flt_off = tk.Radiobutton(
-            tlg, text="Off",
-            command=controller.disable_filters,
-            value=2)
-
-        lio["state"] = tk.DISABLED
-        lto["state"] = tk.DISABLED
-        lco["state"] = tk.DISABLED
-
-        self._commands = cmd = tk.Frame(sampling_frame)
-        self._image_options = image = tk.Label(lf, text="Image")
-        self._menu_button = mb = tk.Menubutton(lf, text="Commands")
-        self.menu = menu = tk.Menu(mb, tearoff=0)
-
-        # menu.add_command(label="Update", command=controller.update)
-        menu.add_command(label="Save", command=controller.save)
-        menu.add_command(label="Detect", command=controller.detect)
-        # self.update_button = ub = tk.Button(cmd, text="Update", command=controller.update)  # update thumbnail
-        # self.save = save = tk.Button(cmd, text="Save", command=controller.save)  # save sample
-        # self.detect = detect = tk.Button(cmd, text="Detect", command=controller.detect)
-
-        menu.entryconfig("Save", state=tk.DISABLED)
-        menu.entryconfig("Detect", state=tk.DISABLED)
-        # menu.entryconfig("Update", state=tk.DISABLED)
-
-        sampling_frame.grid(row=0, column=0)
-        cf.grid(row=1, column=0)
-
-        # cv.grid(row=0, column=0)
-        nav.grid(row=0, column=0)
-
-        lf.grid(row=1, column=1, sticky=tk.NW)
-        cmd.grid(row=0, column=0, sticky=tk.NW)
-
-        # mb.grid(row=0, column=0)
-
-        # lf.pack()
-        tlg.grid(row=1, column=1)
-
-        # label type
-        lt.grid(row=2, column=0)
-        lto.grid(row=2, column=1)
-
-        # label class
-        lc.grid(row=3, column=0)
-        lco.grid(row=3, column=1)
-
-        # label instance
-        li.grid(row=4, column=0)
-        lio.grid(row=4, column=1)
-
-        flt.grid(row=1, column=0)
-        flt_on.grid(row=0, column=0)
-        flt_off.grid(row=0, column=1)
-
-        image.grid(row=0, column=0)
-
-        mb.grid(row=0, column=1)
-        mb.config(menu=menu)
-
-        # samples image grid
-        samples = tk.LabelFrame(frame, text="Samples")
-        self._image_grid.render(samples)
-        samples.grid(row=1, column=0)
-
-        return frame
-
-    def update_thumbnail(self, img):
-        self._thumbnail.paste(img)
-
-    def delete_thumbnail(self, tid):
-        self.navigation_view.canvas.delete(tid)
-
-    def create_thumbnail(self, image):
-        self._thumbnail = tn = ImageTk.PhotoImage(image)
-        return self.navigation_view.set_thumbnail(tn)
-
-    def close(self):
-        self._sampling_frame.destroy()
-
 class SamplingController(object):
-    def __init__(self, filtering_model):
+    def __init__(self, filtering_model, on_label_set=None):
         """
 
         Parameters
@@ -297,7 +127,7 @@ class SamplingController(object):
 
         self._image_grid = image_grid = ig.ImageGrid()
 
-        self._sampling_view = view = SamplingView(self, image_grid)
+        self._sampling_view = view = vw.SamplingView(self, image_grid)
 
         self._image = None
 
@@ -317,14 +147,14 @@ class SamplingController(object):
 
         self._samples = None
 
-        self._navigator = navigator = navigation.NavigationController(self._frame_update)
+        self._preview = preview = vw.PreviewController()
 
-        navigator.set_view(view.navigation_view)
+        preview.set_view(view.preview)
 
         # detectors
 
-        self._dm_detector = dmd = mdl.DifferenceMatching(self._image_source)
-        self._tesseract = trt = mdl.Tesseract()
+        self._dm_detector = mdl.DifferenceMatching(self._image_source)
+        self._tesseract = mdl.Tesseract()
         self._null_detector = nd = mdl.NullDetection()
         self._detector = nd
 
@@ -344,9 +174,16 @@ class SamplingController(object):
         self._video_metadata = None
         self._capture_zone = None
 
+        def null_callback(label):
+            pass
+
+        self._label_callback = on_label_set if on_label_set else null_callback
+
+        self._threshold = mdl_utils.DEFAULT_THRESH
+        self._max_threshold = 0
+
     def _selected_sample(self, index, click_event):
-        im = self._samples_grid.get_sample(index)
-        # todo: image display image in the thumbnail in the sampling view.
+        self._preview.display(self._samples_grid.get_sample(index))
 
     def view(self):
         return self._sampling_view
@@ -354,7 +191,8 @@ class SamplingController(object):
     def _frame_update(self, image):
         self._sampling_view.update_thumbnail(
             self._apply_filters(
-                self._filtering_model, image))
+                self._filtering_model,
+                image))
 
     def close(self):
         self._sampling_view.close()
@@ -398,18 +236,21 @@ class SamplingController(object):
 
         view.label_instance_options["state"] = tk.ACTIVE
 
-        # todo: do nothing if this raises a stopiteration error
+        # todo: do nothing if this raises a stop iteration error
         labels = next((l for l in self._labels[label_type] if l.label_name == label_class))
 
-        # navigator = self._navigator
+        #todo: once the label class and label type have been set, do a callback to observers
+        # ex: the we load filters associated with the label.
 
-        # update navigator and detection
+        #todo: should separate sampling from detection.
 
         if labels.classifiable:
             # comparator = self._dlc
             view.menu.entryconfig("Save", state=tk.ACTIVE)
-            # todo: need a view to set the threshold of the detector
-            # samples.set_detection(self._dm_detector)
+            #todo: need a view to set the threshold of the detector
+            # activate threshold slider. each time we set threshold,
+            # the samples get compressed.
+
             self._detector = self._dm_detector
         else:
             # comparator = self._ulc
@@ -485,8 +326,6 @@ class SamplingController(object):
 
             self._labels = labels = defaultdict(list)
 
-            # todo: load samples and apply filters if they are active
-
             # set sample store for each label type
             for label in capture_zone.get_labels(connection):
                 labels[label.label_type].append(label)
@@ -501,12 +340,44 @@ class SamplingController(object):
             # if frame:
             #     self.create_thumbnail(sv, capture_zone, frame)
 
-            self._capture_zone = capture_zone
+            dims = (capture_zone.width, capture_zone.height)
 
-            # todo: when loading samples, we should exclude already labeled samples
+            self._capture_zone = capture_zone
+            self._max_threshold = mt = mdl_utils.max_threshold(dims)
+
+            #initialize preview
+            self._preview.initialize(dims)
+
+            sv.threshold.config(to=mt)
 
             if meta:
-                self._samples_grid.load_samples(meta, capture_zone)
+                grid = self._samples_grid
+                grid.load_samples(meta, capture_zone)
+                # grid.compress_samples(
+                #     self._filtering_model,
+                #     self._image_equal)
+                grid.draw()
+
+                sv.threshold["state"] = tk.NORMAL
+
+    def _image_equal(self, im1, im2):
+        return mdl_utils.different_image(
+            im1, im2, self._threshold)
+
+    def set_threshold(self, value):
+        #update threshold and re-compress elements
+        self._threshold = value
+
+        grid = self._samples_grid
+
+        grid.compress_samples(
+            self._filtering_model,
+            self._image_equal)
+
+        grid.draw()
+
+    def get_max_threshold(self):
+        return self._max_threshold
 
     def filters_update(self, filters):
         """
@@ -539,7 +410,18 @@ class SamplingController(object):
         cz = self._capture_zone
 
         if cz:
-            self._samples_grid.load_samples(video_meta, cz)
+            grid = self._samples_grid
+            grid.load_samples(video_meta, cz)
+            grid.compress_samples(
+                self._filtering_model,
+                self._image_equal)
+
+            grid.draw()
+
+            self._sampling_view.threshold["state"] = tk.NORMAL
 
     def add_samples_observer(self, observer):
         self._samples_observers.append(observer)
+
+    def clear(self):
+        self._samples_grid.clear()

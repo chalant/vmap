@@ -1,8 +1,8 @@
 from gscrap.mapping.tools import tools, navigation
 from gscrap.mapping.tools.capture import recording
-from gscrap.mapping.tools.capture import records
+from gscrap.mapping.tools.capture.records import records
 
-from gscrap.windows import windows
+from gscrap.windows import windows, factory
 
 class CaptureTool(tools.Tool):
     def __init__(
@@ -22,8 +22,11 @@ class CaptureTool(tools.Tool):
 
         self._main_controller = main_controller
 
-        self._window_manager = wm = windows.WindowModel(400, 500)
-        self._window_controller = wc = windows.WindowController(wm)
+        self._window_manager = wm = windows.DefaultWindowModel(400, 500)
+        self._window_controller = wc = windows.WindowController(
+            wm,
+            factory.WindowFactory()
+        )
 
         self._container = main_view.right_frame
 
@@ -66,6 +69,8 @@ class CaptureTool(tools.Tool):
 
     def _recorder_update(self, video_metadata):
         self._navigator.set_video_metadata(video_metadata)
+
+        self._callback(video_metadata)
 
     def add_video_reader(self, reader):
         #subscribe video reader

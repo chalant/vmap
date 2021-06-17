@@ -107,8 +107,9 @@ def get_metadata(connection, project_name):
             project_name,
             res['video_id'],
             res['fps'],
-            res['byte_size'],
             (res['width'], res['height']),
+            res['byte_size'],
+            res['mode'],
             res["frames"],
             res["total_time"]
         )

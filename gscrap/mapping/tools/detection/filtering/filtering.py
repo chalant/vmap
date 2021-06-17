@@ -10,6 +10,7 @@ from gscrap.data import engine
 from gscrap.rectangles import rectangles as rt
 from gscrap.data.filters import filters
 
+#todo: use image grid to display filter rectangles
 
 class ImageWrapper(object):
     def __init__(self, image):
@@ -260,6 +261,7 @@ class FilteringModel(object):
                 obs.filters_update(self)
 
 class FilteringController(object):
+    #todo: filtering should be disabled if no samples was loaded!!!
     def __init__(self, model):
         """
 
@@ -278,50 +280,42 @@ class FilteringController(object):
 
         model.add_data_observers(self)
 
-
     def view(self):
         return self._view
 
-    def samples_update(self, samples):
-        """
-
-        Parameters
-        ----------
-        samples: tools.detection.sampling.Samples
-
-        Returns
-        -------
-
-        """
-
-        #todo: disable save and commit button
-
+    def set_label(self, label):
         # if we already have a capture zone, we need to save the filters
-        cz = self._samples
+        lb = self._label
+        self._label = label
 
-        self._samples = samples
+        #todo: no import must be performed automatically. The user can choose to
+        # import an existing filter group or build one.
 
-        if cz:
+        # when saving, the label will be associated with the filter group.
+
+        #problem: labels from different project might not share the same filter groups...
+
+        if lb:
             #only load when we change label_type and label_name
-            if cz.label_type != samples.label_type and \
-                    cz.label_name != samples.label_name:
+            if lb.label_type != label.label_type and \
+                    lb.label_name != label.label_name:
 
                 if self._data_changed:
                    self.save()
 
-                self._import_filters(samples)
+                self._import_filters(label)
 
         else:
-            self._import_filters(samples)
+            self._import_filters(label)
 
-    def _import_filters(self, samples):
+    def _import_filters(self, label):
         view = self._view
 
         with engine.connect() as connection:
             self._group = group = filters.get_filter_group(
                 connection,
-                samples.label_name,
-                samples.label_type)
+                label.label_name,
+                label.label_type)
             if group != None:
                 if group["committed"] == True:
                     self._set_command_state("Save", view.file_menu, tk.DISABLED)
@@ -347,6 +341,8 @@ class FilteringController(object):
         self._set_command_state("Commit", view.file_menu, tk.ACTIVE)
 
     def commit(self):
+        #todo: capture zone can have multiple labels
+
         group = self._group
         model = self._model
         view = self._view

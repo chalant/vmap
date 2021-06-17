@@ -1,6 +1,13 @@
 import tkinter as tk
 
-class WindowModel(object):
+class Element(object):
+    __slots__ =  ['rid', 'bbox']
+
+    def __init__(self, rid, bbox):
+        self.rid = rid
+        self.bbox = bbox
+
+class DefaultWindowModel(object):
     def __init__(self, width, max_height):
 
         self._height = 0
@@ -15,6 +22,9 @@ class WindowModel(object):
     def max_height(self):
         return self._max_height
 
+    def create_element(self, element_id, bbox):
+        return Element(element_id, bbox)
+
 class WindowView(object):
     def __init__(self, controller, model):
         """
@@ -22,7 +32,7 @@ class WindowView(object):
         Parameters
         ----------
         controller
-        model: WindowModel
+        model: DefaultWindowModel
         """
         self._frame = None
         self._canvas = None
@@ -30,20 +40,33 @@ class WindowView(object):
         self._hbar = None
 
         self._model = model
-        self._controller = controller
 
         self._count = 0
 
         self._height = 0
         self._row = 0
 
-    def render(self, container):
-        self._frame = frame = tk.Frame(container)
+        def null_callback(event):
+            pass
 
-        self._canvas = canvas = tk.Canvas(
-            frame,
-            height=self._model.max_height,
-            width=self._model.width)
+        self._motion_callback = null_callback
+        self._left_click_callback = null_callback
+        self._right_click_callback = null_callback
+
+        self._left_click_bind = False
+        self._right_click_bind = False
+        self._motion_bind = False
+
+    def render(self, container):
+        model = self._model
+
+        self._frame = frame = tk.Frame(
+            container,
+            height=model.max_height,
+            width=model.width
+        )
+
+        self._canvas = canvas = tk.Canvas(frame)
 
         self._vbar = vbar = tk.Scrollbar(frame, orient=tk.VERTICAL)
 
@@ -70,24 +93,24 @@ class WindowView(object):
         if frame:
             frame.destroy()
 
-    def add_window(self, window):
-        view = window.view()
-        if view == None:
-            raise ValueError("View not set!")
-
+    def add_item(self, factory, element):
         canvas = self._canvas
 
         h = self._height
-        frame = view.render(canvas)
-        # frame.update()
-        wn = canvas.create_window(self._row, h, window=frame, anchor=tk.NW)
+
+        eid = factory.create(self._row, h, canvas, element)
+
         canvas.update()
-        x0, y0, x1, y1 = canvas.bbox(wn)
-        h += (y1 - y0)
+        bbox = canvas.bbox(eid)
+
+        h += bbox[3] - bbox[1]
+
         self._height = h
+
         canvas.configure(scrollregion=(0, 0, 0, h))
 
-        return wn
+        return eid, bbox
+
 
     def _on_mouse_wheel(self, event):
         # todo: should create this function as a utility function
@@ -98,24 +121,75 @@ class WindowView(object):
         if event.num == 4 or event.delta == 120:
             self._canvas.yview_scroll(-1, "units")
 
+    def _on_motion(self, event):
+        self._motion_callback(self._update_position(event))
+
+    def _on_left_click(self, event):
+        self._left_click_callback(self._update_position(event))
+
+    def _on_right_click(self, event):
+        self._right_click_callback(self._update_position(event))
+
+    def _update_position(self, event):
+        # x = event.x + canvas.xview()[0] * (self._x)
+        # x = event.x
+        # y = event.y + canvas.yview()[0] * self._height
+        event.y = event.y + int(self._canvas.yview()[0] * self._height)
+        return event
+
+    def on_motion(self, callback):
+        if not self._motion_bind:
+            self._canvas.bind("<Motion>", self._on_motion)
+            self._motion_bind = True
+
+        self._motion_callback = callback
+
+
+    def on_left_click(self, callback):
+        if not self._left_click_bind:
+            self._canvas.bind("<Button-1>", self._on_left_click)
+            self._left_click_bind = True
+
+        self._left_click_callback = callback
+
+    def on_right_click(self, callback):
+        if not self._right_click_bind:
+            self._canvas.bind("<Button-3>", self._on_right_click)
+
+        self._right_click_callback = callback
+
+    def delete_element(self, id_):
+        self._canvas.delete(id_)
+
+    def clear(self):
+        self._height = 0
+        self._row = 0
+
 class WindowController(object):
-    def __init__(self, model):
+    def __init__(self, model, item_factory):
         self._view = WindowView(self, model)
         self._model = model
 
         self._windows = []
         self._items = {}
 
+        self._factory = item_factory
+
     def start(self, container):
         view = self._view
         frame = self._view.render(container)
 
+        factory = self._factory
+
         windows = self._windows
         items = self._items
 
-        for window in self._windows:
-            rid = view.add_window(window)
-            items[rid] = window
+        index = 0
+
+        for window in windows:
+            rid, bbox = view.add_item(factory, window.view())
+            items[index] = rid
+            index += 1
 
         windows.clear()
 

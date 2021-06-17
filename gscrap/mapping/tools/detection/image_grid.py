@@ -160,6 +160,9 @@ class ImageGrid(object):
 
         images_dict.clear() #clear previous data
 
+        #update canvas, other-wise, we will get a divide by zero error!
+        canvas.update()
+
         w = canvas.winfo_width()
 
         max_row = math.floor(w / width)
@@ -317,12 +320,13 @@ class ImageGrid(object):
         width = xywh[2]
         height = xywh[3]
 
-        ph_im = ImageTk.PhotoImage(
-            Image.frombuffer(
+        im = Image.frombuffer(
                 "RGB",
                 (width, height),
                 image_buffer.get_image(index),
-                "raw"))
+                "raw")
+
+        ph_im = ImageTk.PhotoImage(im)
 
         iid = canvas.create_image(
             xywh[0], xywh[1],

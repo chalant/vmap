@@ -4,14 +4,16 @@ def build_schema(meta):
     Table(
         "models",
         meta,
-        Column("name", String, primary_key=True)
+        Column("model_name", String, primary_key=True),
+        Column("model_type", String, nullable=False),
     )
 
     #model parameters.
     Table(
         "difference_matching",
         meta,
-        Column("threshold", Float, nullable=False)
+        Column("threshold", Float, nullable=False),
+        Column("model_name", ForeignKey("models.model_name"), nullable=False)
     )
 
     #model associated with the label
@@ -20,7 +22,8 @@ def build_schema(meta):
         meta,
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
         Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
-        Column("model_name", String, ForeignKey("models.name"), nullable=False)
+        Column("model_name", String, ForeignKey("models.model_name"), nullable=False),
+        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False)
     )
 
     Table(
@@ -36,7 +39,8 @@ def build_schema(meta):
         meta,
         Column("filter_group", String, ForeignKey("filter_groups.name"), nullable=False),
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False,),
-        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False)
+        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
+        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False)
     )
 
     Table(

@@ -9,7 +9,7 @@ from gscrap.mapping.tools.detection import capture
 
 from gscrap.mapping.tools import tools
 
-from gscrap.windows import windows
+from gscrap.windows import windows, factory
 
 class DetectionTool(tools.Tool):
     def __init__(self, main_view, thread_pool):
@@ -23,8 +23,10 @@ class DetectionTool(tools.Tool):
 
         self._canvas = main_view.canvas
 
-        self._window_manager = wm = windows.WindowModel(400, 500)
-        self._windows_controller = wc = windows.WindowController(wm)
+        self._window_manager = wm = windows.DefaultWindowModel(400, 500)
+        self._windows_controller = wc = windows.WindowController(
+            wm,
+            factory.WindowFactory())
 
         self._filtering_model = fm = filtering.FilteringModel()
         self._filtering = flt = filtering.FilteringController(fm)
@@ -99,14 +101,8 @@ class DetectionTool(tools.Tool):
         self._project = project
 
         pool = self._thread_pool
-        hashes = self._hashes
 
-        #todo: set capture tool!!!
-
-        capture_tool = None
-
-        #todo: set detection model
-        # note: depending on where we load the rectangles, we can set caching on rectangles
+        #todo: depending on where we load the rectangles, we can set caching on rectangles
         # ex: in logging, we cache images
 
         #load capture zones...
@@ -131,8 +127,6 @@ class DetectionTool(tools.Tool):
                             instance,
                             project,
                             pool,
-                            hashes,
-                            capture_tool,
                             labels)
 
         canvas.bind("<Motion>", self.on_motion)
@@ -146,6 +140,8 @@ class DetectionTool(tools.Tool):
             canvas.delete(rid)
 
         self._drawn_instance = None
+        #clear sampling tool
+        self._sampling.clear()
 
         instances.clear()
         canvas.unbind("<Motion>")
@@ -185,19 +181,24 @@ class DetectionTool(tools.Tool):
         rid = self._rid
 
         if rid:
+            sampling = self._sampling
+
             drawn_instance = self._drawn_instance
             rct = rt.get_rectangle(self._instances, rid)
 
             if not drawn_instance:
                 self._drawn_instance = rid
-                self._sampling.set_capture_zone(rct)
+                sampling.set_capture_zone(rct)
 
             elif rid != drawn_instance:
                 self._drawn_instance = rid
-                self._sampling.set_capture_zone(rct)
+                sampling.set_capture_zone(rct)
 
-    def set_video_metadata(self, video_meta):
+    def enable_read(self, video_meta):
         self._sampling.set_video_metadata(video_meta)
+
+    def disable_read(self):
+        pass
 
     def stop(self):
         pass

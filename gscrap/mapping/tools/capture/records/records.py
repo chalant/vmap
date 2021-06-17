@@ -4,6 +4,8 @@ from uuid import uuid4
 from gscrap.data.images import videos as vds
 from gscrap.data import engine
 
+from gscrap.mapping.tools.capture.records import loading
+
 class VideoParams(object):
     def __init__(self, fps):
         self.fps = fps
@@ -49,7 +51,15 @@ class LoadRecordView(object):
         self._on_confirm = on_confirm
 
     def render(self, container):
-        pass
+        frame = tk.Frame(container)
+
+        self._canvas = canvas = tk.Canvas(frame)
+
+        canvas.create_window()
+
+        canvas.pack(fill=tk.BOTH)
+
+        return frame
 
 class RecordsView(object):
     def __init__(self, controller):
@@ -89,7 +99,10 @@ class RecordsController(object):
             pass
 
         self._new_view = NewRecordView(self.on_new_confirm)
-        self._load_view = LoadRecordView(self.on_load_confirm)
+
+        self._loading = loading.RecordLoadController(
+            self.on_load_confirm,
+            294, 350)
 
         self._project = None
 
@@ -140,7 +153,7 @@ class RecordsController(object):
         window.grab_set()
 
         window.title("Load Record")
-        window.geometry("294x150")
+        window.geometry("294x350")
 
         window.resizable(False, False)
         window.wm_attributes("-topmost", 1)
@@ -153,7 +166,9 @@ class RecordsController(object):
 
         window.bind("<FocusOut>", alarm)
 
-        self._load_view.render(window)
+        #render window
+
+        self._loading.load_records(self._project.name, window)
 
     def _has_videos(self, project):
         with engine.connect() as connection:
@@ -181,7 +196,7 @@ class RecordsController(object):
         self._window = None
 
         view.file_menu.entryconfig("New", state=tk.DISABLED)
-        view.file_menu.entryconfig("Open", state=tk.DISABLED)
+        # view.file_menu.entryconfig("Open", state=tk.DISABLED)
 
     def set_project(self, project):
         self._project = project

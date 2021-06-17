@@ -106,23 +106,41 @@ from tkinter import ttk
 # label.pack()
 # root.mainloop()
 
-import pytesseract
-from PIL import Image
-import cv2
-import numpy as np
+# import pytesseract
+# from PIL import Image
+# import cv2
+# import numpy as np
+#
+# path = "/home/yves/.gmap/images/a6ec059c607740798dc3a30d3ea2a528"
+# im = Image.open(path)
+#
+# kernel = np.ones((3,3),np.uint8)
+#
+# a, b = cv2.threshold(cv2.cvtColor(np.asarray(im), cv2.COLOR_BGR2GRAY), 127, 255, cv2.THRESH_BINARY_INV)
+# b = cv2.erode(b, kernel)
+# im = Image.fromarray(b)
+#
+# im.show()
+#
+# res = pytesseract.image_to_string(im)
+# print(res)
 
-path = "/home/yves/.gmap/images/a6ec059c607740798dc3a30d3ea2a528"
-im = Image.open(path)
+from tkinter import *
 
-kernel = np.ones((3,3),np.uint8)
+master = Tk()
 
-a, b = cv2.threshold(cv2.cvtColor(np.asarray(im), cv2.COLOR_BGR2GRAY), 127, 255, cv2.THRESH_BINARY_INV)
-b = cv2.erode(b, kernel)
-im = Image.fromarray(b)
+var = tk.IntVar(master, value=100)
 
-im.show()
+i = 1
 
-res = pytesseract.image_to_string(im)
-print(res)
+def max_val():
+    global i
+    w.config(to=i)
+    i += 1
+
+w = Spinbox(master, from_=0, command=max_val)
+w.pack()
+
+mainloop()
 
 
