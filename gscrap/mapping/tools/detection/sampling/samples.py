@@ -47,6 +47,7 @@ class ArraySamplesBuffer(object):
         self._indices = []
 
     def set_samples(self, samples):
+        self._samples.clear()
         self._n = n = len(samples)
         self._samples = samples
         self._indices = [i for i in range(n)]
@@ -71,10 +72,6 @@ class ArraySamplesBuffer(object):
     def __len__(self):
         return self._n
 
-def delete_elements(canvas, image_rectangles):
-    for ir in image_rectangles:
-        canvas.delete(ir.rectangle_id)
-        canvas.delete(ir.image_id)
 
 class Samples(object):
     def __init__(self, buffer, image_grid):
@@ -94,8 +91,14 @@ class Samples(object):
         self._items = []
         self._image_rectangles = {}
 
+        image_grid.on_motion(self._on_motion)
+        image_grid.on_left_click(self._on_left_click)
+
+        self._rid = None
+        self._prev_rid = None
+
     def get_sample(self, index):
-        return self._samples_buffer[index]
+        return self._samples_buffer.get_image(index)
 
     def apply_filters(self, filters):
         buffer = self._samples_buffer
@@ -147,11 +150,13 @@ class Samples(object):
         buffer = []
         items = self._items
 
+        items.clear()
+        self._samples_buffer.clear()
+
         idx = 0
 
         for sample in spl.load_samples(video_metadata, capture_zone.bbox):
-            item = ig.Item()
-            item.dimensions = capture_zone.dimensions
+            item = ig.Item(capture_zone.dimensions)
             item.image_index = idx
 
             items.append(item)
@@ -173,17 +178,21 @@ class Samples(object):
 
             grid = self._image_grid
 
-            delete_elements(grid.canvas, image_rectangles.values())
+            ig.clear_canvas(grid, grid.canvas, image_rectangles.values())
+
+            image_rectangles.clear()
 
             for item in self._items:
                 image_rectangles[item.image_index] = grid.add_item(item)
+
+            grid.update()
 
     def update_draw(self):
         #redraw
         grid = self._image_grid
         image_rectangles = self._image_rectangles
 
-        delete_elements(grid.canvas, image_rectangles.values())
+        ig.clear_canvas(grid, grid.canvas, image_rectangles.values())
 
         #reload compressed elements
         indices = list(set(self._samples_buffer.indices))
@@ -208,10 +217,13 @@ class Samples(object):
 
         if res:
             rid = res[-1]
+
             element = image_rectangles[rid]
 
-            if self._rid != rid:
-                pel = image_rectangles[self._rid]
+            pid = self._rid
+
+            if pid != None:
+                pel = image_rectangles[pid]
                 canvas.itemconfigure(pel.rectangle_id, outline="black")
 
             canvas.itemconfigure(element.rectangle_id, outline="red")
@@ -221,21 +233,17 @@ class Samples(object):
         else:
             rid = self._rid
 
-            if rid:
+            if rid != None:
                 pel = image_rectangles[rid]
                 canvas.itemconfigure(pel.rectangle_id, outline="black")
-
-            self._rid = None
 
     def _on_left_click(self, event):
         rid = self._rid
 
-        if rid:
-            self._selected_sample(self._image_rectangles[rid])
+        if rid != None:
+            self._selected_sample(self._image_rectangles[rid].image_index)
 
     def selected_sample(self, callback):
-        self._image_grid.on_left_click(callback)
-
         self._selected_sample = callback
 
     def clear(self):

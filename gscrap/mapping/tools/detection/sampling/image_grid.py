@@ -7,14 +7,33 @@ from gscrap.mapping.tools.detection import grid
 def update_photo_image(photo_image, image):
     photo_image.paste(image)
 
-class Item(object):
+def clear_canvas(grid, canvas, image_rectangles):
+    for ir in image_rectangles:
+        canvas.delete(ir.rectangle_id)
+        canvas.delete(ir.image_id)
+
+    grid.reset()
+
+class Item(grid.AbstractItem):
     __slots__ = ['dimensions', 'image_index']
 
-    def __init__(self):
-        self.dimensions = None
+    def __init__(self, dimensions):
+        super(Item, self).__init__(dimensions)
+
+        self.dimensions = dimensions
         self.image_index = None
 
 class ImageRectangle(grid.GridElement):
+    __slots__ = [
+        'rectangle_id',
+        'image_id',
+        'image_index',
+        'photo_image',
+        'bbox',
+        'top_left',
+        'dimensions'
+    ]
+
     def __init__(
             self,
             width,
@@ -32,10 +51,10 @@ class ImageRectangle(grid.GridElement):
         self.image_index = image_index
         self.photo_image = photo_image
         self.bbox = bbox
-        self.top_left = bbox[0], bbox[1]
+        self.top_left = (bbox[0], bbox[1])
         self.dimensions = (width, height)
 
-class ImageRectangleFactory(grid.ItemFactory):
+class ImageRectangleFactory(grid.ElementFactory):
     def __init__(self, image_buffer):
         self._image_buffer = image_buffer
 

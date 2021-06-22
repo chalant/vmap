@@ -44,10 +44,6 @@ class ImageRectangle(object):
                 self.dimensions,
                 "raw"))
 
-class Factory(object):
-    def create_element(self, canvas, xywh):
-        pass
-
     
 class ImageGrid(object):
     def __init__(self, width=None, height=None):

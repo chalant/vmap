@@ -506,7 +506,7 @@ class FilteringView(object):
         add.config(menu=fm)
         # todo: import filters cascade with scrollbar we need a menu with scrollbar
         self._filter_canvas = cv = tk.Canvas(frame, width=150)
-        self._param_canvas = pv = tk.Canvas(frame, width=240)
+        self._param_canvas = pv = tk.Canvas(frame, width=220)
 
         frame.pack()
         # m.pack()

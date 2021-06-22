@@ -36,7 +36,7 @@ class DetectionTool(tools.Tool):
         # self._samples_model = spm = samples.SamplesModel()
         # self._samples = spl = samples.SamplesController(spm)
 
-        self._sampling = sc = spg.SamplingController(fm, 400, 600)
+        self._sampling = sc = spg.SamplingController(fm, 360, 400)
 
         fm.add_filter_observer(spl)
         fm.add_filter_observer(sc)

@@ -354,6 +354,8 @@ class SamplingController(object):
 
             if meta:
                 grid = self._samples_grid
+                grid.clear()
+
                 grid.load_samples(meta, capture_zone)
                 # grid.compress_samples(
                 #     self._filtering_model,
@@ -413,6 +415,8 @@ class SamplingController(object):
 
         if cz:
             grid = self._samples_grid
+            grid.clear()
+
             grid.load_samples(video_meta, cz)
             grid.compress_samples(
                 self._filtering_model,
@@ -424,7 +428,6 @@ class SamplingController(object):
 
     def disable_video_read(self):
         self._video_metadata = None
-
 
     def add_samples_observer(self, observer):
         self._samples_observers.append(observer)
