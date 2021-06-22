@@ -139,7 +139,7 @@ class Initial(object):
         self._labels[label_type].append(labels.add_label(label_name, label_type))
 
     def _on_set_label(self):
-        project = self._mapper.project
+        project = self._mapper._project
 
         x, y = self._clicked
 

@@ -44,6 +44,11 @@ class ImageRectangle(object):
                 self.dimensions,
                 "raw"))
 
+class Factory(object):
+    def create_element(self, canvas, xywh):
+        pass
+
+    
 class ImageGrid(object):
     def __init__(self, width=None, height=None):
         self._frame = None
@@ -280,6 +285,8 @@ class ImageGrid(object):
         else:
             self._mh = mh
             canvas.configure(scrollregion=(0, 0, mw, mh))
+
+        return
 
     def add_image_observer(self, observer):
         self._image_observers.append(observer)

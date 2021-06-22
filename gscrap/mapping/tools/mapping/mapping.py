@@ -17,7 +17,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
         container
         """
         self._container = container
-        self.project = None
+        self._project = None
         self._img_item = None
         self._canvas = None
         self._root = None
@@ -129,7 +129,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
     def add_rectangle(self, bbox, container_id=None):
         x0, y0, x1, y1 = bbox
 
-        rct = self.project.create_rectangle(x1 - x0, y1 - y0)
+        rct = self._project.create_rectangle(x1 - x0, y1 - y0)
 
         instances = self._all_instances
 
@@ -233,7 +233,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
                 con,
                 generators.append_yield(
                     self._rectangles,
-                    self.project.get_rectangles(con)),
+                    self._project.get_rectangles(con)),
                     self):
 
                 instances[instance.rid] = instance

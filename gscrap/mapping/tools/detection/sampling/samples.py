@@ -1,6 +1,13 @@
+from PIL import Image
+
 import numpy as np
 
+from gscrap.rectangles import rectangles
+
 from gscrap.sampling import samples as spl
+
+from gscrap.mapping.tools.detection.sampling import image_grid as ig
+from gscrap.mapping.tools.detection import grid as gd
 
 class BytesSamplesBuffer(object):
     def __init__(self, buffer, dimensions):
@@ -34,10 +41,15 @@ class BytesSamplesBuffer(object):
         return self._length
 
 class ArraySamplesBuffer(object):
-    def __init__(self, samples):
-        self._n = len(samples)
+    def __init__(self):
+        self._n = 0
+        self._samples = []
+        self._indices = []
+
+    def set_samples(self, samples):
+        self._n = n = len(samples)
         self._samples = samples
-        self._indices = [i for i in range(len(samples))]
+        self._indices = [i for i in range(n)]
 
     def get_image(self, index):
         return self._samples[index]
@@ -59,75 +71,172 @@ class ArraySamplesBuffer(object):
     def __len__(self):
         return self._n
 
+def delete_elements(canvas, image_rectangles):
+    for ir in image_rectangles:
+        canvas.delete(ir.rectangle_id)
+        canvas.delete(ir.image_id)
+
 class Samples(object):
-    def __init__(self, image_grid):
+    def __init__(self, buffer, image_grid):
         self._image_grid = image_grid
 
         self._video_meta = None
         self._capture_zone = None
 
         self._filters_active = False
-        self._samples_buffer = None
+        self._samples_buffer = buffer
+
+        def null_callback(event):
+            pass
+
+        self._selected_sample = null_callback
+
+        self._items = []
+        self._image_rectangles = {}
 
     def get_sample(self, index):
         return self._samples_buffer[index]
 
     def apply_filters(self, filters):
-        for image in self._image_grid.images:
-            image.paste(filters.filter_image(self._as_array(image)))
+        buffer = self._samples_buffer
+
+        for element in self._image_rectangles.values():
+            ig.update_photo_image(
+                element.photo_image,
+                filters.filter_image(
+                    self._as_array(
+                        buffer.get_image(element.image_index))))
+
+    def disable_filters(self):
+        #disable filters
+        buffer = self._samples_buffer
+
+        for element in self._image_rectangles.values():
+            ig.update_photo_image(
+                element.photo_image,
+                Image.frombuffer(
+                    "RGB",
+                    element.dimensions,
+                    buffer.get_image(element.image_index)))
 
     def compress_samples(self, filters, equal_fn):
         #compress elements by apply filters, and a comparison function
 
-        grid = self._image_grid
+        buffer = self._samples_buffer
 
         #load in an array so that the index of each element doesn't change
-        samples = [s for s in self._load_and_filter(filters)]
+        samples = [s for s in self._load_and_filter(filters, buffer)]
 
         indices = spl.compress_samples(
             samples,
-            len(grid.images),
+            len(buffer),
             equal_fn)
 
-        buffer = self._samples_buffer
-        buffer.indices = set(indices)
+        buffer.indices = indices
 
-    def _load_and_filter(self, filters):
-        for image in self._image_grid.images:
-            yield filters.filter_image(self._as_array(image))
+    def _load_and_filter(self, filters, buffer):
+        for element in self._image_rectangles.values():
+            yield filters.filter_image(
+                self._as_array(buffer.get_image(element.image_index)))
 
     def _as_array(self, image):
-        return np.frombuffer(image.image).reshape(image.height,image.width, 3)
-
-    def disable_filters(self):
-        #disable filters
-        for image in self._image_grid.images:
-            image.reset()
+        return np.frombuffer(image.image, np.uint8).reshape(image.height,image.width, 3)
 
     def load_samples(self, video_metadata, capture_zone):
         #draw samples into the image grid.
         buffer = []
+        items = self._items
+
+        idx = 0
 
         for sample in spl.load_samples(video_metadata, capture_zone.bbox):
+            item = ig.Item()
+            item.dimensions = capture_zone.dimensions
+            item.image_index = idx
+
+            items.append(item)
             buffer.append(sample)
 
+            idx += 1
+
         self._capture_zone = capture_zone
-        self._samples_buffer = ArraySamplesBuffer(buffer)
+
+        self._samples_buffer.set_samples(buffer)
 
     def draw(self):
+        #initialize canvas
+
         capture_zone = self._capture_zone
 
         if capture_zone:
+            image_rectangles = self._image_rectangles
+
             grid = self._image_grid
-            grid.clear()
 
-            grid.draw_images(
-                (capture_zone.width, capture_zone.height),
-                self._samples_buffer)
+            delete_elements(grid.canvas, image_rectangles.values())
 
+            for item in self._items:
+                image_rectangles[item.image_index] = grid.add_item(item)
+
+    def update_draw(self):
+        #redraw
+        grid = self._image_grid
+        image_rectangles = self._image_rectangles
+
+        delete_elements(grid.canvas, image_rectangles.values())
+
+        #reload compressed elements
+        indices = list(set(self._samples_buffer.indices))
+        indices.sort()
+
+        grid.reload(self._get_elements(
+            indices,
+            image_rectangles))
+
+    def _get_elements(self, indices, image_rectangles):
+        for i in indices:
+            yield image_rectangles[i]
+
+    def _on_motion(self, event):
+        image_rectangles = self._image_rectangles
+
+        res = rectangles.find_closest_enclosing(
+            self._image_rectangles,
+            event.x, event.y)
+
+        canvas = gd.get_canvas(self._image_grid)
+
+        if res:
+            rid = res[-1]
+            element = image_rectangles[rid]
+
+            if self._rid != rid:
+                pel = image_rectangles[self._rid]
+                canvas.itemconfigure(pel.rectangle_id, outline="black")
+
+            canvas.itemconfigure(element.rectangle_id, outline="red")
+
+            self._rid = rid
+
+        else:
+            rid = self._rid
+
+            if rid:
+                pel = image_rectangles[rid]
+                canvas.itemconfigure(pel.rectangle_id, outline="black")
+
+            self._rid = None
+
+    def _on_left_click(self, event):
+        rid = self._rid
+
+        if rid:
+            self._selected_sample(self._image_rectangles[rid])
+
+    def selected_sample(self, callback):
+        self._image_grid.on_left_click(callback)
+
+        self._selected_sample = callback
 
     def clear(self):
-        buffer = self._samples_buffer
-
-        if buffer:
-            buffer.clear()
+        self._samples_buffer.clear()

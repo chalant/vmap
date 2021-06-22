@@ -13,14 +13,33 @@ from gscrap.windows import factory as fct
 from gscrap.image_capture import video_reader as vr
 
 
+
+class Info(object):
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
+    def render(self, container):
+        info = tk.Frame(container)
+
+        value = tk.Label(container, text=self.value)
+        name = tk.Label(container, text=self.name)
+
+        value.grid(row=0, column=0)
+        name.grid(row=1, column=0)
+
+        return info
+
+
 class RecordRowView(object):
-    def __init__(self, video_metadata):
+    def __init__(self, video_metadata, id_):
         self._video_metadata = video_metadata
         self.thumbnail = None
         self._image = None
+        self._id = id_
 
     def render(self, container):
-        frame = tk.Frame(container)
+        frame = tk.Frame(container, name=self._id)
         meta = self._video_metadata
 
         dims = meta.dimensions
@@ -38,14 +57,26 @@ class RecordRowView(object):
         thumbnail = tk.Label(frame, image=image)
         thumbnail.pack(side=tk.LEFT)
 
-        #redirect all mouse event to the container
-        thumbnail.bindtags(container)
-        frame.bindtags(container)
+        meta = self._video_metadata
+
+        infos = tk.Frame(frame)
+
+        duration = Info("Duration", meta.time).render(infos)
+        # frames = Info("Frames", meta.frames).render(infos)
+
+
+        duration.grid(row=0, column=0)
+        # frames.grid(row=0, column=1)
+
+        infos.pack(side=tk.LEFT)
+
+        tags = (container,)
+        #disable events on this element
+        thumbnail.bindtags(tags)
+        frame.bindtags(tags)
+        infos.bindtags(tags)
 
         return frame
-
-    def _break(self, event):
-        pass
 
 class RecordRow(object):
     def __init__(self, window_element, video_metadata):
@@ -68,7 +99,6 @@ class LoadRecordView(object):
         records = tk.Frame(frame)
         buttons = tk.Frame(frame)
 
-        #todo: ok button
         rows = self._window_view.render(records)
         rows.pack(fill=tk.BOTH)
 
@@ -89,7 +119,7 @@ class LoadRecordView(object):
 class RecordLoadController(object):
     def __init__(self, on_confirm, width, height):
         self._model = model = windows.DefaultWindowModel(width, height)
-        self._video_list = vl = windows.WindowView(self, model)
+        self._video_list = vl = windows.WindowRows(self, model)
 
         self._view = LoadRecordView(self._on_confirm, vl)
 
@@ -102,29 +132,34 @@ class RecordLoadController(object):
 
         self._views = []
 
+        self._container = None
+
     def view(self):
         return self._view
 
     def load_records(self, project_name, container):
+        self._container = container
+
         items = self._items
 
         factory = fct.WindowFactory()
 
         video_list = self._video_list
+        views = self._views
+
         video_list.clear()
+        items.clear()
+        views.clear()
 
         index = 0
 
-        views = self._views
-
         self._view.render(container).pack()
-
-        #todo: sort by ascending order of date of creation.
 
         with engine.connect() as connection:
             for record in videos.get_metadata(connection, project_name):
-                rv = RecordRowView(record)
+                rv = RecordRowView(record, "record_row:{}".format(index))
                 views.append(rv)
+
                 element = video_list.add_item(factory, rv)
                 items[index] = RecordRow(element, record)
 
@@ -134,27 +169,34 @@ class RecordLoadController(object):
         video_list.on_left_click(self._on_left_click)
 
     def _on_motion(self, event):
-        items = self._items
+        # items = self._items
 
-        res = rectangles.find_closest_enclosing(
-            items,
-            event.x,
-            event.y)
+        # res = rectangles.find_closest_enclosing(
+        #     items,
+        #     event.x,
+        #     event.y)
 
-        #todo: change cursor to finger, etc.
+        #hack for detecting the selected window...
 
-        print(event)
+        widget = str(event.widget)
+        idx = widget.find("record_row:")
 
-        if res:
-            self._rid = res[-1]
-            print("LOOL!!")
+        container = self._container
 
-    def _selected(self, video_metadata):
-        print("SELECTED!", video_metadata.path)
+        #extract widget id
+        if idx != -1:
+            sl = widget[idx:len(widget)]
+            lr = len("record_row:")
+            self._rid = int(sl[lr:lr+1])
+            container["cursor"] = "hand2"
+        else:
+            self._rid = None
+            container["cursor"] = "arrow"
 
     def _on_left_click(self, event):
-        self._selected_row = self._items[self._rid]
-        self._view.confirm_button["state"] = tk.NORMAL
+        if self._rid != None:
+            self._selected_row = self._items[self._rid]
+            self._view.confirm_button["state"] = tk.NORMAL
 
     def _on_confirm(self):
         self._callback(self._selected_row.video_metadata)

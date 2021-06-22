@@ -192,7 +192,7 @@ class SamplingView(object):
 
         tsb["state"] = tk.DISABLED
 
-        # menu.add_command(label="Update", command=controller.update)
+        # menu.add_command(label="Update", command=citeontroller.update)
         menu.add_command(label="Save", command=controller.save)
         menu.add_command(label="Detect", command=controller.detect)
 

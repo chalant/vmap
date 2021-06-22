@@ -23,10 +23,12 @@ class DetectionTool(tools.Tool):
 
         self._canvas = main_view.canvas
 
-        self._window_manager = wm = windows.DefaultWindowModel(400, 500)
+        self._window_manager = wm = windows.DefaultWindowModel(400, 600)
         self._windows_controller = wc = windows.WindowController(
             wm,
             factory.WindowFactory())
+
+        #todo: refactor filtering. the filter
 
         self._filtering_model = fm = filtering.FilteringModel()
         self._filtering = flt = filtering.FilteringController(fm)
@@ -34,7 +36,7 @@ class DetectionTool(tools.Tool):
         # self._samples_model = spm = samples.SamplesModel()
         # self._samples = spl = samples.SamplesController(spm)
 
-        self._sampling = sc = spg.SamplingController(fm)
+        self._sampling = sc = spg.SamplingController(fm, 400, 600)
 
         fm.add_filter_observer(spl)
         fm.add_filter_observer(sc)
@@ -59,11 +61,6 @@ class DetectionTool(tools.Tool):
 
         self._prev = None
         self._rid = None
-
-        self._items = []
-        self._hashes = {}
-
-        self._project = None
 
         self._thread_pool = thread_pool
 
@@ -98,7 +95,7 @@ class DetectionTool(tools.Tool):
 
         instances = self._instances
 
-        self._project = project
+        instances.clear()
 
         pool = self._thread_pool
 
@@ -198,7 +195,7 @@ class DetectionTool(tools.Tool):
         self._sampling.set_video_metadata(video_meta)
 
     def disable_read(self):
-        pass
+        self._sampling.disable_video_read()
 
     def stop(self):
         pass

@@ -5,17 +5,17 @@ import tkinter as tk
 from PIL import Image
 import numpy as np
 
-from gscrap.mapping.tools.detection import image_grid as ig
-from gscrap.mapping.tools.detection.sampling import samples as spl
-
 from gscrap.detection import models as mdl
 from gscrap.detection import utils as mdl_utils
 
 from gscrap.data import engine
 from gscrap.data.images import images
 
+from gscrap.mapping.tools.detection import grid as gd
+
 from gscrap.mapping.tools.detection.sampling import view as vw
-from gscrap.mapping.tools import navigation
+from gscrap.mapping.tools.detection.sampling import image_grid as ig
+from gscrap.mapping.tools.detection.sampling import samples as spl
 
 
 def crop_image(bbox, image):
@@ -115,7 +115,7 @@ class ImageSource(object):
             yield im.label, self._filtering_model.filter_image(np.asarray(im.image))
 
 class SamplingController(object):
-    def __init__(self, filtering_model, on_label_set=None):
+    def __init__(self, filtering_model, width, height, on_label_set=None):
         """
 
         Parameters
@@ -124,10 +124,6 @@ class SamplingController(object):
         """
 
         self._filtering_model = filtering_model
-
-        self._image_grid = image_grid = ig.ImageGrid()
-
-        self._sampling_view = view = vw.SamplingView(self, image_grid)
 
         self._image = None
 
@@ -149,6 +145,18 @@ class SamplingController(object):
 
         self._preview = preview = vw.PreviewController()
 
+        buffer = spl.ArraySamplesBuffer()
+
+        self._image_grid = image_grid = gd.Grid(
+            ig.ImageRectangleFactory(buffer),
+            width,
+            height)
+
+        self._samples_grid = samples_grid = spl.Samples(buffer, image_grid)
+        samples_grid.selected_sample(self._selected_sample)
+
+        self._sampling_view = view = vw.SamplingView(self, image_grid)
+
         preview.set_view(view.preview)
 
         # detectors
@@ -167,10 +175,6 @@ class SamplingController(object):
         # self._dlc = dlc
         # self._ulc = ulc
 
-        self._samples_grid = spl.Samples(image_grid)
-
-        image_grid.on_left_click(self._selected_sample)
-
         self._video_metadata = None
         self._capture_zone = None
 
@@ -182,7 +186,7 @@ class SamplingController(object):
         self._threshold = mdl_utils.DEFAULT_THRESH
         self._max_threshold = 0
 
-    def _selected_sample(self, index, click_event):
+    def _selected_sample(self, index):
         self._preview.display(self._samples_grid.get_sample(index))
 
     def view(self):
@@ -332,8 +336,6 @@ class SamplingController(object):
 
             sv.label_type_options["values"] = tuple(labels.keys())
 
-            # todo: no navigator
-
             # # sv.capture_zone_update(connection, capture_zone)
             # frame = self._navigator.current_frame
             #
@@ -366,7 +368,7 @@ class SamplingController(object):
 
     def set_threshold(self, value):
         #update threshold and re-compress elements
-        self._threshold = value
+        self._threshold = float(value)
 
         grid = self._samples_grid
 
@@ -419,6 +421,10 @@ class SamplingController(object):
             grid.draw()
 
             self._sampling_view.threshold["state"] = tk.NORMAL
+
+    def disable_video_read(self):
+        self._video_metadata = None
+
 
     def add_samples_observer(self, observer):
         self._samples_observers.append(observer)

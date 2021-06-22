@@ -22,10 +22,7 @@ class DefaultWindowModel(object):
     def max_height(self):
         return self._max_height
 
-    def create_element(self, element_id, bbox):
-        return Element(element_id, bbox)
-
-class WindowView(object):
+class WindowRows(object):
     def __init__(self, controller, model):
         """
 
@@ -66,7 +63,7 @@ class WindowView(object):
             width=model.width
         )
 
-        self._canvas = canvas = tk.Canvas(frame)
+        self._canvas = canvas = tk.Canvas(frame, height=model.max_height)
 
         self._vbar = vbar = tk.Scrollbar(frame, orient=tk.VERTICAL)
 
@@ -77,9 +74,9 @@ class WindowView(object):
         # canvas.configure(scrollregion=canvas.bbox("all"))
         # canvas.bind("<Configure>", lambda e:canvas.configure(scrollregion=canvas.bbox("all")))
 
-        frame.pack(fill=tk.BOTH, expand=1)
+        frame.pack(fill=tk.BOTH)
         vbar.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas.pack(fill=tk.BOTH, expand=1)
+        canvas.pack(fill=tk.BOTH)
 
 
         canvas.bind("<MouseWheel>", self._on_mouse_wheel)
@@ -115,11 +112,13 @@ class WindowView(object):
     def _on_mouse_wheel(self, event):
         # todo: should create this function as a utility function
         # respond to Linux or Windows wheel event
-        if event.num == 5 or event.delta == -120:
-            self._canvas.yview_scroll(1, "units")
+        canvas = self._canvas
 
-        if event.num == 4 or event.delta == 120:
-            self._canvas.yview_scroll(-1, "units")
+        if event.num == 5 or event.delta == -120:
+            canvas.yview_scroll(1, "units")
+
+        elif event.num == 4 or event.delta == 120:
+            canvas.yview_scroll(-1, "units")
 
     def _on_motion(self, event):
         self._motion_callback(self._update_position(event))
@@ -165,9 +164,23 @@ class WindowView(object):
         self._height = 0
         self._row = 0
 
+        # canvas = self._canvas
+
+        # if canvas:
+        #     canvas.unbind("<MouseWheel>")
+        #     canvas.unbind("<Button-4>")
+        #     canvas.unbind("<Button-5>")
+        #
+        #     canvas.unbind("<Button-1>")
+        #     canvas.unbind("<Button-3>")
+
+        self._right_click_bind = False
+        self._left_click_bind = False
+        self._motion_bind = False
+
 class WindowController(object):
     def __init__(self, model, item_factory):
-        self._view = WindowView(self, model)
+        self._view = WindowRows(self, model)
         self._model = model
 
         self._windows = []

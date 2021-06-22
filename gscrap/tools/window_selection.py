@@ -37,7 +37,7 @@ def get_absolute_geometry(root, win):
             break
         win = parent
 
-    return x, y, geom.width, geom.height
+    return int(x), int(y), int(geom.width), int(geom.height)
 
 def to_bbox(x, y, w, h):
     """
@@ -53,10 +53,8 @@ class WindowSelectionEvent(object):
         self.xywh = xywh
         self.window_id = win_id
 
-        x, y , w, h  = xywh
-
-        self.width = w
-        self.height = h
+        self.width = xywh[2]
+        self.height = xywh[3]
 
 
 class WindowSelector(object):
@@ -119,6 +117,9 @@ class WindowSelector(object):
 
         self._on_abort_callback()  # callback if the
         container.config(cursor = "arrow")
+
+        container.unbind("<Button-1>")
+        container.unbind("<Button-3>")
 
     def _on_click(self, event):
         container = self._container

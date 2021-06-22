@@ -194,11 +194,14 @@ class FilteringModel(object):
 
         self._new_filters.append(filter_)
 
+
+        #register a call back when parameters of the filter have changed.
         filter_.on_data_update(self._on_filter_change)
 
         for obs in self._data_observers:
             obs.data_update(self)
 
+        #notify when filters are updated
         if self._enabled:
             for obs in self._filters_observers:
                 obs.filters_update(self)

@@ -56,13 +56,13 @@ class CaptureTool(tools.Tool):
 
     def bind_window(self, window):
         self._records.set_window(window)
+        self._recorder.set_window(window)
 
-    def _new_video(self, video_metadata, window):
-        self._recorder.set_record_info(video_metadata, window)
+    def _new_video(self, video_metadata):
+        self._recorder.set_record_info(video_metadata)
 
-    def _video_open(self, video_metadata, window):
-        self._recorder.set_record_info(video_metadata, window)
-
+    def _video_open(self, video_metadata):
+        self._recorder.set_record_info(video_metadata)
         self._navigator.set_video_metadata(video_metadata)
 
         self._callback(video_metadata)

@@ -264,8 +264,7 @@ def find_closest_enclosing(instances, x, y):
 
     results = []
 
-    #find smallest distance
-
+    #find smallest enclosing distance from the cursor
     for r in instances.values():
         x0, y0, x1, y1 = r.bbox
 
@@ -279,8 +278,46 @@ def find_closest_enclosing(instances, x, y):
         if dst < m_dist and x0 < x and y0 < y and x1 > x and y1 > y:
             m_dist = dst
 
+    #get the closest rectangle
     for rid, r in instances.items():
         if m_dist == math.dist(p, r.top_left):
             results.append(rid)
 
     return results
+
+def find_relative_closest_enclosing(instances, x, y):
+    m_dist = None
+    p = (x, y)
+
+    results = []
+
+    # find smallest enclosing distance from the cursor
+    for r in instances.values():
+        x0, y0, x1, y1 = r.bbox
+
+        ax = x + x0
+        ay = y + y0
+        ap = (ax, ay)
+
+        if m_dist is None:
+            if x0 < ax and y0 < ay and x1 > ax and y1 > ay:
+                m_dist = math.dist(ap, r.top_left)
+            continue
+
+        dst = math.dist(ap, r.top_left)
+
+        if dst < m_dist and x0 < ax and y0 < ay and x1 > ax and y1 > ay:
+            m_dist = dst
+
+    # get the closest rectangle
+    for rid, r in instances.items():
+        if m_dist == math.dist(adjust_point(p, r.top_left), r.top_left):
+            results.append(rid)
+
+    return results
+
+def adjust_point(p, delta):
+    px, py = p
+    dx, dy = delta
+
+    return px + dx, py + dy

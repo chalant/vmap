@@ -135,7 +135,7 @@ class NavigationController(object):
     def prev_frame(self):
         frame = self._prev_frame(self._video_navigator)
 
-        image = Image.frombytes(
+        image = Image.frombuffer(
             "RGB",
             self._meta.dimensions,
             frame,
@@ -179,6 +179,7 @@ class NavigationController(object):
     def _start(self, video_meta):
         navigator = self._video_navigator
         view = self._view
+        self._frames = video_meta.frames
 
         if video_meta.frames > 0:
             navigator.initialize(video_meta)

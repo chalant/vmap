@@ -29,7 +29,12 @@ class VideoNavigator(object):
         self._video_reader = vr.VideoReader(video_metadata)
 
         self._metadata = video_metadata
+        self._frames = video_metadata.frames
         self._indices.clear()
+
+        self._index = -1
+        self._current_frame = b''
+
 
         # if video_metadata.frames > 0:
         #     self._indices.append(0)
@@ -52,7 +57,7 @@ class VideoNavigator(object):
 
     @property
     def has_next(self):
-        return self._index < self._metadata.frames
+        return self._index < self._frames
 
     @property
     def has_prev(self):
@@ -101,42 +106,42 @@ class VideoNavigator(object):
 
             if ind != li:
                 indices.append(ind) #add found index to indices
-                self._index = index + 1
 
-            self._current_frame = frame
+                self._index = index + 1
+                self._current_frame = frame
+
             return frame
 
     def _next_frame(self, video, index, prev_frame, comparator):
         ind = index
 
-        crop = self._crop
+        # crop = self._crop
+        #
+        # if crop:
+        #     x0, y0, x1, y1 = crop
+        #     dims = (x1 - x0, y1 - y0)
+        # else:
+        #     dims = self._metadata.dimensions
 
-        if crop:
-            x0, y0, x1, y1 = crop
-            dims = (x1 - x0, y1 - y0)
-        else:
-            dims = self._metadata.dimensions
+        # res = np.array(dims)
 
-        res = np.array(dims)
-
-        for frame in video.read(index + 1, crop):
+        for frame in video.read(index + 1, self._crop):
             ind += 1
 
             #skip identical bytes
-            if frame == prev_frame:
+            if frame != prev_frame:
                 #apply additional comparisons to the frames
-                continue
+                return ind, frame
 
-            #skip identical frames using some comparator
-            if not comparator.different_image(
-                    np.frombuffer(prev_frame, np.uint8).reshape(*res[::-1], 3),
-                    np.frombuffer(frame, np.uint8).reshape(*res[::1], 3)):
-                continue
-
-            return ind, frame
+            # #skip identical frames using some comparator
+            # if not comparator.different_image(
+            #         np.frombuffer(prev_frame, np.uint8).reshape(*res[::-1], 3),
+            #         np.frombuffer(frame, np.uint8).reshape(*res[::1], 3)):
+            #     continue
 
         #return same index if no different image was found
-        return ind, prev_frame
+        self._frames = index + 1
+        return index, prev_frame
 
     def previous_frame(self):
         index = self._index

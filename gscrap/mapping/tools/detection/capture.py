@@ -43,11 +43,17 @@ class CaptureZone(object):
 
         self._position = 0
 
-        self._ltwh = (*self._rectangle.top_left, self._rectangle.width, self._rectangle.height)
+        self._ltwh = xywh = (*self._rectangle.top_left, self._rectangle.width, self._rectangle.height)
 
         self._in_view = False
 
         self._detector = mdl.Detector()
+
+        self._dimensions = (xywh[2], xywh[3])
+
+    @property
+    def dimensions(self):
+        return self._dimensions
 
     @property
     def rid(self):

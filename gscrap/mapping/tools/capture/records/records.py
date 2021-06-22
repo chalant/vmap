@@ -95,14 +95,14 @@ class RecordsController(object):
     def __init__(self, on_new=None, on_load=None):
         self._view = RecordsView(self)
 
-        def null_callback(meta, window):
+        def null_callback(meta):
             pass
 
         self._new_view = NewRecordView(self.on_new_confirm)
 
         self._loading = loading.RecordLoadController(
             self.on_load_confirm,
-            294, 350)
+            294, 300)
 
         self._project = None
 
@@ -143,10 +143,12 @@ class RecordsController(object):
 
     def on_load(self):
 
+        loader = self._loading
+
         def on_abort():
             self._load_abort()
-            window.destroy()
             window.grab_release()
+            window.destroy()
 
         self._top_level = window = tk.Toplevel(self._view.frame)
 
@@ -168,7 +170,7 @@ class RecordsController(object):
 
         #render window
 
-        self._loading.load_records(self._project.name, window)
+        loader.load_records(self._project.name, window)
 
     def _has_videos(self, project):
         with engine.connect() as connection:
@@ -187,9 +189,6 @@ class RecordsController(object):
         if project:
             view.file_menu.entryconfig("New", state=tk.NORMAL)
 
-            if self._has_videos(project):
-                view.file_menu.entryconfig("Open", state=tk.NORMAL)
-
     def unbind_window(self):
         view = self._view
 
@@ -205,12 +204,11 @@ class RecordsController(object):
         if self._window:
             view.file_menu.entryconfig("New", state=tk.NORMAL)
 
-            if self._has_videos(project):
-                view.file_menu.entryconfig("Open", state=tk.NORMAL)
+        if self._has_videos(project):
+            view.file_menu.entryconfig("Open", state=tk.NORMAL)
 
     def on_new_confirm(self, video_params):
         project = self._project
-        window = self._window
 
         self._meta = meta = vds.VideoMetadata(
             project.name,
@@ -231,13 +229,13 @@ class RecordsController(object):
         self._top_level.destroy()
 
         #notify observers that there is a new record
-        self._new_callback(meta, window)
+        self._new_callback(meta)
 
     def on_load_confirm(self, video_meta):
         self._top_level.destroy()
 
         # notify observers that we opened a record
-        self._load_callback(video_meta, self._window)
+        self._load_callback(video_meta)
 
     def _new_abort(self):
         pass

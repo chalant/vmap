@@ -2,9 +2,11 @@ import tkinter as tk
 
 from concurrent import futures
 
-from PIL import ImageTk
+from PIL import ImageTk, Image
 
 import gscrap.mapping.view as vw
+
+from gscrap.image_capture import capture_loop as cl
 
 from gscrap.mapping.tools.mapping import mapping
 from gscrap.mapping.tools.detection import detection
@@ -46,13 +48,14 @@ class MappingController(object):
 
         cpt.add_video_reader(dtc)
 
-        self._current_project = None
+        self._project = None
 
         self._template = None
 
     def on_mapping(self):
         view = self._view
         menu = self._menu
+
 
         def on_close(event):
             # called when mapping tool closes
@@ -63,6 +66,15 @@ class MappingController(object):
             self._view.window_selection["state"] = tk.NORMAL
 
             menu.enable_menu()
+
+            #todo: code smell!
+            #todo: instead of reloading everything, we could just pass
+            # the mapping dict to the detection tool dict and reload from memory
+            # instead of files.
+            self._detection_tool.clear_tool()
+            self._detection_tool.start_tool(self._project)
+
+
 
             #todo: reload capture zones (tools -> reload)
 
@@ -114,14 +126,14 @@ class MappingController(object):
             #load template image
             project.load_template(template_load, on_error)
 
-        self._current_project = project
+        self._project = project
 
 
     def template_update(self, image):
         self._template.paste(image)
 
     def _video_update(self, video_meta):
-        pass
+        self._detection_tool.enable_read(video_meta)
 
     def stop(self):
         #todo save everything before closing...
@@ -151,7 +163,6 @@ class MappingController(object):
         view = self._view
         window_selector = self._window_selector
         capture_tool = self._capture_tool
-        detection_tool = self._detection_tool
 
         def on_error():
             pass
@@ -163,7 +174,7 @@ class MappingController(object):
         def on_selected(event):
             self._window_selected = True
 
-            project = self._current_project
+            project = self._project
 
             width = project.width
 
@@ -178,8 +189,8 @@ class MappingController(object):
                 project.height = event.height
 
             #change the values of the window event
-            event.width = project.width
-            event.height = project.height
+            event.width = int(project.width)
+            event.height = int(project.height)
 
             #initialize capture tool
             capture_tool.bind_window(event)
@@ -192,6 +203,16 @@ class MappingController(object):
             view.window_selection["text"] = "Unbind Window"
 
             view.mapping_button["state"] = tk.NORMAL
+            #store template.
+            image = Image.frombytes(
+                "RGB",
+                (event.width, event.height),
+                cl.capture(event.xywh),
+                "raw",
+                "BGRX")
+
+            self._template.paste(image)
+            project.store_template(image)
 
         if not self._window_selected:
             # view.container["cursor"] = "target"
@@ -211,7 +232,5 @@ class MappingController(object):
             capture_tool.unbind_window()
 
             self._window_selected = False
-
-    #image navigation functions
 
 

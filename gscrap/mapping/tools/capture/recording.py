@@ -139,7 +139,7 @@ class RecordingController(object):
             view.record_button["text"] = "Resume"
             # looper.stop()
 
-            #disable read
+            #disable read while we merge the two files...
             for reader in self._readers:
                 reader.disable_read()
 
@@ -159,6 +159,10 @@ class RecordingController(object):
             meta.time = view.time.get()
             meta.time = t
 
+            with engine.connect() as connection:
+                meta.submit(connection)
+
+            #notify readers with new metadata
             for reader in self._readers:
                 reader.enable_read(meta)
 
@@ -167,12 +171,29 @@ class RecordingController(object):
     def add_reader(self, reader):
         self._readers.append(reader)
 
-    def set_record_info(self, video_metadata, window):
-        self._meta = video_metadata
-        self._view.record_button["state"] = tk.NORMAL
-        self._window = window
+    def set_record_info(self, video_metadata):
+        if self._window:
+            # stop recording
+            if self._recording:
+                self.on_record()
+
+            self._view.record_button["state"] = tk.NORMAL
 
         self._time = datetime.strptime(video_metadata.time,"%H:%M:%S.%f")
+        self._meta = video_metadata
+
+    def set_window(self, window):
+        self._window = window
+
+        meta = self._meta
+
+        if meta:
+            #stop recording
+            if self._recording:
+
+                self.on_record()
+
+            self._view.record_button["state"] = tk.NORMAL
 
     def unbind_window(self):
         self._view.record_button["state"] = tk.DISABLED
@@ -184,7 +205,7 @@ class RecordingController(object):
         if self._recording:
             self.on_record()
 
-        if self._meta:
-            #submit changes to video metadata
-            with engine.connect() as connection:
-                self._meta.submit(connection)
+        # if self._meta:
+        #     #submit changes to video metadata
+        #     with engine.connect() as connection:
+        #         self._meta.submit(connection)
