@@ -96,7 +96,7 @@ class SamplesModel(object):
     def get_samples(self, connection):
         position = 0
 
-        for im in self._capture_zone.get_images(connection):
+        for im in self._capture_zone.get_samples(connection):
             position += 1
             yield im
 

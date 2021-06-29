@@ -31,14 +31,15 @@ class DetectionTool(tools.Tool):
         #todo: refactor filtering. the filter
 
         self._filtering_model = fm = filtering.FilteringModel()
-        self._filtering = flt = filtering.FilteringController(fm)
 
         # self._samples_model = spm = samples.SamplesModel()
         # self._samples = spl = samples.SamplesController(spm)
 
         self._sampling = sc = spg.SamplingController(fm, 360, 400)
 
-        fm.add_filter_observer(spl)
+        self._filtering = flt = filtering.FilteringController(fm, sc.save_filters_mappings)
+
+        # fm.add_filter_observer(spl)
         fm.add_filter_observer(sc)
         fm.add_filters_import_observer(flt.view())
 
@@ -53,9 +54,9 @@ class DetectionTool(tools.Tool):
 
         # spl.add_images_observer(sc)
 
-        wc.add_window(sc)
         # wc.add_window(spl)
         wc.add_window(flt)
+        wc.add_window(sc)
 
         self._instances = {}
 

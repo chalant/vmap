@@ -1,15 +1,19 @@
+from uuid import uuid4
+
 from collections import defaultdict
 
 import tkinter as tk
 
 from PIL import Image
+
 import numpy as np
 
-from gscrap.detection import models as mdl
-from gscrap.detection import utils as mdl_utils
+from gscrap.labeling import labeling as mdl
+from gscrap.labeling import utils as mdl_utils
 
 from gscrap.data import engine
 from gscrap.data.images import images
+from gscrap.data.filters import filters
 
 from gscrap.mapping.tools.detection import grid as gd
 
@@ -38,7 +42,7 @@ class SamplesStore(object):
 
         self._image_observers = []
 
-        self._detection = mdl.NullDetection()
+        self._detection = mdl.NullLabeling()
 
     @property
     def classifiable(self):
@@ -98,7 +102,7 @@ class SamplesStore(object):
         self._detection = detection
 
     def detect(self, img):
-        return self._detection.detect(img)
+        return self._detection.label(img)
 
 class ImageSource(object):
     def __init__(self, filtering_model):
@@ -112,7 +116,7 @@ class ImageSource(object):
 
     def get_images(self):
         for im in self._images:
-            yield im.label, self._filtering_model.filter_image(np.asarray(im.image))
+            yield im.label, self._filtering_model.apply(np.asarray(im.image))
 
 class SamplingController(object):
     def __init__(self, filtering_model, width, height, on_label_set=None):
@@ -120,10 +124,12 @@ class SamplingController(object):
 
         Parameters
         ----------
-        filtering_model: tools.detection.filtering.filtering.FilteringModel
+        filtering_model: gscrap.mapping.tools.detection.filtering.filtering.FilteringModel
         """
 
         self._filtering_model = filtering_model
+        self._filter_group = None
+        self._parameter_id = None
 
         self._image = None
 
@@ -145,7 +151,7 @@ class SamplingController(object):
 
         self._preview = preview = vw.PreviewController()
 
-        buffer = spl.ArraySamplesBuffer()
+        self._image_buffer = buffer = spl.ArraySamplesBuffer()
 
         self._image_grid = image_grid = gd.Grid(
             ig.ImageRectangleFactory(buffer),
@@ -153,18 +159,21 @@ class SamplingController(object):
             height)
 
         self._samples_grid = samples_grid = spl.Samples(buffer, image_grid)
+
         samples_grid.selected_sample(self._selected_sample)
 
         self._sampling_view = view = vw.SamplingView(self, image_grid)
 
         preview.set_view(view.preview)
 
+        self._selected_image_index = None
+
         # detectors
 
-        self._dm_detector = mdl.DifferenceMatching(self._image_source)
+        self._difference_matching = mdl.DifferenceMatching()
         self._tesseract = mdl.Tesseract()
-        self._null_detector = nd = mdl.NullDetection()
-        self._detector = nd
+        self._null_detector = nd = mdl.NullLabeling()
+        self._labeling = nd
 
         # # keep these these references so that we can update the threshold
         # dlc = lc.DifferentLabel(dmd)
@@ -187,6 +196,7 @@ class SamplingController(object):
         self._max_threshold = 0
 
     def _selected_sample(self, index):
+        self._selected_image_index = index
         self._preview.display(self._samples_grid.get_sample(index))
 
     def view(self):
@@ -201,26 +211,76 @@ class SamplingController(object):
     def close(self):
         self._sampling_view.close()
 
-    def save(self):
-        #todo: save sample
+    def save_sample(self):
+        image_idx = self._selected_image_index
 
-        image = self._image
-
-        if image:
+        if image_idx:
             self._samples.add_sample(
-                image,
+                self._image_buffer.get_image(image_idx),
                 {
                     "label_name": self._label_class,
                     "label_type": self._label_type,
                     "instance_name": self._label
             })
 
+    def save_filters_mappings(self, filter_model):
+        label_class = self._label_class
+        label_type = self._label_type
+        capture_zone = self._capture_zone
+
+        filter_group = self._filter_group
+
+        # map labels to models and filters.
+
+        parameter_id = filter_model.parameter_id
+
+        with engine.connect() as connection:
+            if label_class and label_type:
+
+                if filter_model.group_name != filter_group:
+                    #if group has changed, remove the label from previous group
+
+                    # we execute in different connection, because deleting then writing
+                    # doesn't work on the same connection for some reason...
+
+                    with engine.connect() as connection2:
+                        filters.remove_label_from_group(
+                            connection2,
+                            label_class,
+                            label_type,
+                            filter_group
+                        )
+
+                    # map label to filter group if it exists.
+                    if filter_model.group_name:
+                        filters.store_filter_labels(
+                            connection,
+                            filter_model.group_name,
+                            label_type,
+                            label_class,
+                            parameter_id,
+                            capture_zone.project_name
+                        )
+
+                elif parameter_id != self._parameter_id:
+                        #if parameters has changed, update parameter id
+                        filters.update_filter_labels_parameter_id(
+                            connection,
+                            label_class,
+                            label_type,
+                            capture_zone.project_name,
+                            parameter_id)
+
+            self._labeling.store(connection)
+
     def set_label_type(self, *args):
         view = self._sampling_view
         self._label_type = label_type = view.label_type.get()
-        view.label_class_options['values'] = tuple([label.label_name for label in self._labels[label_type]])
 
-        view.label_class_options["state"] = tk.ACTIVE
+        view.label_class_options['values'] = tuple(
+            [label.label_name for label in self._labels[label_type]])
+
+        view.label_class_options["state"] = tk.NORMAL
 
     def set_label_class(self, *args):
 
@@ -246,25 +306,67 @@ class SamplingController(object):
         #todo: once the label class and label type have been set, do a callback to observers
         # ex: the we load filters associated with the label.
 
+        fm = self._filtering_model
+
         #todo: should separate sampling from detection.
+
+        labeling = None
+
+        #try loading labeling model
+        with engine.connect() as connection:
+            meta = mdl.load_labeling_model_metadata(
+                connection,
+                labels)
+
+            if meta:
+                labeling = mdl.get_labeling_model(meta['model_type']).load(
+                    connection, meta['model_name'])
+
+            filter_group = filters.get_filter_group(
+                connection,
+                label_class,
+                label_type,
+                capture_zone.project_name)
+
+            self._filter_group = filter_group['name']
+
+            if filter_group:
+                #this will be displayed on the filters canvas.
+                fm.import_filters(
+                    connection,
+                    filter_group)
+
+            self._parameter_id = fm.parameter_id
 
         if labels.classifiable:
             # comparator = self._dlc
             view.menu.entryconfig("Save", state=tk.ACTIVE)
-            #todo: need a view to set the threshold of the detector
-            # activate threshold slider. each time we set threshold,
-            # the samples get compressed.
 
-            self._detector = self._dm_detector
+            self._labeling = lb = self._difference_matching if not labeling else labeling
+            threshold = lb.threshold
+
+
+            view.threshold['state'] = tk.NORMAL
+            view.threshold.config(to=self._max_threshold)
+            view.threshold.set(threshold)
+
+            self._threshold = threshold
+
         else:
-            # comparator = self._ulc
             # can't save an unclassifiable element
+            view.threshold['state'] = tk.DISABLED
             view.menu.entryconfig("Save", state=tk.DISABLED)
-            # samples.set_detection(self._tesseract)
-            self._detector = self._tesseract
+            self._labeling = lb = self._tesseract if not labeling else labeling
 
-        # navigator.set_image_comparator(comparator)
-        # navigator.restart()
+        #store mappings if its a new model...
+        if not labeling:
+            #map model to label and store
+            mdl.store_label_model(
+                connection,
+                lb.model_type,
+                uuid4().hex,
+                label_type,
+                label_class)
 
         view.menu.entryconfig("Detect", state=tk.ACTIVE)
 
@@ -284,8 +386,8 @@ class SamplingController(object):
 
     def detect(self):
         self._sampling_view.label_instance.set(
-            self._detector.detect(
-                self._filtering_model.filter_image(
+            self._labeling.label(
+                self._filtering_model.apply(
                     self._image)))
 
     def enable_filters(self):
@@ -327,7 +429,6 @@ class SamplingController(object):
             sv.menu.entryconfig("Save", state=tk.DISABLED)
 
             # load labels for the capture zone.
-
             self._labels = labels = defaultdict(list)
 
             # set sample store for each label type
@@ -394,16 +495,41 @@ class SamplingController(object):
         -------
 
         """
-        image = self._image
 
-        if image:
-            self._sampling_view.update_thumbnail(
-                self._apply_filters(filters, image))
+        idx = self._selected_image_index
+        preview = self._preview
+
+        grid = self._samples_grid
+
+        buffer = self._image_buffer
+
+        if filters.filters_enabled:
+            grid.apply_filters(filters)
+
+            if idx:
+                preview.display(self._apply_filters(
+                    filters,
+                    self._from_buffer(buffer.get_image(idx))))
+
+            self._filters_on = True
+        else:
+            grid.disable_filters()
+
+            if idx:
+                preview.display(self._from_buffer(buffer.get_image(idx)))
+
+            self._filters_on = False
 
     def _apply_filters(self, filters, image):
         if filters.filters_enabled:
-            return Image.fromarray(filters.filter_image(image))
+            return Image.fromarray(filters.apply(image))
         return Image.fromarray(image)
+
+    def _from_buffer(self, image):
+        Image.frombuffer(
+            "RGB",
+            self._capture_zone.dimensions,
+            image)
 
     def images_update(self, images):
         self._image_source.set_images(images)

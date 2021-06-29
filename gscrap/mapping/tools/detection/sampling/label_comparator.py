@@ -7,7 +7,7 @@ class UnknownLabel(ic.ImageComparator):
 
     def different_image(self, im1, im2):
         #crop the next frame and apply detection model
-        if self._detector.detect(im2) == 'Unknown':
+        if self._detector.label(im2) == 'Unknown':
             # return true if the element is unlabeled
             return True
 
@@ -21,8 +21,8 @@ class DifferentLabel(ic.ImageComparator):
     def different_image(self, im1, im2):
         detector = self._detector
 
-        lb1 = detector.detect(im1)
-        lb2 = detector.detect(im2)
+        lb1 = detector.label(im1)
+        lb2 = detector.label(im2)
 
         #return next frame with different labels
         return lb1 != lb2

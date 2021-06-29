@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 
-from gscrap.detection import models as mdl
+from gscrap.labeling import labeling as mdl
 from gscrap.data.images import images as im
 
 from gscrap.data import engine
@@ -43,11 +43,12 @@ class CaptureZone(object):
 
         self._position = 0
 
-        self._ltwh = xywh = (*self._rectangle.top_left, self._rectangle.width, self._rectangle.height)
+        self._ltwh = xywh = (
+            *self._rectangle.top_left,
+            self._rectangle.width,
+            self._rectangle.height)
 
         self._in_view = False
-
-        self._detector = mdl.Detector()
 
         self._dimensions = (xywh[2], xywh[3])
 
@@ -87,10 +88,6 @@ class CaptureZone(object):
     def xywh(self):
         return self._ltwh
 
-    @property
-    def classifiable(self):
-        return self._rectangle.rectangle.classifiable
-
     def add_sample(self, image, label):
         rct = self._rectangle.rectangle
 
@@ -113,14 +110,14 @@ class CaptureZone(object):
     def get_label_instances(self, connection, label_type, label_name):
         return self._project.get_label_instances(connection, label_name, label_type)
 
-    def get_images(self, connection, label_type, label_name):
+    def get_samples(self, connection, label_type, label_name):
         return im.get_images(connection, self.project_name, label_type, label_name)
 
     def set_detection(self, detection):
-        self._detector.set_detection(detection)
+        self._detector.set_model(detection)
 
     def detect(self, image):
-        return self._detector.detect(image)
+        return self._detector.label(image)
 
     def process_image(self, image):
         """

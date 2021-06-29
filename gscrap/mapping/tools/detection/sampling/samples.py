@@ -106,9 +106,10 @@ class Samples(object):
         for element in self._image_rectangles.values():
             ig.update_photo_image(
                 element.photo_image,
-                filters.filter_image(
-                    self._as_array(
-                        buffer.get_image(element.image_index))))
+                Image.fromarray(filters.apply(
+                    self._as_array(buffer.get_image(
+                        element.image_index),
+                        element.dimensions))))
 
     def disable_filters(self):
         #disable filters
@@ -139,11 +140,14 @@ class Samples(object):
 
     def _load_and_filter(self, filters, buffer):
         for element in self._image_rectangles.values():
-            yield filters.filter_image(
-                self._as_array(buffer.get_image(element.image_index)))
+            yield filters.apply(
+                self._as_array(
+                    buffer.get_image(element.image_index),
+                    element.dimensions))
 
-    def _as_array(self, image):
-        return np.frombuffer(image.image, np.uint8).reshape(image.height,image.width, 3)
+    def _as_array(self, image, dimensions):
+        # return np.asarray(Image.frombytes("RGB", dimensions, image))
+        return np.frombuffer(image, np.uint8).reshape(dimensions[1], dimensions[0], 3)
 
     def load_samples(self, video_metadata, capture_zone):
         #draw samples into the image grid.

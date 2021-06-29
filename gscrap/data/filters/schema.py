@@ -1,11 +1,12 @@
-from sqlalchemy import Table, Column, String, ForeignKey, Integer, Float, Boolean
+from sqlalchemy import Table, Column, String, ForeignKey, Integer, Float
 
 def build_schema(meta):
     Table(
         "models",
         meta,
         Column("model_name", String, primary_key=True),
-        Column("model_type", String, nullable=False),
+        #(could be tesseract, difference_matching etc.)
+        Column("model_type", String, nullable=False)
     )
 
     #model parameters.
@@ -13,7 +14,7 @@ def build_schema(meta):
         "difference_matching",
         meta,
         Column("threshold", Float, nullable=False),
-        Column("model_name", ForeignKey("models.model_name"), nullable=False)
+        Column("model_name", ForeignKey("models.model_name"), nullable=False),
     )
 
     #model associated with the label
@@ -29,16 +30,32 @@ def build_schema(meta):
     Table(
         "filter_groups",
         meta,
-        Column("name", String, primary_key=True),
-        Column("committed", Boolean, default=False)
+        Column("group_id", String, primary_key=True),
     )
+    #different groups can have the same parameters sequence.
+
+    Table(
+        "parameters",
+        meta,
+        Column("parameter_id", String, primary_key=True)
+    )
+
+    Table(
+        "filters_parameters",
+        meta,
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
+        Column("filter_group", String, ForeignKey("filter_groups.group_id"), nullable=False)
+    )
+
+    #difference groups
 
     #filter to label mapping
     Table(
         "labels_filters",
         meta,
-        Column("filter_group", String, ForeignKey("filter_groups.name"), nullable=False),
-        Column("label_type", String, ForeignKey("labels.label_type"), nullable=False,),
+        Column("filter_group", String, ForeignKey("filter_groups.group_id"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
+        Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
         Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
         Column("project_name", String, ForeignKey("projects.project_name"), nullable=False)
     )
@@ -46,7 +63,8 @@ def build_schema(meta):
     Table(
         "filters",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.name"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
         Column("type", String, nullable=False),
         Column("name", String, nullable=False),
         Column("position", Integer, nullable=False)
@@ -55,7 +73,8 @@ def build_schema(meta):
     Table(
         "threshold",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.name"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
         Column("position", Integer, ForeignKey("filters.position"), nullable=False),
         Column("thresh_value", Integer, nullable=False),
         Column("max_value", Integer, nullable=False),
@@ -65,7 +84,8 @@ def build_schema(meta):
     Table(
         "gaussian_blur",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.name"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
         Column("position", Integer, ForeignKey("filters.position"), nullable=False),
         Column("ksizeX", Float, nullable=False),
         Column("ksizeY", Float, nullable=False),
@@ -76,16 +96,18 @@ def build_schema(meta):
     Table(
         "average_blur",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.name"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
         Column("position", Integer, ForeignKey("filters.position"), nullable=False),
-        Column("ksizeX", Float),
-        Column("ksizeY", Float)
+        Column("ksizeX", Float, nullable=False),
+        Column("ksizeY", Float, nullable=False)
     )
 
     Table(
         "median_blur",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.name"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
         Column("position", Integer, ForeignKey("filters.position"), nullable=False),
-        Column("ksize", Float)
+        Column("ksize", Float, nullable=False)
     )

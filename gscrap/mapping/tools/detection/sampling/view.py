@@ -188,12 +188,16 @@ class SamplingView(object):
         self.menu = menu = tk.Menu(mb, tearoff=0)
 
         self._threshold_label = tlb = tk.Label(label_frame, text="Threshold")
-        self.threshold = tsb = tk.Spinbox(label_frame, from_=0, command=self._set_threshold)
+
+        self.threshold = tsb = ttk.Spinbox(
+            label_frame,
+            from_=0,
+            command=self._set_threshold)
 
         tsb["state"] = tk.DISABLED
 
         # menu.add_command(label="Update", command=citeontroller.update)
-        menu.add_command(label="Save", command=controller.save)
+        menu.add_command(label="Save", command=controller.save_sample)
         menu.add_command(label="Detect", command=controller.detect)
 
         menu.entryconfig("Save", state=tk.DISABLED)

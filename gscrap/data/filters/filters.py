@@ -7,66 +7,128 @@ import cv2
 from PIL import Image
 
 
-_GET_FILTER_GROUP = text(
+_GET_GROUP_NAMES = text(
     '''
-    SELECT * FROM filter_groups
-    INNER JOIN labels_filters ON labels_filters.filter_group = filter_groups.name
-    WHERE labels_filters.label_type =:label_type AND labels_filters.label_name =:label_name
+    SELECT *
+    FROM filter_group_names
     '''
 )
+
+_GET_FILTER_GROUP_BY_NAME = text(
+    '''
+    SELECT *
+    FROM filter_groups
+    WHERE filter_groups.name =:name
+    '''
+)
+
+_GET_FILTER_GROUP = text(
+    '''
+    SELECT * 
+    FROM filter_groups
+    INNER JOIN labels_filters 
+        ON labels_filters.filter_group = filter_groups.group_id
+    WHERE labels_filters.label_type =:label_type 
+        AND labels_filters.label_name =:label_name
+        AND labels_filters.project_name =:project_name
+    ''')
 
 _REMOVE_LABEL_FROM_GROUP = text(
     '''
     DELETE FROM labels_filters
-    WHERE labels_filters.label_type =:label_type AND labels_filters.label_name =:label_name
-    '''
-)
+    WHERE labels_filters.label_type =:label_type 
+        AND labels_filters.label_name =:label_name 
+        AND labels_filers.group_name =:group_id
+    ''')
 
 _STORE_FILTER_GROUP = text(
     '''
-    INSERT OR REPLACE INTO filter_groups (name, committed)
-    VALUES (:name, :committed)
+    INSERT OR REPLACE INTO filter_groups (name, group_id, committed)
+    VALUES (:name, :group_id, :committed)
+    ''')
+
+_ADD_FILTER_GROUP_NAME = text(
+    '''
+    INSERT OR IGNORE INTO filter_group_names (name)
+    VALUES (:name)
     '''
 )
 
 _GET_GROUPS = text(
     """
     SELECT * FROM filter_groups
-    """
-)
+    """)
 
 _GET_FILTERS = text(
     """
     SELECT * FROM filters
-    WHERE group_name=:group_name
+    WHERE group_name=:group_id AND parameter_id=:parameter_id
     ORDER BY position ASC
-    """
-)
+    """)
 
 _STORE_FILTER = text(
     '''
-    INSERT OR REPLACE INTO filters(group_name, type, name, position)
-    VALUES (:group_name, :type, :name, :position)
+    INSERT OR REPLACE INTO filters(group_name, type, name, position, parameter_id)
+    VALUES (:group_name, :type, :name, :position, :parameter_id)
     '''
 )
 
 _DELETE_FILTER = text(
     '''
     DELETE FROM filters
-    WHERE group_name=:group_name AND type=:type AND name=:name AND position=:position
-    '''
-)
+    WHERE group_name=:group_name 
+        AND type=:type 
+        AND name=:name 
+        AND position=:position
+        AND parameter_id=:parameter_id
+    ''')
 
 _STORE_FILTER_LABEL = text(
     '''
-    INSERT OR REPLACE INTO labels_filters(filter_group, label_type, label_name)
-    VALUES (:filter_group, :label_type, :label_name)
+    INSERT OR REPLACE INTO labels_filters(filter_group, label_type, label_name, parameter_id)
+    VALUES (:filter_group, :label_type, :label_name, :parameter_id)
+    ''')
+
+_ADD_PARAMETER_ID = text(
     '''
-)
+    INSERT OR IGNORE INTO parameters(parameter_id)
+    VALUES (:parameter_id)
+    ''')
 
-_PARAMETER_QUERY = """SELECT * FROM {} WHERE group_name=:group_name AND position=:position"""
+_MAP_FILTER_GROUP_TO_PARAMETER_ID = text(
+    '''
+    INSERT OR REPLACE INTO filters_parameters(filter_group, parameter_id)
+    VALUES (:filter_group, :parameter_id)
+    ''')
 
-_DELETE_STRING = """DELETE FROM {} WHERE group_name=:group_name AND position=:position"""
+_GET_PARAMETERS = text(
+    '''
+    SELECT * FROM parameters
+    WHERE filter_group=:filter_group
+    ''')
+
+_UPDATE_LABEL_FILTERS_PARAM_ID = text(
+    '''
+    UPDATE labels_filters
+    SET labels_filters.parameter_id=:parameter_id
+    WHERE labels_filters.label_name=:label_name
+        AND labels_filters.label_type=:label_type
+        AND labels_filters.project_name=:project_name
+    ''')
+
+_PARAMETER_QUERY = """
+    SELECT * 
+    FROM {} 
+    WHERE group_name=:group_name 
+        AND position=:position
+        AND parameter_id=:parameter_id
+    """
+
+_DELETE_STRING = """
+    DELETE 
+    FROM {} 
+    WHERE group_name=:group_name 
+        AND position=:position"""
 
 FILTER_TYPES = ("Color", "Resize", "Threshold", "Blur")
 
@@ -81,35 +143,109 @@ _THRESHOLD_TYPES = {
 FILTERS_BY_TYPE = {
     "Color":("Grey",),
     "Blur": ("Gaussian" ,"Average", "Median"),
-    "Threshold":list(_THRESHOLD_TYPES.keys()),
+    "Threshold":tuple(_THRESHOLD_TYPES.keys()),
     "Resize":("Trim",)
 }
 
-def remove_label_from_group(connection, label_name, label_type):
+_FILTERS_IDS = {
+    "Binary": 10,
+    "Inverse Binary": 11,
+    "Trunc": 12,
+    "To Zero": 13,
+    "To Zero Inverse": 14,
+    "Gaussian": 20,
+    "Average": 21,
+    "Median": 22,
+    "Grey":30,
+    "Trim":40
+}
+
+def add_parameter_id(connection, parameter_id):
+    connection.execute(
+        _ADD_PARAMETER_ID,
+        parameter_id=parameter_id
+    )
+
+def map_filter_group_to_parameter_id(
+        connection,
+        group_name,
+        parameter_id):
+
+    connection.execute(
+        _MAP_FILTER_GROUP_TO_PARAMETER_ID,
+        filter_group=group_name,
+        parameter_id=parameter_id
+    )
+
+def update_filter_labels_parameter_id(
+        connection,
+        label_name,
+        label_type,
+        project_name,
+        parameter_id):
+
+    connection.execute(
+        _UPDATE_LABEL_FILTERS_PARAM_ID,
+        label_name=label_name,
+        label_type=label_type,
+        project_name=project_name,
+        parameter_id=parameter_id
+    )
+
+def remove_label_from_group(connection, label_name, label_type, project_name):
     return connection.execute(
         _REMOVE_LABEL_FROM_GROUP,
         label_type=label_type,
-        label_name=label_name
+        label_name=label_name,
+        project_name=project_name
     )
 
-def get_filter_group(connection, label_name, label_type):
+def get_group_names(connection):
+    return connection.execute(_GET_GROUP_NAMES)
+
+def get_filter_group_by_name(connection, name):
+    return connection.execute(
+        _GET_FILTER_GROUP_BY_NAME,
+        name=name
+    )
+
+def get_filter_group(connection, label_name, label_type, project_name):
     return connection.execute(
         _GET_FILTER_GROUP,
         label_type=label_type,
-        label_name=label_name).first()
+        label_name=label_name,
+        project_name=project_name
+    ).first()
 
-def store_filter_group(connection, name, committed):
-    connection.execute(_STORE_FILTER_GROUP, name=name, committed=committed)
+def store_filter_group(connection, name, group_id, committed):
+    connection.execute(
+        _ADD_FILTER_GROUP_NAME,
+        name)
 
-def store_filter_labels(connection, filter_group, label_type, label_name):
+    connection.execute(
+        _STORE_FILTER_GROUP,
+        name=name,
+        group_id=group_id,
+        committed=committed)
+
+def store_filter_labels(
+        connection,
+        filter_group,
+        label_type,
+        label_name,
+        parameter_id,
+        project_name):
+
     connection.execute(
         _STORE_FILTER_LABEL,
         filter_group=filter_group,
         label_type=label_type,
-        label_name=label_name)
+        label_name=label_name,
+        parameter_id=parameter_id,
+        project_name=project_name
+    )
 
-def get_parameters(connection, filter_, group):
-    query = None
+def get_filter_parameters(connection, filter_, group, parameter_id):
     if filter_.type == "Blur":
         if filter_.name == "Gaussian":
             query = text(_PARAMETER_QUERY.format("gaussian_blur"))
@@ -117,67 +253,97 @@ def get_parameters(connection, filter_, group):
             query = text(_PARAMETER_QUERY.format("average_blur"))
         elif filter_.name == "Median":
             query = text(_PARAMETER_QUERY.format("median_blur"))
+        else:
+            raise ValueError("No filter of class {}".format(filter_.name))
 
     elif filter_.type == "Threshold":
         query = text(_PARAMETER_QUERY.format("threshold"))
+    else:
+        raise ValueError("No filter of type {}".format(filter_.type))
 
-    if query != None:
-        return connection.execute(query, group_name=group, position=filter_.position).fetchone()
+    return connection.execute(
+        query,
+        group_name=group,
+        position=filter_.position,
+        parameter_id=parameter_id
+    ).fetchone()
 
-def get_filters(connection, group):
-    return connection.execute(_GET_FILTERS, group_name=group)
+def load_filters(connection, group_id, parameter_id):
+    return connection.execute(
+        _GET_FILTERS,
+        group_id=group_id,
+        parameter_id=parameter_id)
 
-def get_groups(connection):
+def get_filter_groups(connection):
     return connection.execute(_GET_GROUPS)
 
-class Filters(object):
-    def get_filter_types(self):
-        return FILTER_TYPES
+def get_parameters(connection, group_name):
+    return connection.execute(
+        _GET_PARAMETERS,
+        filter_group=group_name)
 
-    def get_filters(self, filter_type):
-        return FILTERS_BY_TYPE[filter_type]
+def get_filter_types():
+    return FILTER_TYPES
 
-    def create_filter(self, filter_type, filter_name, position):
-        """
+def get_filter_classes(filter_type):
+    return FILTERS_BY_TYPE[filter_type]
 
-        Parameters
-        ----------
-        filter_type
-        filter_name
-        position
+def create_parameter_id(filter_pipeline):
+    sequence = ''
 
-        Returns
-        -------
-        Filter
-        """
+    for filter_ in filter_pipeline:
+        sequence += filter_.get_parameter_sequence()
 
-        if filter_type == "Blur":
-            if filter_name == "Gaussian":
-                return GaussianBlur(position)
-            elif filter_name == "Average":
-                return AverageBlur(position)
-            elif filter_name == "Median":
-                return MedianBlur(position)
-            else:
-                raise ValueError("Unknown filter: {} {}".format(filter_name, filter_type))
+    return sequence
 
-        elif filter_type == "Threshold":
-            if filter_name not in _THRESHOLD_TYPES:
-                raise ValueError("Unknown filter: {} {}".format(filter_name, filter_type))
-            return Threshold(position, filter_name)
-        elif filter_type == "Color":
-            if filter_name == "Grey":
-                return Grey(position)
-            else:
-                raise ValueError("Unknown filter: {} {}".format(filter_name, filter_type))
-        elif filter_type == "Resize":
-            if filter_name == "Trim":
-                return Trim(position)
+def create_group_id(filter_pipeline):
+    sequence = ''
+
+    for filter_ in filter_pipeline:
+        sequence += str(filter_.filter_id)
+
+    return sequence
+
+def create_filter(filter_type, filter_name, position):
+    """
+
+    Parameters
+    ----------
+    filter_type
+    filter_name
+    position
+
+    Returns
+    -------
+    Filter
+    """
+
+    if filter_type == "Blur":
+        if filter_name == "Gaussian":
+            return GaussianBlur(position)
+        elif filter_name == "Average":
+            return AverageBlur(position)
+        elif filter_name == "Median":
+            return MedianBlur(position)
         else:
-            raise  ValueError("Unknown filter type: {}")
+            raise ValueError("Unknown filter: {} {}".format(filter_name, filter_type))
+
+    elif filter_type == "Threshold":
+        if filter_name not in _THRESHOLD_TYPES:
+            raise ValueError("Unknown filter: {} {}".format(filter_name, filter_type))
+        return Threshold(position, filter_name)
+    elif filter_type == "Color":
+        if filter_name == "Grey":
+            return Grey(position)
+        else:
+            raise ValueError("Unknown filter: {} {}".format(filter_name, filter_type))
+    elif filter_type == "Resize":
+        if filter_name == "Trim":
+            return Trim(position)
+    else:
+        raise  ValueError("Unknown filter type: {}")
 
 class Filter(abc.ABC):
-
     def __init__(self, position):
         self.position = position
         self._changed = False
@@ -189,6 +355,10 @@ class Filter(abc.ABC):
 
     def clear_callbacks(self):
         self._callbacks.clear()
+
+    @property
+    def filter_id(self):
+        return _FILTERS_IDS[self.name]
 
     @property
     @abc.abstractmethod
@@ -275,18 +445,21 @@ class Filter(abc.ABC):
                 #     for fn in self._callbacks:
                 #         fn(self)
 
+    def get_parameters_sequence(self):
+        return ''
+
 class Trim(Filter):
     #removes any "non interesting" information
     def __init__(self, position):
         super(Trim, self).__init__(position)
 
     @property
-    def type(self):
-        return "Resize"
-
-    @property
     def name(self):
         return "Trim"
+
+    @property
+    def type(self):
+        return "Resize"
 
     def apply(self, img):
         pil = Image.fromarray(img)
@@ -300,7 +473,6 @@ class Trim(Filter):
             roi = img[y:y+h, x:x+w]
             return cv2.resize(roi, (wd, ht), 0, 0)
 
-        #todo: set background to
         return img
 
     def _render(self, container):
@@ -362,9 +534,11 @@ class Threshold(Filter):
 
         return frame
 
+    def get_parameters_sequence(self):
+        return '{}'.format(self.thresh_value)
 
     def _load_parameters(self, connection, group):
-        data = get_parameters(connection, self, group)
+        data = get_filter_parameters(connection, self, group)
 
         self.thresh_type = data["type"]
         self.max_value = data["max_value"]
@@ -409,11 +583,18 @@ class GaussianBlur(Filter):
         return "Gaussian"
 
     def apply(self, img):
-        return cv2.GaussianBlur(
-            img,
-            (self.ksizeX, self.ksizeY),
-            self.sigmaX,
-            sigmaY=self.sigmaY)
+        try:
+            return cv2.GaussianBlur(
+                img,
+                (self.ksizeX, self.ksizeY),
+                self.sigmaX,
+                sigmaY=self.sigmaY)
+
+        except Exception:
+            return img
+
+    def get_parameters_sequence(self):
+        return '{}{}{}{}'.format(self.ksizeX, self.ksizeY, self.sigmaX, self.sigmaY)
 
     def _render(self, container):
         self._frame = frame = tk.Frame(container)
@@ -476,7 +657,7 @@ class GaussianBlur(Filter):
             self._frame.destroy()
 
     def _load_parameters(self, connection, group):
-        data = get_parameters(connection, self, group)
+        data = get_filter_parameters(connection, self, group)
 
         self.ksizeX = data["ksizeX"]
         self.ksizeY = data["ksizeY"]
@@ -525,6 +706,9 @@ class AverageBlur(Filter):
     def render(self, container):
         pass
 
+    def get_parameters_sequence(self):
+        return '{}{}'.format(self.ksizeX, self.ksizeY)
+
 class MedianBlur(Filter):
     def __init__(self, position, ksize=5):
         super(MedianBlur, self).__init__(position)
@@ -552,6 +736,9 @@ class MedianBlur(Filter):
     def render(self, container):
         pass
 
+    def get_parameters_sequence(self):
+        return '{}'.format(self.ksize)
+
 class Grey(Filter):
     def __init__(self, position):
         super(Grey, self).__init__(position)
@@ -565,7 +752,7 @@ class Grey(Filter):
         return "Grey"
 
     def apply(self, img):
-        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
     def _render(self, container):
         pass
