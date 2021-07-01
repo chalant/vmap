@@ -39,14 +39,6 @@ def build_schema(meta):
         meta,
         Column("parameter_id", String, primary_key=True)
     )
-
-    Table(
-        "filters_parameters",
-        meta,
-        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
-        Column("filter_group", String, ForeignKey("filter_groups.group_id"), nullable=False)
-    )
-
     #difference groups
 
     #filter to label mapping

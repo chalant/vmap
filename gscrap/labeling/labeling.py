@@ -97,8 +97,13 @@ class DifferenceMatching(AbstractLabeling):
         return best_match_name
 
     def store(self, connection):
+        #todo: should only store if the threshold is different
+
+        #todo: this will only append a row to the table, since there is no primary key
+
         connection.execute(
-            text('''INSERT OR REPLACE INTO {} VALUES (threshold=:threshold) WHERE model_name=:model_name'''),
+            text('''INSERT OR REPLACE INTO {} VALUES (threshold=:threshold) WHERE model_name=:model_name'''.format(
+                self.model_type)),
             threshold=self._threshold
         )
 

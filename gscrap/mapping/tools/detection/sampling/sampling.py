@@ -137,6 +137,8 @@ class SamplingController(object):
         self._thumbnail_set = False
 
         self._label = None
+        self._label_class = None
+        self._label_type = None
 
         self._item = None
         self._labels = None
@@ -223,55 +225,61 @@ class SamplingController(object):
                     "instance_name": self._label
             })
 
-    def save_filters_mappings(self, filter_model):
+        self._save_filters_mappings(self._filtering_model)
+
+    def _save_filters_mappings(self, filter_model):
         label_class = self._label_class
         label_type = self._label_type
         capture_zone = self._capture_zone
 
-        filter_group = self._filter_group
+        pgr = self._filter_group
+        ppr = self._parameter_id
+
+        group_id = filter_model.group_id
+
+
 
         # map labels to models and filters.
 
         parameter_id = filter_model.parameter_id
+        project_name = capture_zone.project_name
 
         with engine.connect() as connection:
-            if label_class and label_type:
+            #if the filter_labels already belonged to a group, update the group and parameter
 
-                if filter_model.group_name != filter_group:
+            if parameter_id and group_id and pgr and ppr:
+                if group_id != pgr:
                     #if group has changed, remove the label from previous group
 
-                    # we execute in different connection, because deleting then writing
-                    # doesn't work on the same connection for some reason...
+                    #note: label per project is always mapped to ONE group_id and parameter_id pair.
 
-                    with engine.connect() as connection2:
-                        filters.remove_label_from_group(
-                            connection2,
-                            label_class,
-                            label_type,
-                            filter_group
-                        )
+                    filters.update_filter_labels_group(
+                        connection,
+                        label_type,
+                        label_type,
+                        project_name,
+                        group_id)
 
-                    # map label to filter group if it exists.
-                    if filter_model.group_name:
-                        filters.store_filter_labels(
-                            connection,
-                            filter_model.group_name,
-                            label_type,
-                            label_class,
-                            parameter_id,
-                            capture_zone.project_name
-                        )
+                if parameter_id != ppr:
+                    filters.update_filter_labels_parameter_id(
+                        connection,
+                        label_type,
+                        label_type,
+                        project_name,
+                        group_id)
 
-                elif parameter_id != self._parameter_id:
-                        #if parameters has changed, update parameter id
-                        filters.update_filter_labels_parameter_id(
-                            connection,
-                            label_class,
-                            label_type,
-                            capture_zone.project_name,
-                            parameter_id)
+            elif parameter_id and group_id:
+                #if did not belong to any group, add it to database
+                filters.store_filter_labels(
+                    connection,
+                    group_id,
+                    label_type,
+                    label_class,
+                    parameter_id,
+                    project_name
+                )
 
-            self._labeling.store(connection)
+        self._labeling.store(connection)
 
     def set_label_type(self, *args):
         view = self._sampling_view
@@ -537,20 +545,22 @@ class SamplingController(object):
     def set_video_metadata(self, video_meta):
         # self._navigator.set_video_metadata(video_meta)
         self._video_metadata = video_meta
-        cz = self._capture_zone
-
-        if cz:
-            grid = self._samples_grid
-            grid.clear()
-
-            grid.load_samples(video_meta, cz)
-            grid.compress_samples(
-                self._filtering_model,
-                self._image_equal)
-
-            grid.draw()
-
-            self._sampling_view.threshold["state"] = tk.NORMAL
+        # cz = self._capture_zone
+        #
+        # if cz:
+        #     print("CZ")
+        #
+        #     grid = self._samples_grid
+        #     grid.clear()
+        #
+        #     grid.load_samples(video_meta, cz)
+        #     grid.compress_samples(
+        #         self._filtering_model,
+        #         self._image_equal)
+        #
+        #     grid.draw()
+        #
+        #     self._sampling_view.threshold["state"] = tk.NORMAL
 
     def disable_video_read(self):
         self._video_metadata = None

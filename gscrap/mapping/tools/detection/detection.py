@@ -37,7 +37,7 @@ class DetectionTool(tools.Tool):
 
         self._sampling = sc = spg.SamplingController(fm, 360, 400)
 
-        self._filtering = flt = filtering.FilteringController(fm, sc.save_filters_mappings)
+        self._filtering = flt = filtering.FilteringController(fm)
 
         # fm.add_filter_observer(spl)
         fm.add_filter_observer(sc)

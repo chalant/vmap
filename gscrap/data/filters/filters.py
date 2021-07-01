@@ -6,22 +6,6 @@ from sqlalchemy import text
 import cv2
 from PIL import Image
 
-
-_GET_GROUP_NAMES = text(
-    '''
-    SELECT *
-    FROM filter_group_names
-    '''
-)
-
-_GET_FILTER_GROUP_BY_NAME = text(
-    '''
-    SELECT *
-    FROM filter_groups
-    WHERE filter_groups.name =:name
-    '''
-)
-
 _GET_FILTER_GROUP = text(
     '''
     SELECT * 
@@ -38,21 +22,40 @@ _REMOVE_LABEL_FROM_GROUP = text(
     DELETE FROM labels_filters
     WHERE labels_filters.label_type =:label_type 
         AND labels_filters.label_name =:label_name 
-        AND labels_filers.group_name =:group_id
+        AND labels_filters.filter_group =:group_id
+        AND labels_filters.project_name =:project_name
     ''')
 
 _STORE_FILTER_GROUP = text(
     '''
-    INSERT OR REPLACE INTO filter_groups (name, group_id, committed)
-    VALUES (:name, :group_id, :committed)
+    INSERT OR IGNORE 
+    INTO filter_groups(group_id)
+    VALUES (:group_id)
     ''')
 
-_ADD_FILTER_GROUP_NAME = text(
+# _ADD_FILTER_GROUP = text(
+#     '''
+#     INSERT OR IGNORE
+#     INTO filter_groups(group_id)
+#     VALUES (:group_id)
+#     '''
+# )
+
+_GET_GROUP_ID = text(
     '''
-    INSERT OR IGNORE INTO filter_group_names (name)
-    VALUES (:name)
+    SELECT * FROM filter_groups
+    WHERE group_id=:group_id
     '''
 )
+
+_UPDATE_LABEL_FILTERS_GROUP = text(
+    '''
+    UPDATE labels_filters
+    SET labels_filters.filter_group=:group_id
+    WHERE labels_filters.label_name=:label_name
+        AND labels_filters.label_type=:label_type
+        AND labels_filters.project_name=:project_name
+    ''')
 
 _GET_GROUPS = text(
     """
@@ -85,7 +88,8 @@ _DELETE_FILTER = text(
 
 _STORE_FILTER_LABEL = text(
     '''
-    INSERT OR REPLACE INTO labels_filters(filter_group, label_type, label_name, parameter_id)
+    INSERT OR REPLACE 
+    INTO labels_filters(filter_group, label_type, label_name, parameter_id)
     VALUES (:filter_group, :label_type, :label_name, :parameter_id)
     ''')
 
@@ -95,16 +99,10 @@ _ADD_PARAMETER_ID = text(
     VALUES (:parameter_id)
     ''')
 
-_MAP_FILTER_GROUP_TO_PARAMETER_ID = text(
-    '''
-    INSERT OR REPLACE INTO filters_parameters(filter_group, parameter_id)
-    VALUES (:filter_group, :parameter_id)
-    ''')
-
-_GET_PARAMETERS = text(
+_GET_PARAMETER_ID = text(
     '''
     SELECT * FROM parameters
-    WHERE filter_group=:filter_group
+    WHERE parameter_id=:parameter_id
     ''')
 
 _UPDATE_LABEL_FILTERS_PARAM_ID = text(
@@ -166,16 +164,20 @@ def add_parameter_id(connection, parameter_id):
         parameter_id=parameter_id
     )
 
-def map_filter_group_to_parameter_id(
-        connection,
-        group_name,
-        parameter_id):
+def parameters_exists(connection, parameter_id):
+    if connection.execute(
+        _GET_PARAMETER_ID,
+        parameter_id=parameter_id).first():
+        return True
+    return False
 
-    connection.execute(
-        _MAP_FILTER_GROUP_TO_PARAMETER_ID,
-        filter_group=group_name,
-        parameter_id=parameter_id
-    )
+def filter_group_exists(connection, group_id):
+    if connection.execute(
+        _GET_GROUP_ID,
+        group_id=group_id
+    ).first():
+        return True
+    return False
 
 def update_filter_labels_parameter_id(
         connection,
@@ -192,21 +194,26 @@ def update_filter_labels_parameter_id(
         parameter_id=parameter_id
     )
 
+def update_filter_labels_group(
+        connection,
+        label_name,
+        label_type,
+        project_name,
+        group_id):
+
+    connection.execute(
+        _UPDATE_LABEL_FILTERS_GROUP,
+        label_name=label_name,
+        label_type=label_type,
+        project_name=project_name,
+        group_id=group_id)
+
 def remove_label_from_group(connection, label_name, label_type, project_name):
     return connection.execute(
         _REMOVE_LABEL_FROM_GROUP,
         label_type=label_type,
         label_name=label_name,
         project_name=project_name
-    )
-
-def get_group_names(connection):
-    return connection.execute(_GET_GROUP_NAMES)
-
-def get_filter_group_by_name(connection, name):
-    return connection.execute(
-        _GET_FILTER_GROUP_BY_NAME,
-        name=name
     )
 
 def get_filter_group(connection, label_name, label_type, project_name):
@@ -217,16 +224,10 @@ def get_filter_group(connection, label_name, label_type, project_name):
         project_name=project_name
     ).first()
 
-def store_filter_group(connection, name, group_id, committed):
-    connection.execute(
-        _ADD_FILTER_GROUP_NAME,
-        name)
-
+def store_filter_group(connection, group_id):
     connection.execute(
         _STORE_FILTER_GROUP,
-        name=name,
-        group_id=group_id,
-        committed=committed)
+        group_id=group_id)
 
 def store_filter_labels(
         connection,
@@ -277,11 +278,6 @@ def load_filters(connection, group_id, parameter_id):
 def get_filter_groups(connection):
     return connection.execute(_GET_GROUPS)
 
-def get_parameters(connection, group_name):
-    return connection.execute(
-        _GET_PARAMETERS,
-        filter_group=group_name)
-
 def get_filter_types():
     return FILTER_TYPES
 
@@ -292,7 +288,7 @@ def create_parameter_id(filter_pipeline):
     sequence = ''
 
     for filter_ in filter_pipeline:
-        sequence += filter_.get_parameter_sequence()
+        sequence += filter_.get_parameters_sequence()
 
     return sequence
 
@@ -332,11 +328,13 @@ def create_filter(filter_type, filter_name, position):
         if filter_name not in _THRESHOLD_TYPES:
             raise ValueError("Unknown filter: {} {}".format(filter_name, filter_type))
         return Threshold(position, filter_name)
+
     elif filter_type == "Color":
         if filter_name == "Grey":
             return Grey(position)
         else:
             raise ValueError("Unknown filter: {} {}".format(filter_name, filter_type))
+
     elif filter_type == "Resize":
         if filter_name == "Trim":
             return Trim(position)
@@ -384,40 +382,44 @@ class Filter(abc.ABC):
     def _render(self, container):
         raise NotImplementedError
 
-    def load_parameters(self, connection, group):
-        self._load_parameters(connection, group)
+    def load_parameters(self, connection, group, parameter_id):
+        self._load_parameters(connection, group, parameter_id)
 
     @abc.abstractmethod
-    def _load_parameters(self, connection, group):
+    def _load_parameters(self, connection, group, parameter_id):
         raise NotImplementedError
 
-    def store(self, connection, group):
+    def store(self, connection, group, parameter_id):
         connection.execute(
             _STORE_FILTER,
             group_name=group,
+            parameter_id=parameter_id,
             type=self.type,
             name=self.name,
             position=self.position)
 
-        self._store_parameters(connection, group)
+        self._store_parameters(connection, group, parameter_id)
 
-    def delete(self, connection, group):
+    def delete(self, connection, group, parameter_id):
         pos = self.position
 
         connection.execute(
-            _DELETE_FILTER, group_name=group,
-            type=self.type, name=self.name,
+            _DELETE_FILTER,
+            group_name=group,
+            parameter_id=parameter_id,
+            type=self.type,
+            name=self.name,
             position=self.position
         )
 
-        self._delete_parameters(connection, group, pos)
+        self._delete_parameters(connection, group, pos, parameter_id)
 
     @abc.abstractmethod
-    def _store_parameters(self, connection, group):
+    def _store_parameters(self, connection, group, parameter_id):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _delete_parameters(self, connection, group, position):
+    def _delete_parameters(self, connection, group, position, parameter_id):
         raise NotImplementedError
 
     def __lt__(self, other):
@@ -478,13 +480,13 @@ class Trim(Filter):
     def _render(self, container):
         pass
 
-    def _delete_parameters(self, connection, group, position):
+    def _delete_parameters(self, connection, group, position, parameter_id):
         pass
 
-    def _load_parameters(self, connection, group):
+    def _load_parameters(self, connection, group, parameter_id):
         pass
 
-    def _store_parameters(self, connection, group):
+    def _store_parameters(self, connection, group, parameter_id):
         pass
 
 
@@ -537,28 +539,30 @@ class Threshold(Filter):
     def get_parameters_sequence(self):
         return '{}'.format(self.thresh_value)
 
-    def _load_parameters(self, connection, group):
-        data = get_filter_parameters(connection, self, group)
+    def _load_parameters(self, connection, group, parameter_id):
+        data = get_filter_parameters(connection, self, group, parameter_id)
 
         self.thresh_type = data["type"]
         self.max_value = data["max_value"]
         self.thresh_value  = data["thresh_value"]
 
-    def _store_parameters(self, connection, group):
+    def _store_parameters(self, connection, group, parameter_id):
         connection.execute(
             text(
                 """
-                INSERT OR REPLACE INTO threshold (group_name, position, thresh_value, max_value, type)
-                VALUES (:group_name, :position, :thresh_value, :max_value, :type)
+                INSERT OR REPLACE INTO threshold (group_name, parameter_id, position, thresh_value, max_value, type)
+                VALUES (:group_name, :parameter_id, :position, :thresh_value, :max_value, :type)
                 """),
+
             group_name=group,
+            parameter_id=parameter_id,
             position=self.position,
             thresh_value=self.thresh_value,
             max_value=self.max_value,
             type=self.thresh_type
         )
 
-    def _delete_parameters(self, connection, group, position):
+    def _delete_parameters(self, connection, group, position, parameter_id):
         connection.execute(
             text(_DELETE_STRING.format('threshold')),
             group_name=group,
@@ -656,22 +660,23 @@ class GaussianBlur(Filter):
 
             self._frame.destroy()
 
-    def _load_parameters(self, connection, group):
-        data = get_filter_parameters(connection, self, group)
+    def _load_parameters(self, connection, group, parameter_id):
+        data = get_filter_parameters(connection, self, group, parameter_id)
 
         self.ksizeX = data["ksizeX"]
         self.ksizeY = data["ksizeY"]
         self.sigmaX = data["sigmaX"]
         self.sigmaY = data["sigmaY"]
 
-    def _store_parameters(self, connection, group):
+    def _store_parameters(self, connection, group, parameter_id):
         connection.execute(
             text(
                 """
-                INSERT OR REPLACE INTO gaussian_blur (group_name, position, ksizeX, ksizeY, sigmaX, sigmaY) 
-                VALUES (:group_name, :position, :ksizeX, :ksizeY, :sigmaX, :sigmaY) 
+                INSERT OR REPLACE INTO gaussian_blur (group_name, parameter_id, position, ksizeX, ksizeY, sigmaX, sigmaY) 
+                VALUES (:group_name, :position, :ksizeX, :ksizeY, :sigmaX, :sigmaY, :parameter_id) 
                 """),
             group_name=group,
+            parameter_id=parameter_id,
             position=self.position,
             ksizeX=self.ksizeX,
             ksizeY=self.ksizeY,
@@ -679,7 +684,7 @@ class GaussianBlur(Filter):
             sigmaY=self.sigmaY
         )
 
-    def _delete_parameters(self, connection, group, position):
+    def _delete_parameters(self, connection, group, position, parameter_id):
         connection.execute(
             text(_DELETE_STRING.format('gaussian_blur')),
             group_name=group,
@@ -757,11 +762,11 @@ class Grey(Filter):
     def _render(self, container):
         pass
 
-    def _load_parameters(self, connection, group):
+    def _load_parameters(self, connection, group, parameter_id):
         pass
 
-    def _store_parameters(self, connection, group):
+    def _store_parameters(self, connection, group, parameter_id):
         pass
 
-    def _delete_parameters(self, connection, group, position):
+    def _delete_parameters(self, connection, group, position, parameter_id):
         pass

@@ -64,6 +64,17 @@ class FilterRectangle(object):
         bbox = self._bbox
         return bbox[0], bbox[1]
 
+    @property
+    def filter_id(self):
+        return self._filter.filter_id
+
+    @property
+    def group_id(self):
+        return self._filter.group_id
+
+    def get_parameters_sequence(self):
+        return self._filter.get_parameters_sequence()
+
     def delete(self, connection, group):
         self._filter.delete(connection, group)
 
@@ -81,8 +92,8 @@ class FilterRectangle(object):
         frame = self._filter.render(canvas)
         self._item = canvas.create_window(0, 0, window=frame, anchor=tk.NW)
 
-    def store(self, connection, group_name):
-        self._filter.store(connection, group_name)
+    def store(self, connection, group_id, parameter_id):
+        self._filter.store(connection, group_id, parameter_id)
 
     def close(self, canvas):
         if self._item:
@@ -131,14 +142,6 @@ class FilteringModel(object):
         return flt.create_group_id(self._filter_pipeline)
 
     @property
-    def group_name(self):
-        return self._group["name"]
-
-    @property
-    def committed(self):
-        return self._group["committed"]
-
-    @property
     def filters_enabled(self):
         return self._enabled
 
@@ -170,7 +173,11 @@ class FilteringModel(object):
 
         pipeline.clear()
 
-        for filter_ in self._load_filters(connection, group['group_id'], group['parameter_id']):
+        for filter_ in self._load_filters(
+                connection,
+                group['group_id'],
+                group['parameter_id']):
+
             pipeline.append(filter_)
 
         for obs in self._import_observers:
@@ -182,7 +189,6 @@ class FilteringModel(object):
                 obs.filters_update(self)
 
         # self._filter_pipeline = filters
-        self._data_changed = False
 
     def add_filter(self, filter_):
         pipeline = self._filter_pipeline
@@ -223,13 +229,13 @@ class FilteringModel(object):
             for obs in self._filters_observers:
                 obs.filters_update(self)
 
-    def store_filters(self, connection, group_name):
+    def store_filters(self, connection, group_id, parameter_id):
         for flt in self._new_filters:
-            flt.store(connection, group_name)
+            flt.store(connection, group_id, parameter_id)
 
-    def delete_filters(self, connection, group):
+    def delete_filters(self, connection, group_id, parameter_id):
         for flt in self._to_delete:
-            flt.delete(connection, group)
+            flt.delete(connection, group_id, parameter_id)
 
     def get_filter(self, position):
         return self._filter_pipeline[position]
@@ -237,14 +243,14 @@ class FilteringModel(object):
     def get_filters(self):
         return self._filter_pipeline
 
-    def _load_filters(self, connection, group_name, parameter_id):
-        for res in flt.load_filters(connection, group_name, parameter_id):
+    def _load_filters(self, connection, group_id, parameter_id):
+        for res in flt.load_filters(connection, group_id, parameter_id):
             type_ = res["type"]
             name = res["name"]
             position = res["position"]
 
             filter_ = flt.create_filter(type_, name, position)
-            filter_.load_parameters(connection, group_name)
+            filter_.load_parameters(connection, group_id, parameter_id)
 
             yield flt
 
@@ -260,7 +266,7 @@ class FilteringModel(object):
         return iter(self._filter_pipeline)
 
 class FilteringController(object):
-    def __init__(self, model, on_save=None):
+    def __init__(self, model):
         """
 
         Parameters
@@ -270,19 +276,14 @@ class FilteringController(object):
         self._model = model
         self._view = FilteringView(self, model)
 
-        self._group = None
-        self._prev_group = None
-
         self._samples = None
         self._data_changed = False
-
-        def null_callback(filter_model):
-            pass
 
         model.add_data_observers(self)
         model.add_filters_import_observer(self)
 
-        self._on_save = on_save if on_save else null_callback
+        self._group_id = ''
+        self._parameter_id = ''
 
     def view(self):
         return self._view
@@ -299,108 +300,70 @@ class FilteringController(object):
 
         '''
 
-        view = self._view
+        #store previous group id and parameter id.
 
-        if filters.committed:
-            self._set_command_state("Save", view.file_menu, tk.DISABLED)
-            self._set_command_state("Commit", view.file_menu, tk.DISABLED)
+        self._group_id = filters.group_id
+        self._parameter_id = filters.parameter_id
 
-    def _disable_command(self, name, menu):
-        menu.entryconfig(name, state=tk.DISABLED)
 
-    def _set_command_state(self, name, menu, state):
-        menu.entryconfig(name, state=state)
+        self._view.save_button["state"] = tk.DISABLED
 
     def data_update(self, model):
         # called any time a filter is created or modified
 
-        self._data_changed = True
-
-        view = self._view
-
-        self._set_command_state("Save", view.file_menu, tk.ACTIVE)
-        self._set_command_state("Commit", view.file_menu, tk.ACTIVE)
-
-    def commit(self):
-        # todo: capture zone can have multiple labels
-
-        group = self._group
-        model = self._model
-        view = self._view
-
-        if model.group_name:
-            self._save(model, True, model)
-            group["committed"] = True
-        else:
-            view.new_group_popup(self._commit_callback)
-
-        self._set_command_state("Save", view.file_menu, tk.DISABLED)
-        self._set_command_state("Commit", view.file_menu, tk.DISABLED)
+        self._view.save_button["state"] = tk.NORMAL
 
     def save(self):
-        #todo: we do not know the label type or the label name of the capture zone yet!
+        self._save(self._model)
 
-        group = self._group
-        model = self._model
+    def _save(self, filters):
+        parameter_id = filters.parameter_id
+        group_id = filters.group_id
 
-        view = self._view
+        ppid = self._parameter_id
+        pgid = self._group_id
 
-        if group:
-            if group["committed"] == True:
-                view.new_group_popup(self._replace_callback)
-            else:
-                self._save(group["name"], False, model)
+        #save if parameter_id and group_id are not null
+        if parameter_id and group_id:
+            #only save when filters have changed.
+            if parameter_id != ppid or group_id != pgid:
 
-        else:
-            view.new_group_popup(self._save_callback)
+                with engine.connect() as connection:
 
-        self._set_command_state("Save", view.file_menu, tk.DISABLED)
+                    #only store when the either filter group or parameter does not exist.
+                    #if it exists then the filter pipeline already exists.
 
-    def on_import(self):
-        #
-        self._view.import_popup(self._import_callback)
+                    group_exists = flt.filter_group_exists(connection, group_id)
+                    parameter_exists = flt.parameters_exists(connection, parameter_id)
 
-    def _commit_callback(self, group_name):
-        self._save(group_name, True, self._model)
+                    if not group_exists:
+                        flt.store_filter_group(
+                            connection,
+                            group_id)
 
-    def _save_callback(self, group_name):
-        self._save(group_name, False, self._model)
+                    if not parameter_exists:
+                        flt.add_parameter_id(
+                            connection,
+                            parameter_id)
 
-    def _replace_callback(self, group_name):
-        self._save(group_name, False, self._model)
+                    if not group_exists or not parameter_exists:
+                        filters.store_filters(
+                            connection,
+                            group_id,
+                            parameter_id
+                        )
 
-    def _import_callback(self, group_name):
-        # todo
-        pass
-
-    def _save(self, filters, committed, model):
-
-        with engine.connect() as connection:
-            parameter_id = filters.parameter_id
-
-            flt.store_filter_group(
-                connection,
-                filters.group_name,
-                filters.group_id,
-                committed)
-
-            flt.add_parameter_id(
-                connection,
-                parameter_id)
-
-            flt.map_filter_group_to_parameter_id(
-                connection,
-                filters.group_name,
-                parameter_id)
-
-            model.store_filters(connection, filters.group_name)
-
-        with engine.connect() as connection:
-            model.delete_filters(connection, filters.group_name)
-
+                #remove filters mapped to previous group and parameter if they are not null.
+                if ppid and pgid:
+                    with engine.connect() as connection2:
+                        filters.delete_filters(
+                            connection2,
+                            pgid,
+                            ppid)
 
         #perform additional saves (ex: labels mappings etc.)
-        self._on_save(filters)
+
+        self._view.save_button["state"] = tk.DISABLED
 
 
 class FilteringView(object):
@@ -440,33 +403,16 @@ class FilteringView(object):
         self._menu_bar = menu = tk.Frame(frame)
 
         self.add_button = add = tk.Menubutton(menu, text="Add")
+        self.save_button = save = tk.Button(
+            menu,
+            text="Save",
+            command=self._controller.save,
+            bd=0
+        )
 
-        # self._file_mb = file_mb = tk.Menubutton(menu, text="File")
-        #
-        # self.file_menu = file_menu = tk.Menu(file_mb, tearoff=0)
-        #
+        save["state"] = tk.DISABLED
 
         self._filter_menu = fm = tk.Menu(add, tearoff=0)
-
-        #
-        # controller = self._controller
-        #
-        # file_menu.add_command(label="Import", command=controller.on_import)
-        # file_menu.add_command(label="Save", command=controller.save)
-        # file_menu.add_command(label="Commit", command=controller.commit)
-        #
-        # file_mb.config(menu=file_menu)
-        #
-        # file_menu.entryconfig("Save", state=tk.DISABLED)
-        # file_menu.entryconfig("Commit", state=tk.DISABLED)
-        # file_menu.entryconfig("Import", state=tk.DISABLED)
-
-        # set import button state
-        # with engine.connect() as connection:
-        #     for gr in flt.get_filter_groups(connection):
-        #         if gr["committed"] == True:
-        #             file_menu.entryconfig("Import", state=tk.ACTIVE)
-        #             break
 
         for ft in flt.get_filter_types():
             sub = tk.Menu(fm, tearoff=0)
@@ -481,6 +427,7 @@ class FilteringView(object):
                         filter_name=fn))
 
         add.config(menu=fm)
+        # save.config(menu=fm)
 
         self._filter_canvas = cv = tk.Canvas(frame, width=150)
         self._param_canvas = pv = tk.Canvas(frame, width=220)
@@ -490,7 +437,8 @@ class FilteringView(object):
         menu.pack(anchor=tk.NW)
 
         # file_mb.grid(column=0, row=0)
-        add.grid(column=0, row=0)
+        save.grid(column=0, row=0)
+        add.grid(column=1, row=0)
 
         cv.pack(side=tk.LEFT)
         pv.pack(side=tk.LEFT)
@@ -543,121 +491,9 @@ class FilteringView(object):
         self._x = x
         self._y = y
 
-    # def _create_popup(self, container):
-    #     window = tk.Toplevel(container)
-    #     window.geometry("+%d+%d" % (container.winfo_rootx() + 5, container.winfo_rooty() + 20))
-    #     window.resizable(False, False)
-    #     window.attributes('-topmost', True)
-    #
-    #     def alarm(event):
-    #         window.focus_force()
-    #         window.bell()
-    #
-    #     window.bind("<FocusOut>", alarm)
-    #
-    #     return window
-    #
-    # def new_group_popup(self, callback):
-    #     with engine.connect() as connection:
-    #         groups = set(g["name"] for g in flt.get_filter_groups(connection))
-    #
-    #     window = self._create_popup(self._frame)
-    #
-    #     input_ = tk.StringVar(window)
-    #
-    #     # def alarm(event):
-    #     #     window.focus_force()
-    #     #     window.bell()
-    #     #
-    #     # window.bind("<FocusOut>", alarm)
-    #
-    #     def execute_callback():
-    #         callback(input_.get())
-    #         window.destroy()  # destroy window after executing callback
-    #
-    #     def check_input(var, indx, mode):
-    #         v = input_.get()
-    #         if v in groups:
-    #             ok["state"] = tk.DISABLED
-    #             msg_var.set("Group name already exists")
-    #             msg.config(fg="red")
-    #         elif not v:
-    #             msg_var.set("Please enter group name")
-    #             msg.config(fg="black")
-    #             ok["state"] = tk.DISABLED
-    #         else:
-    #             ok["state"] = tk.ACTIVE
-    #             msg.config(fg="black")
-    #             msg_var.set("")
-    #
-    #     def on_close():
-    #         if ok["state"] == tk.DISABLED:
-    #             msg_var.set("Please enter group name")
-    #             msg.config(fg="red")
-    #         else:
-    #             callback(input_.get())
-    #             window.destroy()
-    #
-    #     ipt_frame = tk.Frame(window)
-    #     btn_frame = tk.Frame(window)
-    #     msg_frame = tk.Frame(window)
-    #
-    #     name = tk.Label(ipt_frame, text="Name")
-    #     entry = tk.Entry(ipt_frame, textvariable=input_)
-    #
-    #     msg_var = tk.StringVar(msg_frame, "Enter group name")
-    #     msg = tk.Label(msg_frame, textvariable=msg_var)
-    #
-    #     ok = tk.Button(btn_frame, text="OK", command=execute_callback)
-    #     ok["state"] = tk.DISABLED
-    #
-    #     ok.pack(pady=5)
-    #
-    #     name.grid(column=0, row=0)
-    #     entry.grid(column=1, row=0)
-    #     msg.pack(fill=tk.BOTH, padx=5, pady=5)
-    #
-    #     input_.trace_add("write", check_input)
-    #     window.protocol("WM_DELETE_WINDOW", on_close)
-    #
-    #     ipt_frame.pack(padx=5, pady=2)
-    #     msg_frame.pack(padx=5, pady=2)
-    #     btn_frame.pack()
-
     def _clear(self, canvas, items):
         for item in items:
             canvas.delete(item)
-
-    # def import_popup(self, callback):
-    #
-    #     window = self._create_popup(self._frame)
-    #     input_ = tk.StringVar(window)
-    #
-    #     def check_input(var, indx, mode):
-    #         v = input_.get()
-    #         if v:
-    #             if v in groups:
-    #                 callback(v)
-    #             else:
-    #                 msg_var.set("Invalid group name")
-    #
-    #     with engine.connect() as connection:
-    #         groups = set([
-    #             gr["name"]
-    #             for gr in flt.get_filter_groups(connection)
-    #                 if gr["committed"] == True])
-    #
-    #     msg_var = tk.StringVar(window, "Select or enter group name")
-    #     msg = ttk.Label(window, textvariable=msg_var)
-    #     menu = ttk.Combobox(window, values=tuple(groups), textvariable=input_, state="readonly")
-    #
-    #     # todo: display a list box of groups that match the input at the text cursor location
-    #     # set to readonly for now...
-    #
-    #     input_.trace_add("write", check_input)
-    #
-    #     menu.pack(padx=5, pady=5)
-    #     msg.pack(padx=5, pady=2)
 
     def _add_filter_inner(
             self, model, filter_, x, y, canvas, rectangles, width, factory):
