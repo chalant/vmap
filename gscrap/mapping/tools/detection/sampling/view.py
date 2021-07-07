@@ -93,10 +93,8 @@ class SamplingView(object):
         self._label = None
         self._label_options = None
 
-        self._commands = None
-        self.update_button = None
-        self.save = None
-        self.menu = None
+        self.save_button = None
+        self.detect_button = None
 
         self.label_instance = None
 
@@ -107,31 +105,13 @@ class SamplingView(object):
 
         self.max_threshold = 0
 
-    def capture_zone_update(self, connection, capture_zone):
-        """
-
-        Parameters
-        ----------
-        capture_zone: tools.detection.capture.CaptureZone
-
-        Returns
-        -------
-
-        """
-        # ops = self.label_instance_options
-        # # menu = ops["menu"]
-        # # controller = self._controller
-        #
-        #
-        # ops["values"] = tuple([label for label in capture_zone.get_labels(connection)])
-        # menu.add_command(label=label, command=controller.set_label)
-        pass
-
     def render(self, container):
         controller = self._controller
 
         self._frame = frame = tk.Frame(container)
+
         self._sampling_frame = sampling_frame = tk.Frame(frame)
+        self._menu_frame = menu_frame = tk.Frame(sampling_frame)
 
         self._canvas_frame = canvas_frame = tk.Frame(sampling_frame)
 
@@ -173,7 +153,7 @@ class SamplingView(object):
             command=controller.enable_filters,
             value=1)
 
-        self._filtering__off = flt_off = tk.Radiobutton(
+        self._filtering_off = flt_off = tk.Radiobutton(
             tlg, text="Off",
             command=controller.disable_filters,
             value=2)
@@ -182,10 +162,21 @@ class SamplingView(object):
         lto["state"] = tk.DISABLED
         lco["state"] = tk.DISABLED
 
-        self._commands = cmd = tk.Frame(sampling_frame)
-        self._image_options = image = tk.Label(label_frame, text="Image")
-        self._menu_button = mb = tk.Menubutton(label_frame, text="Commands")
-        self.menu = menu = tk.Menu(mb, tearoff=0)
+        self.save_button = save_button = tk.Button(
+            menu_frame,
+            text="Save",
+            command=controller.save,
+            bd=0)
+
+        save_button["state"] = tk.DISABLED
+
+        self.detect_button = detect_button = tk.Button(
+            menu_frame,
+            text="Detect",
+            command=controller.detect,
+            bd=0)
+
+        detect_button["state"] = tk.DISABLED
 
         self._threshold_label = tlb = tk.Label(label_frame, text="Threshold")
 
@@ -196,16 +187,16 @@ class SamplingView(object):
 
         tsb["state"] = tk.DISABLED
 
-        # menu.add_command(label="Update", command=citeontroller.update)
-        menu.add_command(label="Save", command=controller.save_sample)
-        menu.add_command(label="Detect", command=controller.detect)
 
-        menu.entryconfig("Save", state=tk.DISABLED)
-        menu.entryconfig("Detect", state=tk.DISABLED)
+        # menu.add_command(label="Save", command=controller.save)
+        # menu.add_command(label="Detect", command=controller.detect)
+        #
+        # menu.entryconfig("Save", state=tk.DISABLED)
+        # menu.entryconfig("Detect", state=tk.DISABLED)
         # menu.entryconfig("Update", state=tk.DISABLED)
 
         sampling_frame.grid(row=0, column=0)
-        canvas_frame.grid(row=1, column=0, sticky=tk.W, ipadx=10)
+        canvas_frame.grid(row=1, column=0)
 
         # cv.grid(row=0, column=0)
         nav.grid(row=0, column=0, sticky=tk.NW)
@@ -215,10 +206,11 @@ class SamplingView(object):
         # image.grid(row=0, column=0)
         # cmd.grid(row=0, column=0, sticky=tk.NW)
 
-        self._add_form_row(image, cmd)
+        # self._add_form_row(image, cmd)
 
-        mb.grid(row=0, column=1)
-        mb.config(menu=menu)
+        save_button.grid(row=0, column=0)
+        detect_button.grid(row=0, column=1)
+        # save_button.config(menu=menu)
 
         self._add_form_row(flt, tlg)
 
@@ -226,7 +218,6 @@ class SamplingView(object):
         flt_off.grid(row=0, column=1)
 
         self._add_form_row(tlb, tsb)
-
         #label type
         self._add_form_row(label_type, lto)
         #label class
@@ -240,6 +231,8 @@ class SamplingView(object):
         self._image_grid.render(samples)
 
         samples.grid(row=1, column=0)
+
+        menu_frame.grid(row=0, sticky=tk.NW)
 
         return frame
 
@@ -256,15 +249,6 @@ class SamplingView(object):
     def _set_threshold(self):
         self._controller.set_threshold(self.threshold.get())
 
-    def update_thumbnail(self, img):
-        self._thumbnail.paste(img)
-
-    def delete_thumbnail(self, tid):
-        self.preview.canvas.delete(tid)
-
-    def create_thumbnail(self, image):
-        self._thumbnail = tn = ImageTk.PhotoImage(image)
-        return self.preview.set_thumbnail(tn)
 
     def close(self):
         self._sampling_frame.destroy()

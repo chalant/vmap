@@ -259,17 +259,6 @@ class Project(object):
         image.save(self._template_path, "PNG")
         self._template_callback(image)
 
-    def add_image(self, connection, image_id, label_instance_id, r_instance_id, hash_key, position):
-        connection.execute(
-            _ADD_IMAGE,
-            image_id=image_id,
-            project_name=self.name,
-            label_instance_id=label_instance_id,
-            r_instance_id=r_instance_id,
-            hash_key=hash_key,
-            position=position
-        )
-
 class Projects(object):
     def create_project(self, name, type_):
         return Project(name, type_)

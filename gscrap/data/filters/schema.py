@@ -14,7 +14,8 @@ def build_schema(meta):
         "difference_matching",
         meta,
         Column("threshold", Float, nullable=False),
-        Column("model_name", ForeignKey("models.model_name"), nullable=False),
+        #one-to-one relationship with model name.
+        Column("model_name", ForeignKey("models.model_name"), nullable=False, unique=True),
     )
 
     #model associated with the label

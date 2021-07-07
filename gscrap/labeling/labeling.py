@@ -13,6 +13,8 @@ DIFF_MAX = 400 #todo: should let the user setup this
 
 from sqlalchemy import text
 
+from gscrap.samples import source as src
+
 #todo: write query => we need to merge
 
 _GET_MODEL = text(
@@ -20,8 +22,8 @@ _GET_MODEL = text(
     SELECT models.model_name, models.model_type
     FROM models
     LEFT JOIN labels_models 
-    ON models.model_name = labels_models.model_name
-    WHERE label_type=:=label_type AND label_name=:label_name AND project_name=:project_name
+    ON models.model_name=labels_models.model_name
+    WHERE label_type=:label_type AND label_name=:label_name AND project_name=:project_name
     '''
 )
 
@@ -34,8 +36,8 @@ _GET_PARAMETERS = '''
 _STORE_LABEL_MODEL = text(
     '''
     INSERT OR REPLACE 
-    INTO labels_models 
-    VALUES (label_name:=label_name, label_type=:label_type, model_type=:model_type, model_name=:model_name)
+    INTO labels_models (label_name, label_type, model_name, project_name)
+    VALUES (:label_name, :label_type, :model_name, :project_name)
     '''
 )
 
@@ -46,7 +48,7 @@ class AbstractLabeling(ABC):
     def label(self, img):
         raise NotImplemented
 
-    def store(self, connection):
+    def store(self, connection, model_name):
         pass
 
     def load(self, connection, model_id):
@@ -73,13 +75,11 @@ class DifferenceMatching(AbstractLabeling):
         self._samples_source = samples_source
 
     def label(self, img):
-        source = self._samples_source
-
         best_match_diff = DIFF_MAX
         name = "N/A"
         best_match_name = "N/A"
 
-        for label, image in source.get_samples():
+        for label, image in src.get_samples(self._samples_source):
             diff_img = cv2.absdiff(img, image)
 
             diff = int(np.sum(diff_img) / 255)
@@ -96,15 +96,14 @@ class DifferenceMatching(AbstractLabeling):
 
         return best_match_name
 
-    def store(self, connection):
-        #todo: should only store if the threshold is different
-
-        #todo: this will only append a row to the table, since there is no primary key
-
+    def store(self, connection, model_name):
         connection.execute(
-            text('''INSERT OR REPLACE INTO {} VALUES (threshold=:threshold) WHERE model_name=:model_name'''.format(
-                self.model_type)),
-            threshold=self._threshold
+            text('''
+            INSERT OR REPLACE 
+            INTO {} (threshold, model_name) VALUES (:threshold, :model_name) 
+            '''.format(self.model_type)),
+            threshold=self.threshold,
+            model_name=model_name
         )
 
     def load(self, connection, model_id):
@@ -119,12 +118,12 @@ class DifferenceMatching(AbstractLabeling):
 def label(labeling_model, image):
     return labeling_model.label(image)
 
-def load_labeling_model_metadata(connection, label_group):
+def load_labeling_model_metadata(connection, label_group, project_name):
     return connection.execute(
         _GET_MODEL,
         label_type=label_group.label_type,
         label_name=label_group.label_name,
-        project_name=label_group.project_name)
+        project_name=project_name).first()
 
     # return get_labeling_model(model["model_type"]).load(
     #     connection, model["model_name"])
@@ -140,14 +139,14 @@ def get_labeling_model(model_type):
 
 def store_label_model(
         connection,
-        model_type,
         model_name,
         label_type,
-        label_class):
+        label_class,
+        project_name):
 
     return connection.execute(
         _STORE_LABEL_MODEL,
         model_name=model_name,
-        model_type=model_type,
         label_type=label_type,
-        label_name=label_class)
+        label_name=label_class,
+        project_name=project_name)

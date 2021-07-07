@@ -1,7 +1,3 @@
-from uuid import uuid4
-
-
-from gscrap.labeling import labeling as mdl
 from gscrap.data.images import images as im
 
 from gscrap.data import engine
@@ -92,9 +88,12 @@ class CaptureZone(object):
         rct = self._rectangle.rectangle
 
         meta = im.create_image_metadata(
-            self._project.name, label["label_name"],
-            label["label_type"], label["instance_name"],
-            rct.width, rct.height)
+            self._project.name,
+            label["label_name"],
+            label["label_type"],
+            label["instance_name"],
+            rct.width,
+            rct.height)
 
         self._thread_pool.submit(self._save_image, meta, image)
 
@@ -141,6 +140,7 @@ class CaptureZone(object):
         with engine.connect() as connection:
             meta.submit(connection)
 
+        #todo: save in binary format
         image.save(meta.path, 'PNG')
 
     def clear(self):

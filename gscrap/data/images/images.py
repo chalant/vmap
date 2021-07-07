@@ -19,8 +19,8 @@ _GET_IMAGE = text(
 
 _ADD_IMAGE_METADATA = text(
     """
-    INSERT OR REPLACE INTO images(image_id, project_name, label_instance_name, label_type, label_name, hash_key, position)
-    VALUES (:image_id, :project_name, :label_instance_name, :label_type, :label_name, :hash_key, :position)
+    INSERT OR REPLACE INTO images(image_id, project_name, label_instance_name, label_type, label_name, width, height)
+    VALUES (:image_id, :project_name, :label_instance_name, :label_type, :label_name, :width, :height)
     """
 )
 
@@ -92,7 +92,10 @@ class ImageMetadata(object):
             project_name=self._project_name,
             label_type=label["label_type"],
             label_name=label["label_name"],
-            label_instance_name=label["instance_name"],)
+            label_instance_name=label["instance_name"],
+            width=self._width,
+            height=self._height
+        )
 
     def delete_image(self, connection):
         connection.execute(

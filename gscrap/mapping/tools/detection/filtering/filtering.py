@@ -75,8 +75,8 @@ class FilterRectangle(object):
     def get_parameters_sequence(self):
         return self._filter.get_parameters_sequence()
 
-    def delete(self, connection, group):
-        self._filter.delete(connection, group)
+    def delete(self, connection, group_id, parameter_id):
+        self._filter.delete(connection, group_id, parameter_id)
 
     def apply(self, img):
         return self._filter.apply(img)
@@ -113,6 +113,7 @@ class FRUpdateFactory(object):
         filter_.rid = rid
         filter_.tid = tid
         filter_.bbox = bbox
+
         return filter_
 
 class FilteringModel(object):
@@ -173,15 +174,15 @@ class FilteringModel(object):
 
         pipeline.clear()
 
-        for filter_ in self._load_filters(
+        def loader(connection, group):
+            for filter_ in self._load_filters(
                 connection,
                 group['group_id'],
                 group['parameter_id']):
-
-            pipeline.append(filter_)
+                yield filter_
 
         for obs in self._import_observers:
-            obs.on_filters_import(pipeline)
+            obs.on_filters_import(self, loader(connection, group))
             # the samples view observes this as-well and will update if filters are enabled
 
         if self._enabled:  # notify observers if filters are enabled
@@ -217,10 +218,19 @@ class FilteringModel(object):
         self._data_observers.append(observer)
 
     def remove_filter(self, position):
-        filter_ = self._filter_pipeline.pop(position)
+        pipeline = self._filter_pipeline
+
+        filter_ = pipeline.pop(position)
+
         filter_.clear_callbacks()
 
         self._to_delete.append(filter_)
+
+        p = 0
+
+        for f in pipeline:
+            f.position = p
+            p += 1
 
         for obs in self._data_observers:
             obs.data_update(self)
@@ -252,7 +262,7 @@ class FilteringModel(object):
             filter_ = flt.create_filter(type_, name, position)
             filter_.load_parameters(connection, group_id, parameter_id)
 
-            yield flt
+            yield filter_
 
     def _on_filter_change(self, filter_):
         for obs in self._data_observers:
@@ -263,7 +273,7 @@ class FilteringModel(object):
                 obs.filters_update(self)
 
     def __iter__(self):
-        return iter(self._filter_pipeline)
+        return iter(tuple(self._filter_pipeline))
 
 class FilteringController(object):
     def __init__(self, model):
@@ -288,7 +298,7 @@ class FilteringController(object):
     def view(self):
         return self._view
 
-    def on_filters_import(self, filters):
+    def on_filters_import(self, filters, loader):
         '''
 
         Parameters
@@ -353,13 +363,20 @@ class FilteringController(object):
                             parameter_id
                         )
 
+                    #todo: delete previously stored values
+                    filters.delete_filters(
+                        connection,
+                        group_id,
+                        parameter_id
+                    )
+
                 #remove filters mapped to previous group and parameter if they are not null.
-                if ppid and pgid:
-                    with engine.connect() as connection2:
-                        filters.delete_filters(
-                            connection2,
-                            pgid,
-                            ppid)
+                # if ppid and pgid:
+                #     with engine.connect() as connection2:
+                #         filters.delete_filters(
+                #             connection2,
+                #             pgid,
+                #             ppid)
 
         #perform additional saves (ex: labels mappings etc.)
 
@@ -382,7 +399,6 @@ class FilteringView(object):
         self._filter_canvas = None
 
         self._rectangles = {}
-        self._items = []
 
         self._position = 0
         self._x = 0
@@ -403,6 +419,7 @@ class FilteringView(object):
         self._menu_bar = menu = tk.Frame(frame)
 
         self.add_button = add = tk.Menubutton(menu, text="Add")
+
         self.save_button = save = tk.Button(
             menu,
             text="Save",
@@ -449,7 +466,7 @@ class FilteringView(object):
 
         return frame
 
-    def on_filters_import(self, filters):
+    def on_filters_import(self, filters, loader):
         '''
 
         Parameters
@@ -461,14 +478,11 @@ class FilteringView(object):
 
         '''
         canvas = self._filter_canvas
-        items = self._items
         rectangles = self._rectangles
 
-        rectangles.clear()
+        self._clear(canvas, rectangles)
 
-        self._clear(canvas, items)
-
-        self._draw_filters(filters, canvas, rectangles, self._fr_create)
+        self._draw_filters(loader, canvas, rectangles, self._fr_create)
 
     def _draw_filters(self, filters, canvas, rectangles, factory):
         x = 0
@@ -479,7 +493,8 @@ class FilteringView(object):
         for filter_ in filters:
             x, y = self._add_filter_inner(
                 model,
-                filter_, x, y,
+                filter_,
+                x, y,
                 canvas,
                 rectangles,
                 canvas.winfo_width(),
@@ -492,19 +507,29 @@ class FilteringView(object):
         self._y = y
 
     def _clear(self, canvas, items):
-        for item in items:
-            canvas.delete(item)
+        for item in items.values():
+            canvas.delete(item.rid)
+            canvas.delete(item.tid)
+
+        items.clear()
 
     def _add_filter_inner(
-            self, model, filter_, x, y, canvas, rectangles, width, factory):
+            self,
+            model,
+            filter_,
+            x, y,
+            canvas,
+            rectangles,
+            width,
+            factory):
 
         mw = width
 
-        tid = canvas.create_text(x + 3, y + 2, text=filter_.type, anchor=tk.NW)
-        # items.append(tid)
-        # txt_idx = item_idx
-        #
-        # item_idx += 1
+        tid = canvas.create_text(
+            x + 3,
+            y + 2,
+            text=filter_.type,
+            anchor=tk.NW)
 
         x0, y0, x1, y1 = canvas.bbox(tid)
         x = x1 + 2
@@ -520,12 +545,6 @@ class FilteringView(object):
 
         rid = canvas.create_rectangle(*bbox)
 
-        # items.append(rid)
-
-        # rct_idx = item_idx
-        #
-        # item_idx += 1
-
         rectangles[rid] = factory.create_filter_rectangle(model, rid, tid, bbox, filter_)
 
         return x, y
@@ -538,14 +557,16 @@ class FilteringView(object):
 
         x = self._x
         y = self._y
-        # item_idx = self._item_idx
-        # items = self._items
+
         canvas = self._filter_canvas
         rectangles = self._rectangles
 
         x, y = self._add_filter_inner(
             model, filter_, x, y,
-            canvas, rectangles, canvas.winfo_width(), self._fr_create)
+            canvas,
+            rectangles,
+            canvas.winfo_width(),
+            self._fr_create)
 
         self._x = x
         self._y = y
@@ -564,7 +585,7 @@ class FilteringView(object):
 
             filter_ = self._rectangles[self._rid]
             filter_.render(canvas)
-            # self._param_item = canvas.create_window(0, 0, window=frame, anchor=tk.NW)
+
             self._param_window = filter_
 
     def _on_motion(self, event):

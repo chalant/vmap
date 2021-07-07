@@ -3,8 +3,8 @@ from gscrap.filtering import filters
 
 class Labeler(object):
     def __init__(self):
-        self._labeling = labeling.NullLabeling()
-        self._filter_pipeline = None
+        self.labeling = labeling.NullLabeling()
+        self.filter_pipeline = []
 
     def set_model(self, labeling_model):
         """
@@ -17,10 +17,10 @@ class Labeler(object):
         -------
 
         """
-        self._labeling = labeling_model
+        self.labeling = labeling_model
 
     def set_filter_pipeline(self, filter_pipeline):
-        self._filter_pipeline = filter_pipeline
+        self.filter_pipeline = filter_pipeline
 
 
 def label(labeler, image):

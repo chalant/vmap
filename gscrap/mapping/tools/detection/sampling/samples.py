@@ -9,7 +9,7 @@ from gscrap.sampling import samples as spl
 from gscrap.mapping.tools.detection.sampling import image_grid as ig
 from gscrap.mapping.tools.detection import grid as gd
 
-class BytesSamplesBuffer(object):
+class BytesImageBuffer(object):
     def __init__(self, buffer, dimensions):
         self._buffer = memoryview(buffer)
         self._dimensions = dimensions
@@ -40,7 +40,7 @@ class BytesSamplesBuffer(object):
     def __len__(self):
         return self._length
 
-class ArraySamplesBuffer(object):
+class ArrayImageBuffer(object):
     def __init__(self):
         self._n = 0
         self._samples = []

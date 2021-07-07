@@ -121,6 +121,8 @@ def build_schema(meta):
         Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
         Column("label_instance_name", String, nullable=False),
+        Column("width", Integer, nullable=False),
+        Column("height", Integer, nullable=False)
     )
 
     Table(

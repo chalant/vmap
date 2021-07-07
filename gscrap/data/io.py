@@ -10,3 +10,6 @@ def store(store_fn):
 
 def execute(fn):
     POOL.submit(fn)
+
+def submit(fn, *args, **kwargs):
+    POOL.submit(fn, *args, **kwargs)

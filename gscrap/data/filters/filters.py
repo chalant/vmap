@@ -89,8 +89,8 @@ _DELETE_FILTER = text(
 _STORE_FILTER_LABEL = text(
     '''
     INSERT OR REPLACE 
-    INTO labels_filters(filter_group, label_type, label_name, parameter_id)
-    VALUES (:filter_group, :label_type, :label_name, :parameter_id)
+    INTO labels_filters(filter_group, label_type, label_name, parameter_id, project_name)
+    VALUES (:filter_group, :label_type, :label_name, :parameter_id, :project_name)
     ''')
 
 _ADD_PARAMETER_ID = text(
@@ -409,7 +409,7 @@ class Filter(abc.ABC):
             parameter_id=parameter_id,
             type=self.type,
             name=self.name,
-            position=self.position
+            position=pos
         )
 
         self._delete_parameters(connection, group, pos, parameter_id)

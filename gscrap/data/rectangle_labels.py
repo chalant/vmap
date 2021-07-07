@@ -99,7 +99,6 @@ class RectangleLabels(object):
 
     def get_labels(self, connection):
         rectangle = self._rectangle
-
         for label in connection.execute(
                 _GET_RECTANGLE_LABELS,
                 rectangle_id=self._rectangle.id):
@@ -122,7 +121,7 @@ class RectangleLabels(object):
         id_ = self._rectangle.id
         new_labels = self._new_labels
 
-        for lt, labels in new_labels:
+        for lt, labels in new_labels.items():
             for lb in labels:
                 connection.execute(
                     _ADD_LABEL,

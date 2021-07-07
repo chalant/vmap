@@ -1,6 +1,5 @@
 from gscrap.data import builder
 
-
 def build():
     with builder.build() as bld:
         if bld:
@@ -33,7 +32,7 @@ def build():
             state_label.add_instance("Null")
 
             #label where instances are (bet, call, fold, ...)
-            poker_action_label = poker.add_label("Action", event, classifiable=True)
+            poker_action_label = poker.add_label("Action", event, capture=True, classifiable=True)
 
             poker_action_label.add_instance("Call")
             poker_action_label.add_instance("Fold")
