@@ -51,7 +51,7 @@ _GET_GROUP_ID = text(
 _UPDATE_LABEL_FILTERS_GROUP = text(
     '''
     UPDATE labels_filters
-    SET labels_filters.filter_group=:group_id
+    SET filter_group=:group_id
     WHERE labels_filters.label_name=:label_name
         AND labels_filters.label_type=:label_type
         AND labels_filters.project_name=:project_name
@@ -108,7 +108,7 @@ _GET_PARAMETER_ID = text(
 _UPDATE_LABEL_FILTERS_PARAM_ID = text(
     '''
     UPDATE labels_filters
-    SET labels_filters.parameter_id=:parameter_id
+    SET parameter_id=:parameter_id
     WHERE labels_filters.label_name=:label_name
         AND labels_filters.label_type=:label_type
         AND labels_filters.project_name=:project_name

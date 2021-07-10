@@ -34,6 +34,7 @@ def build():
             #label where instances are (bet, call, fold, ...)
             poker_action_label = poker.add_label("Action", event, capture=True, classifiable=True)
 
+            poker_action_label.add_instance("Check")
             poker_action_label.add_instance("Call")
             poker_action_label.add_instance("Fold")
             poker_action_label.add_instance("Bet")

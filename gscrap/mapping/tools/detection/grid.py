@@ -127,11 +127,11 @@ class Grid(object):
 
         element = factory.create_element(item, canvas, x, y)
 
+        x = x + element.width + step
+
         if x + item.dimensions[0] > width:
             y += item.dimensions[1] + 2
             x = 1
-
-        x = x + element.width + step
 
         self._x = x
         self._y = y
@@ -162,9 +162,9 @@ class Grid(object):
 
             x = x + element.width + step
 
-            if x > width:
-                y = y + element.height + 2
-                x = 0
+            if x + element.dimensions[0] > width:
+                y += element.dimensions[1] + 2
+                x = 1
 
         self._x = x
         self._y = y

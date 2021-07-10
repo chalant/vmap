@@ -9,7 +9,7 @@ import numpy as np
 import pytesseract
 
 #difference matching detection tolerance
-DIFF_MAX = 400 #todo: should let the user setup this
+DIFF_MAX = 0 #todo: should let the user setup this
 
 from sqlalchemy import text
 
@@ -75,7 +75,8 @@ class DifferenceMatching(AbstractLabeling):
         self._samples_source = samples_source
 
     def label(self, img):
-        best_match_diff = DIFF_MAX
+        diff_max = self.threshold
+        best_match_diff = diff_max
         name = "N/A"
         best_match_name = "N/A"
 
@@ -91,7 +92,7 @@ class DifferenceMatching(AbstractLabeling):
         #todo: we need to setup a detection threshold which determines the "tolerance", the lowest
         # the better. Otherwise, we would get false positives (threshold could be set by user)
 
-        if (best_match_diff < DIFF_MAX):
+        if (best_match_diff < diff_max):
             best_match_name = name
 
         return best_match_name

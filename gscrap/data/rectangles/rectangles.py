@@ -304,27 +304,6 @@ class Rectangle(object):
         for instance in self.get_instances(connection):
             instance.delete(connection)
 
-    def get_images(self, connection):
-        rectangle = self
-
-        for element in connection.execute(
-                _GET_IMAGE,
-                project_name=rectangle.project_name,
-                rectangle_id=rectangle.id):
-            yield images.ImageMetadata(
-                element['image_id'],
-                rectangle.project_name,
-                rectangle,
-                element["hash_key"],
-                element["position"],
-                element["label_instance_name"]
-            )
-
-    def create_image_meta(self, id_, hash_key, position, label):
-        rct = self
-        return images.ImageMetadata(
-            id_, rct.project_name, rct.id, hash_key, position, label)
-
     def submit(self, connection):
         # if self._num_instances == 1:
 

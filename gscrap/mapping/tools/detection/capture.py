@@ -6,43 +6,34 @@ class CaptureZone(object):
     def __init__(
             self,
             rid,
-            rectangle,
+            rectangle_instance,
             project,
-            thread_pool,
-            rectangle_labels):
+            rectangle_labels,
+            siblings):
 
         """
         Parameters
         ----------
         rid:int
-        rectangle: models.rectangles.RectangleInstance
-        project: models.projects.Project
-        thread_pool: concurrent.futures.ThreadPoolExecutor
-        rectangle_labels: models.rectangle_labels.RectangleLabels
+        rectangle_instance: gscrap.data.rectangles.rectangles.RectangleInstance
+        project: gscrap.projects.projects.Project
+        rectangle_labels: gscrap.data.rectangle_labels.RectangleLabels
         """
 
-        self._rectangle = rectangle
+        self._rectangle_instance = rectangle_instance
         self._rectangle_labels = rectangle_labels
+        self._siblings = siblings
 
-        self._thread_pool = thread_pool
-
-        self._photo_image = None
         self._image_item = None
         self._rid = rid
 
 
         self._project = project
 
-        self._x = 1
-        self._y = 1
-        self._i = 0
-
-        self._position = 0
-
         self._ltwh = xywh = (
-            *self._rectangle.top_left,
-            self._rectangle.width,
-            self._rectangle.height)
+            *self._rectangle_instance.top_left,
+            self._rectangle_instance.width,
+            self._rectangle_instance.height)
 
         self._in_view = False
 
@@ -58,15 +49,15 @@ class CaptureZone(object):
 
     @property
     def top_left(self):
-        return self._rectangle.top_left
+        return self._rectangle_instance.top_left
 
     @property
     def rectangle(self):
-        return self._rectangle.rectangle
+        return self._rectangle_instance.rectangle
 
     @property
     def instance(self):
-        return self._rectangle
+        return self._rectangle_instance
 
     @property
     def width(self):
@@ -78,45 +69,26 @@ class CaptureZone(object):
 
     @property
     def bbox(self):
-        return self._rectangle.bbox
+        return self._rectangle_instance.bbox
 
     @property
     def xywh(self):
         return self._ltwh
 
-    def add_sample(self, image, label):
-        rct = self._rectangle.rectangle
-
-        meta = im.create_image_metadata(
-            self._project.name,
-            label["label_name"],
-            label["label_type"],
-            label["instance_name"],
-            rct.width,
-            rct.height)
-
-        self._thread_pool.submit(self._save_image, meta, image)
-
-        return meta
-
     @property
     def project_name(self):
         return self._project.name
+
+    @property
+    def all_bbox(self):
+        for sibling in self._siblings:
+            yield sibling.bbox
 
     def get_labels(self, connection):
         return self._rectangle_labels.get_labels(connection)
 
     def get_label_instances(self, connection, label_type, label_name):
         return self._project.get_label_instances(connection, label_name, label_type)
-
-    def get_samples(self, connection, label_type, label_name):
-        return im.get_images(connection, self.project_name, label_type, label_name)
-
-    def set_detection(self, detection):
-        self._detector.set_model(detection)
-
-    def detect(self, image):
-        return self._detector.label(image)
 
     def process_image(self, image):
         """
@@ -136,28 +108,21 @@ class CaptureZone(object):
         #called by another capture zone if it has observers
         pass
 
-    def _save_image(self, meta, image):
-        with engine.connect() as connection:
-            meta.submit(connection)
-
-        #todo: save in binary format
-        image.save(meta.path, 'PNG')
-
     def clear(self):
-        self._position = 0
+        pass
 
 class ObservableCaptureZone(CaptureZone):
     def __init__(self,
-            rid,
-            rectangle,
-            project,
-            thread_pool,
-            hashes,
-            capture_tool,
-            rectangle_labels):
+                 rid,
+                 rectangle_instance,
+                 project,
+                 thread_pool,
+                 hashes,
+                 capture_tool,
+                 rectangle_labels):
         super(ObservableCaptureZone, self).__init__(
             rid,
-            rectangle,
+            rectangle_instance,
             project,
             thread_pool,
             hashes,

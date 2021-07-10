@@ -111,7 +111,7 @@ class SamplingView(object):
         self._frame = frame = tk.Frame(container)
 
         self._sampling_frame = sampling_frame = tk.Frame(frame)
-        self._menu_frame = menu_frame = tk.Frame(sampling_frame)
+        self._menu_frame = menu_frame = tk.Frame(sampling_frame, width=300)
 
         self._canvas_frame = canvas_frame = tk.Frame(sampling_frame)
 
@@ -168,15 +168,22 @@ class SamplingView(object):
             command=controller.save,
             bd=0)
 
-        save_button["state"] = tk.DISABLED
+        # self.detect_button = detect_button = tk.Button(
+        #     menu_frame,
+        #     text="Detect",
+        #     command=controller.detect,
+        #     bd=0)
 
-        self.detect_button = detect_button = tk.Button(
+        self.clear_button = clear_button = tk.Button(
             menu_frame,
-            text="Detect",
-            command=controller.detect,
-            bd=0)
+            text="Clear",
+            command=controller.clear_sample,
+            bd=0
+        )
 
-        detect_button["state"] = tk.DISABLED
+        save_button["state"] = tk.DISABLED
+        # detect_button["state"] = tk.DISABLED
+        clear_button["state"] = tk.DISABLED
 
         self._threshold_label = tlb = tk.Label(label_frame, text="Threshold")
 
@@ -209,7 +216,9 @@ class SamplingView(object):
         # self._add_form_row(image, cmd)
 
         save_button.grid(row=0, column=0)
-        detect_button.grid(row=0, column=1)
+        # detect_button.grid(row=0, column=1)
+        clear_button.grid(row=0, column=2)
+
         # save_button.config(menu=menu)
 
         self._add_form_row(flt, tlg)

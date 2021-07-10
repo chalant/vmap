@@ -9,6 +9,7 @@ from gscrap.sampling import samples as spl
 from gscrap.mapping.tools.detection.sampling import image_grid as ig
 from gscrap.mapping.tools.detection import grid as gd
 
+
 class BytesImageBuffer(object):
     def __init__(self, buffer, dimensions):
         self._buffer = memoryview(buffer)
@@ -46,6 +47,13 @@ class ArrayImageBuffer(object):
         self._samples = []
         self._indices = []
 
+    def add_sample(self, sample):
+        self._samples.append(sample)
+        n = self._n
+        n += 1
+        self._indices.append(n-1)
+        self._n = n
+
     def set_samples(self, samples):
         self._samples.clear()
         self._n = n = len(samples)
@@ -57,6 +65,8 @@ class ArrayImageBuffer(object):
 
     def clear(self):
         self._samples.clear()
+        self._indices.clear()
+        self._n = 0
 
     @property
     def indices(self):
@@ -97,13 +107,21 @@ class Samples(object):
         self._rid = None
         self._prev_rid = None
 
+        self._filters_on = False
+
+        self._dimensions = (0, 0)
+
     def get_sample(self, index):
         return self._samples_buffer.get_image(index)
 
     def apply_filters(self, filters):
-        buffer = self._samples_buffer
+        self._filters_on = True
 
-        for element in self._image_rectangles.values():
+        buffer = self._samples_buffer
+        image_rectangles = self._image_rectangles
+
+        for idx in list(set(buffer.indices)):
+            element = image_rectangles[idx]
             ig.update_photo_image(
                 element.photo_image,
                 Image.fromarray(filters.apply(
@@ -113,6 +131,7 @@ class Samples(object):
 
     def disable_filters(self):
         #disable filters
+        self._filters_on = False
         buffer = self._samples_buffer
 
         for element in self._image_rectangles.values():
@@ -139,43 +158,81 @@ class Samples(object):
         buffer.indices = indices
 
     def _load_and_filter(self, filters, buffer):
-        for element in self._image_rectangles.values():
+        for idx in range(len(buffer)):
             yield filters.apply(
                 self._as_array(
-                    buffer.get_image(element.image_index),
-                    element.dimensions))
+                    buffer.get_image(idx),
+                    self._dimensions))
 
     def _as_array(self, image, dimensions):
         # return np.asarray(Image.frombytes("RGB", dimensions, image))
         return np.frombuffer(image, np.uint8).reshape(dimensions[1], dimensions[0], 3)
 
-    def load_samples(self, video_metadata, capture_zone):
+    def load_samples(self, video_metadata, capture_zone, draw=False):
         #draw samples into the image grid.
-        buffer = []
+        buffer = self._samples_buffer
         items = self._items
 
         items.clear()
-        self._samples_buffer.clear()
+        buffer.clear()
 
-        idx = 0
 
-        for sample in spl.load_samples(video_metadata, capture_zone.bbox):
-            item = ig.Item(capture_zone.dimensions)
-            item.image_index = idx
 
-            items.append(item)
-            buffer.append(sample)
+        #todo: launch multiple threads
 
-            idx += 1
+        # futures = []
+        # res = [[]] * len(capture_zone._siblings)
+        #
+        # i = 0
+        #
+        # for bbox in capture_zone.all_bbox:
+        #     fut = io.submit(self._load_task, res[i], video_metadata, bbox)
+        #     futures.append(fut)
+        #
+        #     i += 1
+        #
+        # for fut in futures:
+        #     fut.result()
 
         self._capture_zone = capture_zone
 
-        self._samples_buffer.set_samples(buffer)
+        grid = self._image_grid
+        image_rectangles = self._image_rectangles
+
+        if draw:
+            ig.clear_canvas(grid, grid.canvas, image_rectangles.values())
+            image_rectangles.clear()
+
+        idx = 0
+
+        # for samples in res:
+
+        self._dimensions = dimensions = capture_zone.dimensions
+
+        for bbox in capture_zone.all_bbox:
+            for sample in spl.load_samples(video_metadata, bbox):
+                item = ig.Item(dimensions)
+                item.image_index = idx
+
+                items.append(item)
+                buffer.add_sample(sample)
+
+                if draw:
+                    image_rectangles[idx] = grid.add_item(item)
+
+                idx += 1
+
+        grid.update()
+
+    def _load_task(self, res_array, video_metadata, bbox):
+        for sample in spl.load_samples(video_metadata, bbox):
+            res_array.append(sample)
 
     def draw(self):
         #initialize canvas
 
         capture_zone = self._capture_zone
+
 
         if capture_zone:
             image_rectangles = self._image_rectangles
@@ -186,10 +243,19 @@ class Samples(object):
 
             image_rectangles.clear()
 
-            for item in self._items:
+            indices = list(set(self._samples_buffer.indices))
+            indices.sort()
+
+            items = self._items
+
+            for i in indices:
+                item = items[i]
                 image_rectangles[item.image_index] = grid.add_item(item)
 
             grid.update()
+
+            #reset rid
+            self._rid = None
 
     def update_draw(self):
         #redraw
@@ -214,7 +280,7 @@ class Samples(object):
         image_rectangles = self._image_rectangles
 
         res = rectangles.find_closest_enclosing(
-            self._image_rectangles,
+            image_rectangles,
             event.x, event.y)
 
         canvas = gd.get_canvas(self._image_grid)
@@ -252,3 +318,5 @@ class Samples(object):
 
     def clear(self):
         self._samples_buffer.clear()
+        self._image_rectangles.clear()
+        self._items.clear()

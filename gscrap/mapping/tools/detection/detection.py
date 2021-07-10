@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from gscrap.rectangles import rectangles as rt
 
 from gscrap.data import rectangle_labels as rl, engine
@@ -59,6 +61,7 @@ class DetectionTool(tools.Tool):
         wc.add_window(sc)
 
         self._instances = {}
+        self._instances_by_rectangle_id = defaultdict(list)
 
         self._prev = None
         self._rid = None
@@ -82,7 +85,7 @@ class DetectionTool(tools.Tool):
 
         Parameters
         ----------
-        project: models.projects.Project
+        project: gscrap.projects.projects.Project
 
         Returns
         -------
@@ -95,10 +98,10 @@ class DetectionTool(tools.Tool):
         self._width = project.width
 
         instances = self._instances
+        ins_by_rid = self._instances_by_rectangle_id
 
         instances.clear()
-
-        pool = self._thread_pool
+        ins_by_rid.clear()
 
         #todo: depending on where we load the rectangles, we can set caching on rectangles
         # ex: in logging, we cache images
@@ -120,12 +123,14 @@ class DetectionTool(tools.Tool):
                             width=1,
                             dash=(4, 1))
 
-                        instances[rid] = capture.CaptureZone(
+                        instances[rid] = zone = capture.CaptureZone(
                             rid,
                             instance,
                             project,
-                            pool,
-                            labels)
+                            labels,
+                            ins_by_rid[rct.id])
+
+                        ins_by_rid[rct.id].append(zone)
 
         canvas.bind("<Motion>", self.on_motion)
         canvas.bind("<Button-1>", self.on_left_click)

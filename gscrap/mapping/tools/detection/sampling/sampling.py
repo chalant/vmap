@@ -15,11 +15,12 @@ from gscrap.labeling import labeling as mdl
 from gscrap.labeling import utils as mdl_utils
 from gscrap.labeling import labeler as lbl
 
+from gscrap.data import io
 from gscrap.data import engine
 from gscrap.data.filters import filters
+from gscrap.data.images import images as im
 
 from gscrap.mapping.tools.detection import grid as gd
-
 from gscrap.mapping.tools.detection.sampling import view as vw
 from gscrap.mapping.tools.detection.sampling import image_grid as ig
 from gscrap.mapping.tools.detection.sampling import samples as spl
@@ -37,8 +38,6 @@ class SamplingController(object):
         self._filter_group = None
         self._parameter_id = None
 
-        self._image = None
-
         self._label_set = False
         self._thumbnail_set = False
 
@@ -55,6 +54,7 @@ class SamplingController(object):
 
         self._samples_store = None
         self._save_sample = False
+        self._image_metadata = None
 
         self._preview = preview = vw.PreviewController()
 
@@ -105,6 +105,7 @@ class SamplingController(object):
             view.label_instance_options["state"] = tk.DISABLED
             view.label_instance.set("N/A")
             view.save_button["state"] = tk.DISABLED
+            view.clear_button["state"] = tk.DISABLED
 
         self._selected_image_index = index
         self._preview.display(self._samples_grid.get_sample(index))
@@ -116,6 +117,18 @@ class SamplingController(object):
 
     def close(self):
         self._sampling_view.close()
+
+    def clear_sample(self):
+        with engine.connect() as connection:
+            view = self._sampling_view
+            self._image_metadata.delete_image(connection)
+
+            view.label_class_options["state"] = tk.DISABLED
+            view.label_instance_options["state"] = tk.DISABLED
+            view.label_instance.set("N/A")
+            view.save_button["state"] = tk.DISABLED
+            view.clear_button["state"] = tk.DISABLED
+
 
     def save(self):
         with engine.connect() as connection:
@@ -136,6 +149,11 @@ class SamplingController(object):
 
             self._save_filters_mappings(connection, self._filtering_model)
 
+            model_name = self._model_name
+
+            if model_name:
+                self._labeling.store(connection, model_name)
+
     def _save_filters_mappings(self, connection, filter_model):
         label_class = self._label_class
         label_type = self._label_type
@@ -153,25 +171,27 @@ class SamplingController(object):
         #if the filter_labels already belonged to a group, update the group and parameter
 
         if parameter_id and group_id and pgr and ppr:
-            if group_id != pgr:
+            if group_id != pgr or parameter_id!= ppr:
                 #if group has changed, remove the label from previous group
 
-                #note: label per project is always mapped to ONE group_id and parameter_id pair.
+                # filters.remove_label_from_group()
 
+                #note: label per project is always mapped to ONE group_id and parameter_id pair.
                 filters.update_filter_labels_group(
                     connection,
-                    label_type,
+                    label_class,
                     label_type,
                     project_name,
-                    group_id)
+                    group_id,
+                )
 
             if parameter_id != ppr:
                 filters.update_filter_labels_parameter_id(
                     connection,
-                    label_type,
+                    label_class,
                     label_type,
                     project_name,
-                    group_id)
+                    parameter_id)
 
         elif parameter_id and group_id:
             #if did not belong to any group, add it to database
@@ -183,11 +203,6 @@ class SamplingController(object):
                 parameter_id,
                 project_name
             )
-
-        model_name = self._model_name
-
-        if model_name:
-            self._labeling.store(connection, model_name)
 
     def set_label_type(self, *args):
         view = self._sampling_view
@@ -298,9 +313,8 @@ class SamplingController(object):
                     capture_zone.project_name
                 )
 
-            view.detect_button["state"] = tk.NORMAL
-
             label = self._detect(labeler, capture_zone.dimensions)
+            view.label_instance_options["state"] = tk.ACTIVE
 
             if label == "N/A":
                 view.label_instance_options['values'] = tuple([
@@ -310,21 +324,28 @@ class SamplingController(object):
                         label_type,
                         label_class)])
 
-                view.label_instance_options["state"] = tk.ACTIVE
                 self._label = view.label_instance.get()
-
-                view.save_button["state"] = tk.NORMAL
 
             else:
                 view.label_instance.set(label)
                 view.save_button["state"] = tk.DISABLED
+                view.clear_button["state"] = tk.NORMAL
+
+                self._image_metadata = im.get_image(
+                    connection,
+                    capture_zone.project_name,
+                    {'label_type': label_type,
+                     'label_class': label_class,
+                     'instance_name': label})
+
+            view.save_button["state"] = tk.NORMAL
 
     def set_label(self, *args):
         view = self._sampling_view
         label = view.label_instance.get()
 
-        if label == "Unknown":
-            view.detect_button["state"] = tk.DISABLED
+        # if label == "Unknown":
+        #     view.detect_button["state"] = tk.DISABLED
 
         self._label = label
 
@@ -349,12 +370,22 @@ class SamplingController(object):
         self._filters_on = False
 
     def set_capture_zone(self, capture_zone):
+        '''
+
+        Parameters
+        ----------
+        capture_zone: gscrap.mapping.tools.detection.capture.CaptureZone
+
+        Returns
+        -------
+
+        '''
 
         with engine.connect() as connection:
             sv = self._sampling_view
             meta = self._video_metadata
 
-            sv.detect_button["state"] = tk.DISABLED
+            # sv.detect_button["state"] = tk.DISABLED
 
             sv.label_instance_options["state"] = tk.DISABLED
             sv.label_class_options["state"] = tk.DISABLED
@@ -373,7 +404,7 @@ class SamplingController(object):
             dims = (capture_zone.width, capture_zone.height)
 
             self._capture_zone = capture_zone
-            self._max_threshold = mt = mdl_utils.max_threshold(dims)
+            self._max_threshold = mt = 2000
 
             self._samples_data = st.SampleData(
                 capture_zone.project_name,
@@ -387,16 +418,32 @@ class SamplingController(object):
             sv.threshold.config(to=mt)
 
             if meta:
-                grid = self._samples_grid
-                grid.clear()
-
-                grid.load_samples(meta, capture_zone)
+                self._samples_grid.clear()
+                # grid = self._samples_grid
+                # grid.clear()
+                #
+                # grid.load_samples(meta, capture_zone, True)
                 # grid.compress_samples(
                 #     self._filtering_model,
                 #     self._image_equal)
-                grid.draw()
+                # # grid.draw()
+                #
+                # sv.threshold["state"] = tk.NORMAL
+                io.submit(self._load_samples, sv, meta, capture_zone)
 
-                sv.threshold["state"] = tk.NORMAL
+            sv.label_type_options["state"] = tk.DISABLED
+
+    def _load_samples(self, view, meta, capture_zone):
+        grid = self._samples_grid
+        grid.clear()
+
+        grid.load_samples(meta, capture_zone, True)
+        grid.compress_samples(
+            self._filtering_model,
+            self._image_equal)
+        grid.draw()
+
+        view.threshold["state"] = tk.NORMAL
 
     def _image_equal(self, im1, im2):
         return mdl_utils.different_image(
@@ -404,7 +451,7 @@ class SamplingController(object):
 
     def set_threshold(self, value):
         #update threshold and re-compress elements
-        self._threshold = float(value)
+        self._threshold = v = float(value)
 
         grid = self._samples_grid
 
@@ -413,6 +460,11 @@ class SamplingController(object):
             self._image_equal)
 
         grid.draw()
+
+        model = self._model_name
+
+        if model and self._save_sample:
+            self._labeling.threshold = v
 
     def get_max_threshold(self):
         return self._max_threshold
@@ -429,27 +481,21 @@ class SamplingController(object):
 
         """
 
-        if not self._filters_on:
-            idx = self._selected_image_index
-            preview = self._preview
+        # idx = self._selected_image_index
+        # preview = self._preview
 
-            grid = self._samples_grid
+        grid = self._samples_grid
 
-            buffer = self._image_buffer
+        # buffer = self._image_buffer
 
-            if filters.filters_enabled:
-                grid.apply_filters(filters)
-
-                if idx:
-                    preview.display(self._apply_filters(
-                        filters,
-                        self._from_buffer(buffer.get_image(idx))))
-
-            else:
-                grid.disable_filters()
-
-                if idx:
-                    preview.display(self._from_buffer(buffer.get_image(idx)))
+        if filters.filters_enabled:
+            grid.compress_samples(
+                filters,
+                self._image_equal)
+            grid.draw()
+            grid.apply_filters(filters)
+        else:
+            grid.disable_filters()
 
     def _apply_filters(self, filters, image):
         if filters.filters_enabled:

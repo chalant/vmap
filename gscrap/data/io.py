@@ -12,4 +12,4 @@ def execute(fn):
     POOL.submit(fn)
 
 def submit(fn, *args, **kwargs):
-    POOL.submit(fn, *args, **kwargs)
+    return POOL.submit(fn, *args, **kwargs)

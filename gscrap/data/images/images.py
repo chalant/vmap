@@ -9,11 +9,24 @@ from sqlalchemy import text
 
 from gscrap.data import paths
 
+_GET_IMAGES = text(
+    """
+    SELECT *
+    FROM images
+    WHERE project_name=:project_name 
+        AND label_name=:label_name 
+        AND label_type=:label_type
+    """
+)
+
 _GET_IMAGE = text(
     """
     SELECT *
     FROM images
-    WHERE project_name=:project_name AND label_name=:label_name AND label_type=:label_type
+    WHERE project_name=:project_name 
+        AND label_name=:label_name 
+        AND label_type=:label_type 
+        AND label_instance_name=:label_instance_name
     """
 )
 
@@ -121,7 +134,7 @@ def get_images(
         label_name):
 
     for im in connection.execute(
-            _GET_IMAGE,
+            _GET_IMAGES,
         project_name=project_name,
         label_type=label_type,
         label_name=label_name):
@@ -152,4 +165,23 @@ def create_image_metadata(
         },
         width,
         height
+    )
+
+def get_image(connection, project_name, label):
+    res = connection.execute(
+        _GET_IMAGE,
+        project_name=project_name,
+        label_type=label['label_type'],
+        label_name=label['label_class'],
+        label_instance_name=label['instance_name']).first()
+
+    return ImageMetadata(
+        res['image_id'],
+        res['project_name'],
+        {'label_name': res['label_name'],
+         'label_type': res['label_type'],
+         'instance_name': res['label_instance_name']
+         },
+        res['width'],
+        res['height']
     )
