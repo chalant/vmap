@@ -36,16 +36,10 @@ class RectangleWrapper(object):
         self._container = container
         self._rectangle = rectangle
 
-        self._rectangle_labels = rl.RectangleLabels(rectangle)
-
         self._cursor = -1
         self._rid = rid
         self._top_left = instance.top_left
         self._instance = instance
-
-    @property
-    def labels(self):
-        return self._rectangle_labels
 
     @property
     def rid(self):
@@ -119,11 +113,9 @@ class RectangleWrapper(object):
     def submit(self, connection):
         #submit labels and instances
         self._instance.submit(connection)
-        self._rectangle_labels.submit(connection)
 
     def delete(self, connection):
         self._instance.delete(connection)
-        # self._rectangle_labels.delete(connection)
 
     def __iter__(self):
         return self

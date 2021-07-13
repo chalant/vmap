@@ -56,6 +56,10 @@ class CaptureZone(object):
         return self._rectangle_instance.rectangle
 
     @property
+    def rectangle_id(self):
+        return self.rectangle.id
+
+    @property
     def instance(self):
         return self._rectangle_instance
 

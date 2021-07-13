@@ -44,6 +44,14 @@ _DELETE_IMAGE_METADATA = text(
     """
 )
 
+_DELETE_RECTANGLE_IMAGES = text(
+    '''
+    DELETE 
+    FROM images
+    WHERE rectangle_id=:rectangle_id
+    '''
+)
+
 _DELETE_ALL_PROJECT_IMAGES = text(
     """
     DELETE FROM images
@@ -58,7 +66,9 @@ class ImageMetadata(object):
         '_label',
         '_image',
         '_width',
-        '_height']
+        '_height',
+        '_rectangle_id'
+    ]
 
     def __init__(
             self,
@@ -66,13 +76,19 @@ class ImageMetadata(object):
             project_name,
             label,
             width,
-            height):
+            height,
+            rectangle_id):
 
         self._id = id_
         self._project_name = project_name
         self._label = label
         self._height = height
         self._width = width
+        self._rectangle_id = rectangle_id
+
+    @property
+    def rectangle_id(self):
+        return self._rectangle_id
 
     @property
     def height(self):
@@ -146,7 +162,9 @@ def get_images(
              'label_type': label_type,
              'instance_name': im["label_instance_name"]},
             im["width"],
-            im["height"])
+            im["height"],
+            im['rectangle_id']
+        )
 
 def create_image_metadata(
         project_name,
@@ -154,7 +172,8 @@ def create_image_metadata(
         label_type,
         instance_name,
         width,
-        height):
+        height,
+        rectangle_id):
     return ImageMetadata(
         uuid4().hex,
         project_name,
@@ -164,8 +183,8 @@ def create_image_metadata(
             'instance_name': instance_name
         },
         width,
-        height
-    )
+        height,
+        rectangle_id)
 
 def get_image(connection, project_name, label):
     res = connection.execute(
@@ -183,5 +202,11 @@ def get_image(connection, project_name, label):
          'instance_name': res['label_instance_name']
          },
         res['width'],
-        res['height']
+        res['height'],
+        res['rectangle_id']
     )
+
+def delete_rectangle_images(connection, rectangle_id):
+    connection.execute(
+        _DELETE_RECTANGLE_IMAGES,
+        rectangle_id=rectangle_id)

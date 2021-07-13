@@ -290,6 +290,8 @@ def create_parameter_id(filter_pipeline):
     for filter_ in filter_pipeline:
         sequence += filter_.get_parameters_sequence()
 
+    if not sequence and len(filter_pipeline) > 0:
+        return '-1'
     return sequence
 
 def create_group_id(filter_pipeline):
@@ -368,8 +370,11 @@ class Filter(abc.ABC):
     def name(self):
         raise NotImplementedError
 
-    @abc.abstractmethod
     def apply(self, img):
+        return self._apply(img)
+
+    @abc.abstractmethod
+    def _apply(self, img):
         raise NotImplementedError
 
     def render(self, container):
@@ -447,6 +452,9 @@ class Filter(abc.ABC):
                 #     for fn in self._callbacks:
                 #         fn(self)
 
+    def __str__(self):
+        return "Filter<{} {}>".format(self.type, self.name)
+
     def get_parameters_sequence(self):
         return ''
 
@@ -463,7 +471,7 @@ class Trim(Filter):
     def type(self):
         return "Resize"
 
-    def apply(self, img):
+    def _apply(self, img):
         pil = Image.fromarray(img)
         wd, ht = pil.width, pil.height
 
@@ -506,7 +514,7 @@ class Threshold(Filter):
     def name(self):
         return self.thresh_type
 
-    def apply(self, img):
+    def _apply(self, img):
         return cv2.threshold(
             img,
             self.thresh_value,
@@ -586,7 +594,7 @@ class GaussianBlur(Filter):
     def name(self):
         return "Gaussian"
 
-    def apply(self, img):
+    def _apply(self, img):
         try:
             return cv2.GaussianBlur(
                 img,
@@ -705,7 +713,7 @@ class AverageBlur(Filter):
     def name(self):
         return "Average"
 
-    def apply(self, img):
+    def _apply(self, img):
         return cv2.blur(img, (self.ksizeX, self.ksizeY))
 
     def render(self, container):
@@ -735,7 +743,7 @@ class MedianBlur(Filter):
     def ksize(self, value):
         self._kx = value
 
-    def apply(self, img):
+    def _apply(self, img):
         return cv2.medianBlur(img, self.ksize)
 
     def render(self, container):
@@ -756,7 +764,7 @@ class Grey(Filter):
     def name(self):
         return "Grey"
 
-    def apply(self, img):
+    def _apply(self, img):
         return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
     def _render(self, container):

@@ -41,20 +41,20 @@ class RectangleLabel(object):
         'capture',
         'label_type',
         'label_name',
-        '_rectangle'
+        'rectangle_id'
     ]
 
-    def __init__(self, label, rectangle):
+    def __init__(self, label, rectangle_id):
         self.classifiable = label["classifiable"]
         self.capture = label["capture"]
         self.label_type = label["label_type"]
         self.label_name = label["label_name"]
-        self._rectangle = rectangle
+        self.rectangle_id = rectangle_id
 
     def delete(self, connection):
         connection.execute(
             _REMOVE_LABEL,
-            rectangle_id=self._rectangle.id,
+            rectangle_id=self.rectangle_id,
             label_type=self.label_type,
             label_name=self.label_name,
         )
@@ -87,22 +87,22 @@ class UnsavedRectangleLabel(object):
                and other.label_name == self.label_name
 
 class RectangleLabels(object):
-    def __init__(self, rectangle):
+    def __init__(self, rectangle_id):
         """
 
         Parameters
         ----------
         rectangle: models.rectangles.Rectangle
         """
-        self._rectangle = rectangle
+        self._rectangle_id = rectangle_id
         self._new_labels = defaultdict(list)
 
     def get_labels(self, connection):
-        rectangle = self._rectangle
+        rectangle_id = self._rectangle_id
         for label in connection.execute(
                 _GET_RECTANGLE_LABELS,
-                rectangle_id=self._rectangle.id):
-            yield RectangleLabel(label, rectangle)
+                rectangle_id=rectangle_id):
+            yield RectangleLabel(label, rectangle_id)
 
     def get_unsaved_labels(self):
         new_labels = self._new_labels
@@ -115,10 +115,11 @@ class RectangleLabels(object):
     def add_label(self, label_name, label_type):
         new_labels = self._new_labels
         new_labels[label_type].append(label_name)
+
         return UnsavedRectangleLabel(label_type, label_name, new_labels)
 
     def submit(self, connection):
-        id_ = self._rectangle.id
+        id_ = self._rectangle_id
         new_labels = self._new_labels
 
         for lt, labels in new_labels.items():
@@ -135,5 +136,15 @@ class RectangleLabels(object):
     def delete(self, connection):
         connection.execute(
             _REMOVE_LABELS,
-            rectangle_id=self._rectangle.id
+            rectangle_id=self._rectangle_id
         )
+
+def delete_rectangle_labels(connection, rectangle_id):
+    connection.execute(
+        _REMOVE_LABELS,
+        rectangle_id=rectangle_id
+    )
+
+def get_labels(connection, rectangle_id):
+    for row in connection.execute(_GET_RECTANGLE_LABELS, rectangle_id=rectangle_id):
+        yield RectangleLabel(row, rectangle_id)

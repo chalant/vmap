@@ -2,6 +2,8 @@ from functools import partial
 
 import tkinter as tk
 
+import cv2
+
 from gscrap.data import engine
 from gscrap.data.filters import filters as flt
 
@@ -28,6 +30,11 @@ class FilterRectangle(object):
 
         self._item = None
         self._canvas = None
+
+        def null_callback(filter_):
+            pass
+
+        self._on_error = null_callback
 
     @property
     def type(self):
@@ -79,10 +86,17 @@ class FilterRectangle(object):
         self._filter.delete(connection, group_id, parameter_id)
 
     def apply(self, img):
-        return self._filter.apply(img)
+        try:
+            return self._filter.apply(img)
+        except cv2.error:
+            self._on_error(self)
+            return img
 
     def on_data_update(self, callback):
         self._filter.on_data_update(callback)
+
+    def on_error(self, callback):
+        self._on_error = callback
 
     def clear_callbacks(self):
         self._filter.clear_callbacks()
@@ -99,6 +113,9 @@ class FilterRectangle(object):
         if self._item:
             canvas.delete(self._item)
         # self._filter.close()
+
+    def __str__(self):
+        return self._filter.__str__()
 
 
 class FRFactory(object):
@@ -122,8 +139,6 @@ class FilteringModel(object):
 
         self._filters_observers = []
         self._filter_pipeline = []
-
-        self._new_filters = []
 
         self._data_observers = []
 
@@ -195,8 +210,6 @@ class FilteringModel(object):
         pipeline = self._filter_pipeline
         pipeline.append(filter_)
 
-        self._new_filters.append(filter_)
-
         # register a call back when parameters of the filter have changed.
         filter_.on_data_update(self._on_filter_change)
 
@@ -204,9 +217,10 @@ class FilteringModel(object):
             obs.data_update(self)
 
         # notify when filters are updated
-        if self._enabled:
-            for obs in self._filters_observers:
-                obs.filters_update(self)
+        for obs in self._filters_observers:
+            obs.filters_update(self)
+
+        return filter_
 
     def add_filter_observer(self, observer):
         self._filters_observers.append(observer)
@@ -235,17 +249,20 @@ class FilteringModel(object):
         for obs in self._data_observers:
             obs.data_update(self)
 
-        if self._enabled:
-            for obs in self._filters_observers:
-                obs.filters_update(self)
+        for obs in self._filters_observers:
+            obs.filters_update(self)
 
     def store_filters(self, connection, group_id, parameter_id):
-        for flt in self._new_filters:
+        for flt in self._filter_pipeline:
             flt.store(connection, group_id, parameter_id)
 
     def delete_filters(self, connection, group_id, parameter_id):
+        to_delete = self._to_delete
+
         for flt in self._to_delete:
             flt.delete(connection, group_id, parameter_id)
+
+        to_delete.clear()
 
     def get_filter(self, position):
         return self._filter_pipeline[position]
@@ -337,7 +354,6 @@ class FilteringController(object):
         if parameter_id and group_id:
             #only save when filters have changed.
             if parameter_id != ppid or group_id != pgid:
-
                 with engine.connect() as connection:
 
                     #only store when the either filter group or parameter does not exist.
@@ -356,29 +372,19 @@ class FilteringController(object):
                             connection,
                             parameter_id)
 
-                    if not group_exists or not parameter_exists:
-                        filters.store_filters(
-                            connection,
-                            group_id,
-                            parameter_id
-                        )
-
-                    #todo: delete previously stored values
+                    # todo: delete previously stored values
                     filters.delete_filters(
                         connection,
                         group_id,
                         parameter_id
                     )
 
-                #remove filters mapped to previous group and parameter if they are not null.
-                # if ppid and pgid:
-                #     with engine.connect() as connection2:
-                #         filters.delete_filters(
-                #             connection2,
-                #             pgid,
-                #             ppid)
-
-        #perform additional saves (ex: labels mappings etc.)
+                    if not group_exists or not parameter_exists:
+                        filters.store_filters(
+                            connection,
+                            group_id,
+                            parameter_id
+                        )
 
         self._view.save_button["state"] = tk.DISABLED
 
@@ -484,6 +490,9 @@ class FilteringView(object):
 
         self._draw_filters(loader, canvas, rectangles, self._fr_create)
 
+    def on_filters_clear(self):
+        self._clear(self._filter_canvas, self._rectangles)
+
     def _draw_filters(self, filters, canvas, rectangles, factory):
         x = 0
         y = 0
@@ -499,7 +508,6 @@ class FilteringView(object):
                 rectangles,
                 canvas.winfo_width(),
                 factory)
-
             position += 1
 
         self._position = position
@@ -544,10 +552,16 @@ class FilteringView(object):
         bbox = (x0 - 1, y0 - 1, x1 + 1, y1 + 1)
 
         rid = canvas.create_rectangle(*bbox)
+        rct = factory.create_filter_rectangle(model, rid, tid, bbox, filter_)
 
-        rectangles[rid] = factory.create_filter_rectangle(model, rid, tid, bbox, filter_)
+        rct.on_error(self._on_error)
+
+        rectangles[rid] = rct
 
         return x, y
+
+    def _on_error(self, filter_):
+        self._delete_filter(filter_.rid)
 
     def _add_filter(self, filter_type, filter_name):
         model = self._model

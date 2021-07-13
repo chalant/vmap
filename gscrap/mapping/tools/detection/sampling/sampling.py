@@ -132,6 +132,7 @@ class SamplingController(object):
 
     def save(self):
         with engine.connect() as connection:
+            view = self._sampling_view
             image_idx = self._selected_image_index
             label = self._label
 
@@ -144,7 +145,7 @@ class SamplingController(object):
                         "label_type": self._label_type,
                         "instance_name": label
                     },
-                    connection
+                    connection,
                 )
 
             self._save_filters_mappings(connection, self._filtering_model)
@@ -152,7 +153,11 @@ class SamplingController(object):
             model_name = self._model_name
 
             if model_name:
-                self._labeling.store(connection, model_name)
+                self._labeling.update(connection, model_name)
+
+            view.save_button["state"] = tk.DISABLED
+            view.clear_button["state"] = tk.NORMAL
+            view.label_instance_options["state"] = tk.DISABLED
 
     def _save_filters_mappings(self, connection, filter_model):
         label_class = self._label_class
@@ -185,13 +190,13 @@ class SamplingController(object):
                     group_id,
                 )
 
-            if parameter_id != ppr:
-                filters.update_filter_labels_parameter_id(
-                    connection,
-                    label_class,
-                    label_type,
-                    project_name,
-                    parameter_id)
+                if parameter_id != ppr:
+                    filters.update_filter_labels_parameter_id(
+                        connection,
+                        label_class,
+                        label_type,
+                        project_name,
+                        parameter_id)
 
         elif parameter_id and group_id:
             #if did not belong to any group, add it to database
@@ -222,7 +227,7 @@ class SamplingController(object):
         self._label_class = label_class = view.label_class.get()
 
         # todo: do nothing if this raises a stop iteration error
-        labels = next((l for l in self._labels[label_type] if l.label_name == label_class))
+        label_group = next((l for l in self._labels[label_type] if l.label_name == label_class))
 
         #todo: once the label class and label type have been set, do a callback to observers
         # ex: the we load filters associated with the label.
@@ -237,13 +242,16 @@ class SamplingController(object):
         with engine.connect() as connection:
             meta = mdl.load_labeling_model_metadata(
                 connection,
-                labels,
+                label_group,
                 capture_zone.project_name)
 
             if meta:
+                model_name = meta['model_name']
                 labeling = mdl.get_labeling_model(meta['model_type']).load(
                     connection,
-                    meta['model_name'])
+                    model_name)
+
+                self._model_name = meta['model_name']
 
             filter_group = filters.get_filter_group(
                 connection,
@@ -260,7 +268,7 @@ class SamplingController(object):
 
             self._parameter_id = fm.parameter_id
 
-            if labels.classifiable:
+            if label_group.classifiable:
                 sample_source = sc.SampleSource(
                     capture_zone.project_name,
                     label_type,
@@ -280,7 +288,7 @@ class SamplingController(object):
                 view.threshold.config(to=self._max_threshold)
                 view.threshold.set(threshold)
 
-                self._threshold = threshold
+                self.set_threshold(threshold)
 
                 lb.set_samples_source(sample_source)
 
@@ -303,7 +311,14 @@ class SamplingController(object):
                 #map model to label and store
                 self._model_name = model_name = uuid4().hex
 
-                lb.store(connection, model_name)
+                mdl.add_model(
+                    connection,
+                    model_name,
+                    lb.model_type)
+
+                lb.store(
+                    connection,
+                    model_name)
 
                 mdl.store_label_model(
                     connection,
@@ -325,6 +340,7 @@ class SamplingController(object):
                         label_class)])
 
                 self._label = view.label_instance.get()
+                view.save_button["state"] = tk.NORMAL
 
             else:
                 view.label_instance.set(label)
@@ -338,7 +354,10 @@ class SamplingController(object):
                      'label_class': label_class,
                      'instance_name': label})
 
-            view.save_button["state"] = tk.NORMAL
+                view.save_button["state"] = tk.DISABLED
+                view.label_instance_options["state"] = tk.DISABLED
+
+
 
     def set_label(self, *args):
         view = self._sampling_view
@@ -385,6 +404,8 @@ class SamplingController(object):
             sv = self._sampling_view
             meta = self._video_metadata
 
+            # self._filtering_model.clear_filters()
+
             # sv.detect_button["state"] = tk.DISABLED
 
             sv.label_instance_options["state"] = tk.DISABLED
@@ -403,13 +424,13 @@ class SamplingController(object):
 
             dims = (capture_zone.width, capture_zone.height)
 
-            self._capture_zone = capture_zone
             self._max_threshold = mt = 2000
 
             self._samples_data = st.SampleData(
                 capture_zone.project_name,
                 capture_zone.width,
-                capture_zone.height
+                capture_zone.height,
+                capture_zone.rectangle_id
             )
 
             #initialize preview
@@ -417,21 +438,24 @@ class SamplingController(object):
 
             sv.threshold.config(to=mt)
 
-            if meta:
-                self._samples_grid.clear()
-                # grid = self._samples_grid
-                # grid.clear()
-                #
-                # grid.load_samples(meta, capture_zone, True)
-                # grid.compress_samples(
-                #     self._filtering_model,
-                #     self._image_equal)
-                # # grid.draw()
-                #
-                # sv.threshold["state"] = tk.NORMAL
+            pcz = self._capture_zone
+
+            if pcz and meta:
+                if capture_zone.rectangle_id != pcz.rectangle_id:
+                    io.submit(self._load_samples, sv, meta, capture_zone)
+                    self._threshold = 0
+                    sv.threshold.set(0)
+                    self.set_threshold(0)
+
+                    sv.label_type_options.set("N/A")
+                    sv.label_instance_options.set("N/A")
+                    sv.label_class_options.set("N/A")
+
+            elif meta:
                 io.submit(self._load_samples, sv, meta, capture_zone)
 
             sv.label_type_options["state"] = tk.DISABLED
+            self._capture_zone = capture_zone
 
     def _load_samples(self, view, meta, capture_zone):
         grid = self._samples_grid
@@ -461,6 +485,9 @@ class SamplingController(object):
 
         grid.draw()
 
+        if self._filters_on:
+            grid.apply_filters(self._filtering_model)
+
         model = self._model_name
 
         if model and self._save_sample:
@@ -488,11 +515,12 @@ class SamplingController(object):
 
         # buffer = self._image_buffer
 
+        grid.compress_samples(
+            filters,
+            self._image_equal)
+        grid.draw()
+
         if filters.filters_enabled:
-            grid.compress_samples(
-                filters,
-                self._image_equal)
-            grid.draw()
             grid.apply_filters(filters)
         else:
             grid.disable_filters()
@@ -511,22 +539,10 @@ class SamplingController(object):
     def set_video_metadata(self, video_meta):
         # self._navigator.set_video_metadata(video_meta)
         self._video_metadata = video_meta
-        # cz = self._capture_zone
-        #
-        # if cz:
-        #     print("CZ")
-        #
-        #     grid = self._samples_grid
-        #     grid.clear()
-        #
-        #     grid.load_samples(video_meta, cz)
-        #     grid.compress_samples(
-        #         self._filtering_model,
-        #         self._image_equal)
-        #
-        #     grid.draw()
-        #
-        #     self._sampling_view.threshold["state"] = tk.NORMAL
+
+        cz = self._capture_zone
+        if cz:
+            io.submit(self._load_samples, self._sampling_view, video_meta, cz)
 
     def disable_video_read(self):
         self._video_metadata = None

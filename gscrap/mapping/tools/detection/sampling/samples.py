@@ -318,5 +318,11 @@ class Samples(object):
 
     def clear(self):
         self._samples_buffer.clear()
+        image_rectangles = self._image_rectangles
+
+        grid = self._image_grid
+
+        ig.clear_canvas(grid, grid.canvas, image_rectangles.values())
+
         self._image_rectangles.clear()
         self._items.clear()

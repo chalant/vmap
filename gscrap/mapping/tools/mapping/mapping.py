@@ -1,9 +1,15 @@
 import tkinter as tk
 
+from collections import defaultdict
+
 from gscrap.data import engine
 from gscrap.data import io
+from gscrap.data.rectangles import rectangles as rct_data
+from gscrap.data import rectangle_labels as rct_labels
+from gscrap.data.images import images as im
 
 from gscrap.mapping.tools.mapping import mapping_states as states
+
 from gscrap.rectangles import rectangles, utils as rectangle_utils
 
 from gscrap.utils import generators
@@ -38,6 +44,8 @@ class MappingTool(rectangle_utils.RectangleFactory):
         self._rectangles = []
 
         self._all_instances = {}
+
+        self._labels_per_rectangle = {}
 
         self.rectangle = None
         self._rid = None
@@ -82,6 +90,15 @@ class MappingTool(rectangle_utils.RectangleFactory):
         typing.Dict[int, controllers.rectangles.utils.RectangleWrapper]
         """
         return self._all_instances
+
+    def get_rectangle_labels(self, rectangle_id):
+        lpr = self._labels_per_rectangle
+
+        if not rectangle_id in lpr:
+            lpr[rectangle_id] = lbl = rct_labels.RectangleLabels(rectangle_id)
+            return lbl
+
+        return lpr[rectangle_id]
 
     def select_rectangle(self, x, y):
         res = rectangles.find_closest_enclosing(self._all_instances, x, y)
@@ -257,12 +274,29 @@ class MappingTool(rectangle_utils.RectangleFactory):
         #         del all_instances[rct.rid]
         #         rct.delete(connection)
 
+        dct = defaultdict(int)
+
+        #count the number of instances of a rectangle
+        for inst in all_instances.values():
+            dct[inst.rectangle.id] += 1
+
         with engine.connect() as conn:
             for rct in rectangles.remove_rectangle(all_instances, rid):
                 id_ = rct.rid
                 canvas.delete(id_)
                 rct.delete(conn)
                 del all_instances[id_]
+
+                dct[rct.rectangle.id] -= 1
+
+            #delete rectangle, labels and samples if there are no more instances.
+
+            for rectangle_id, num_instances in dct.items():
+                if num_instances == 0:
+                    rct_data.delete_rectangle(conn, rectangle_id)
+                    rct_labels.delete_rectangle_labels(conn, rectangle_id)
+                    im.delete_rectangle_images(conn, rectangle_id)
+
 
     def unselect_rectangle(self):
         self._rid = None
@@ -302,6 +336,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
                 for wrapper in all_instances.values():
                     wrapper.submit(con)
+
 
         self._rectangles.clear()
         self._all_instances.clear()

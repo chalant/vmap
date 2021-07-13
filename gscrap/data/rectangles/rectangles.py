@@ -94,18 +94,6 @@ _GET_LABEL = text(
     """
 )
 
-_GET_IMAGE = text(
-    """
-    SELECT *
-    FROM images
-    INNER JOIN rectangle_labels 
-        ON rectangle_labels.label_name=images.label_name 
-        AND rectangle_labels.label_type=images.label_type
-    WHERE project_name=:project_name AND label_name=:label_name AND label_type=:label_type
-    ORDER BY position ASC
-    """
-)
-
 class RectangleInstance(object):
     __slots__ = ['_id', '_left', '_top', '_rectangle', '_container_id', '_center']
 
@@ -119,6 +107,7 @@ class RectangleInstance(object):
         top: Int
         container_id: String
         """
+
         self._id = id_
         self._left = left
         self._top = top
@@ -216,9 +205,6 @@ class RectangleInstance(object):
 
     def create_instance(self, x, y):
         return self._rectangle.create_instance(x, y)
-
-    def get_images(self, connection):
-        return self._rectangle.get_images(connection)
 
     def submit(self, connection):
         connection.execute(
@@ -336,6 +322,17 @@ def get_rectangles(connection, project_name):
 
 def create_rectangle(width, height, project_name):
     return Rectangle(uuid4().hex, project_name, width, height)
+
+def number_of_instances(connection, rectangle_id):
+    total = 0
+
+    for _ in connection.execute(_GET_RECTANGLE_INSTANCES, rectangle_id=rectangle_id):
+        total += 1
+
+    return total
+
+def delete_rectangle(connection, rectangle_id):
+    connection.execute(_DELETE_RECTANGLE, rectangle_id=rectangle_id)
 
 def delete_for_project(connection, project_name):
     #delete all rectangles associated with the project

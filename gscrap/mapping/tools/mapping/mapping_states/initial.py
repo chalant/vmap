@@ -4,6 +4,7 @@ from functools import partial
 import tkinter as tk
 
 from gscrap.data import engine
+from gscrap.data import rectangle_labels as rct_lbl
 
 
 class Initial(object):
@@ -56,12 +57,12 @@ class Initial(object):
             if res != self._clicked_rid:
                 rct = mapper.get_rectangle(res)
                 # load labels
-                labels = rct.labels
+                labels = mapper.get_rectangle_labels(rct.rectangle.id)
 
                 dct = defaultdict(list)
 
                 with engine.connect() as connection:
-                    for label in labels.get_labels(connection):
+                    for label in rct_lbl.get_labels(connection, rct.rectangle.id):
                         dct[label.label_type].append(label)
 
                 #add unsaved labels
@@ -134,8 +135,12 @@ class Initial(object):
         pass
 
     def _selected_label(self, label_name, label_type):
-        rct = self._mapper.get_rectangle(self._mapper.selected_rectangle)
-        labels = rct.labels
+        mapper = self._mapper
+
+        rct = mapper.get_rectangle(mapper.selected_rectangle)
+
+        labels = mapper.get_rectangle_labels(rct.rectangle.id)
+
         self._labels[label_type].append(labels.add_label(label_name, label_type))
 
     def _on_set_label(self):

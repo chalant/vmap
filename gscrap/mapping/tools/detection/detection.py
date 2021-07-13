@@ -109,7 +109,7 @@ class DetectionTool(tools.Tool):
         #load capture zones...
         with engine.connect() as connection:
             for rct in project.get_rectangles(connection):
-                labels = rl.RectangleLabels(rct)
+                labels = rl.RectangleLabels(rct.id)
 
                 cap_labels = [label for label in labels.get_labels(connection) if label.capture]
 

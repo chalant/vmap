@@ -17,13 +17,23 @@ from gscrap.samples import source as src
 
 #todo: write query => we need to merge
 
+_ADD_MODEL = text(
+    '''
+    INSERT OR REPLACE
+    INTO models (model_name, model_type)
+    VALUES (:model_name, :model_type)
+    '''
+)
+
 _GET_MODEL = text(
     '''
     SELECT models.model_name, models.model_type
     FROM models
-    LEFT JOIN labels_models 
-    ON models.model_name=labels_models.model_name
-    WHERE label_type=:label_type AND label_name=:label_name AND project_name=:project_name
+    JOIN labels_models 
+        ON models.model_name=labels_models.model_name
+    WHERE labels_models.label_type=:label_type 
+        AND labels_models.label_name=:label_name 
+        AND labels_models.project_name=:project_name
     '''
 )
 
@@ -41,6 +51,22 @@ _STORE_LABEL_MODEL = text(
     '''
 )
 
+_STORE_DIFFERENCE_MATCHING = text(
+    '''
+    INSERT OR REPLACE 
+    INTO difference_matching (threshold, model_name) 
+    VALUES (:threshold, :model_name) 
+    '''
+)
+
+_UPDATE_DIFFERENCE_MATCHING = text(
+    '''
+    UPDATE difference_matching
+    SET threshold=:threshold
+    WHERE model_name=:model_name
+    '''
+)
+
 class AbstractLabeling(ABC):
     model_type = 'null'
 
@@ -49,6 +75,9 @@ class AbstractLabeling(ABC):
         raise NotImplemented
 
     def store(self, connection, model_name):
+        pass
+
+    def update(self, connection, model_name):
         pass
 
     def load(self, connection, model_id):
@@ -99,10 +128,14 @@ class DifferenceMatching(AbstractLabeling):
 
     def store(self, connection, model_name):
         connection.execute(
-            text('''
-            INSERT OR REPLACE 
-            INTO {} (threshold, model_name) VALUES (:threshold, :model_name) 
-            '''.format(self.model_type)),
+            _STORE_DIFFERENCE_MATCHING,
+            threshold=self.threshold,
+            model_name=model_name
+        )
+
+    def update(self, connection, model_name):
+        connection.execute(
+            _UPDATE_DIFFERENCE_MATCHING,
             threshold=self.threshold,
             model_name=model_name
         )
@@ -110,11 +143,18 @@ class DifferenceMatching(AbstractLabeling):
     def load(self, connection, model_id):
         parameters = connection.execute(
             text(_GET_PARAMETERS.format(self.model_type)),
-            model_name=model_id)
+            model_name=model_id).first()
 
-        self._threshold = float(parameters['threshold'])
+        self.threshold = float(parameters['threshold'])
 
         return self
+
+def add_model(connection, model_name, model_type):
+    connection.execute(
+        _ADD_MODEL,
+        model_name=model_name,
+        model_type=model_type
+    )
 
 def label(labeling_model, image):
     return labeling_model.label(image)
@@ -125,9 +165,6 @@ def load_labeling_model_metadata(connection, label_group, project_name):
         label_type=label_group.label_type,
         label_name=label_group.label_name,
         project_name=project_name).first()
-
-    # return get_labeling_model(model["model_type"]).load(
-    #     connection, model["model_name"])
 
 def get_labeling_model(model_type):
     # load parameters

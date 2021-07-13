@@ -108,9 +108,9 @@ def build_schema(meta):
 
     Table("rectangle_labels",
           meta,
-          Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id")),
-          Column("label_name", String, ForeignKey("labels.label_name")),
-          Column("label_type", String, ForeignKey("labels.label_type")))
+          Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id"), nullable=False),
+          Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
+          Column("label_type", String, ForeignKey("labels.label_type"), nullable=False))
 
     Table(
         "images",
@@ -122,7 +122,8 @@ def build_schema(meta):
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
         Column("label_instance_name", String, nullable=False),
         Column("width", Integer, nullable=False),
-        Column("height", Integer, nullable=False)
+        Column("height", Integer, nullable=False),
+        Column("rectangle_id", String, ForeignKey('rectangles.rectangle_id'), nullable=False)
     )
 
     Table(
