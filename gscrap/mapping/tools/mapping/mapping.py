@@ -6,7 +6,6 @@ from gscrap.data import engine
 from gscrap.data import io
 from gscrap.data.rectangles import rectangles as rct_data
 from gscrap.data import rectangle_labels as rct_labels
-from gscrap.data.images import images as im
 
 from gscrap.mapping.tools.mapping import mapping_states as states
 
@@ -290,12 +289,9 @@ class MappingTool(rectangle_utils.RectangleFactory):
                 dct[rct.rectangle.id] -= 1
 
             #delete rectangle, labels and samples if there are no more instances.
-
             for rectangle_id, num_instances in dct.items():
                 if num_instances == 0:
                     rct_data.delete_rectangle(conn, rectangle_id)
-                    rct_labels.delete_rectangle_labels(conn, rectangle_id)
-                    im.delete_rectangle_images(conn, rectangle_id)
 
 
     def unselect_rectangle(self):
@@ -336,6 +332,9 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
                 for wrapper in all_instances.values():
                     wrapper.submit(con)
+
+                for labels in self._labels_per_rectangle.values():
+                    labels.submit(con)
 
 
         self._rectangles.clear()

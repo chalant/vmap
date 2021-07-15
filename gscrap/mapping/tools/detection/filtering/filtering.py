@@ -149,6 +149,10 @@ class FilteringModel(object):
         self._group = None
 
     @property
+    def filter_pipeline(self):
+        return self._filter_pipeline
+
+    @property
     def parameter_id(self):
         return flt.create_parameter_id(
             self._filter_pipeline)

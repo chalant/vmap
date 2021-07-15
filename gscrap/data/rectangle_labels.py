@@ -106,8 +106,7 @@ class RectangleLabels(object):
 
     def get_unsaved_labels(self):
         new_labels = self._new_labels
-
-        for lt, labels in new_labels:
+        for lt, labels in new_labels.items():
             for ln in labels:
                 yield UnsavedRectangleLabel(lt, ln, new_labels)
 

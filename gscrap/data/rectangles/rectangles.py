@@ -3,20 +3,19 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from gscrap.data.images import images
+from gscrap.data import rectangle_labels as rct_lbl
 from gscrap.data import engine
 
 _SELECT_RECTANGLES = text(
     """
-    SELECT *
-    FROM rectangles
+    SELECT * FROM rectangles
     WHERE project_name=:project_name;
     """
 )
 
 _SELECT_CAPTURE_RECTANGLES = text(
     """
-    SELECT *
-    FROM rectangles
+    SELECT * FROM rectangles
     LEFT JOIN labels 
         ON rectangles.label_name = labels.label_name AND rectangles.label_type = labels.label_type
     WHERE capture = 1
@@ -39,24 +38,21 @@ _ADD_RECTANGLE_INSTANCE = text(
 
 _GET_RECTANGLE_INSTANCES = text(
     """
-    SELECT *
-    FROM rectangle_instances
+    SELECT * FROM rectangle_instances
     WHERE rectangle_id=:rectangle_id
     """
 )
 
 _GET_RECTANGLE_COMPONENTS = text(
     """
-    SELECT *
-    FROM rectangle_components
+    SELECT * FROM rectangle_components
     WHERE r_instance_id=:r_instance_id
     """
 )
 
 _GET_RECTANGLE_CONTAINER = text(
     """
-    SELECT *
-    FROM rectangle_components
+    SELECT * FROM rectangle_components
     WHERE r_component_id=:r_component_id
     """
 )
@@ -70,26 +66,28 @@ _ADD_RECTANGLE_COMPONENT = text(
 
 _DELETE_RECTANGLE = text(
     """
-    DELETE FROM rectangles WHERE rectangle_id=:rectangle_id
+    DELETE FROM rectangles 
+    WHERE rectangle_id=:rectangle_id
     """
 )
 
 _DELETE_RECTANGLE_INSTANCE = text(
     """
-    DELETE FROM rectangle_instances WHERE r_instance_id=:r_instance_id
+    DELETE FROM rectangle_instances 
+    WHERE r_instance_id=:r_instance_id
     """
 )
 
 _DELETE_RECTANGLE_COMPONENT = text(
     """
-    DELETE FROM rectangle_components WHERE r_instance_id=:r_instance_id
+    DELETE FROM rectangle_components 
+    WHERE r_instance_id=:r_instance_id
     """
 )
 
 _GET_LABEL = text(
     """
-    SELECT *
-    FROM labels
+    SELECT * FROM labels
     WHERE label_name=:label_name AND label_type=:label_type
     """
 )
@@ -282,13 +280,14 @@ class Rectangle(object):
         return RectangleInstance(uuid4().hex, self, x, y, container)
 
     def delete(self, connection):
+        # deletes instances and components
+        for instance in self.get_instances(connection):
+            instance.delete(connection)
+
         connection.execute(
             _DELETE_RECTANGLE,
             rectangle_id=self._id)
 
-        #deletes instances and components
-        for instance in self.get_instances(connection):
-            instance.delete(connection)
 
     def submit(self, connection):
         # if self._num_instances == 1:
@@ -332,10 +331,18 @@ def number_of_instances(connection, rectangle_id):
     return total
 
 def delete_rectangle(connection, rectangle_id):
-    connection.execute(_DELETE_RECTANGLE, rectangle_id=rectangle_id)
+    #delete all references to the rectangle first
+
+    rct_lbl.delete_rectangle_labels(connection, rectangle_id)
+    images.delete_rectangle_images(connection, rectangle_id)
+
+    connection.execute(
+        _DELETE_RECTANGLE,
+        rectangle_id=rectangle_id)
 
 def delete_for_project(connection, project_name):
     #delete all rectangles associated with the project
     # this will delete all the rectangle dependencies
+
     for rectangle in get_rectangles(connection, project_name):
         rectangle.delete(connection)

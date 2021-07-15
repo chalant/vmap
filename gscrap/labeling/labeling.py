@@ -5,17 +5,13 @@ from abc import ABC, abstractmethod
 
 import cv2
 import numpy as np
+from PIL import Image
 
 import pytesseract
-
-#difference matching detection tolerance
-DIFF_MAX = 0 #todo: should let the user setup this
 
 from sqlalchemy import text
 
 from gscrap.samples import source as src
-
-#todo: write query => we need to merge
 
 _ADD_MODEL = text(
     '''
@@ -67,6 +63,9 @@ _UPDATE_DIFFERENCE_MATCHING = text(
     '''
 )
 
+#difference matching detection tolerance
+DIFF_MAX = 0
+
 class AbstractLabeling(ABC):
     model_type = 'null'
 
@@ -91,7 +90,17 @@ class Tesseract(AbstractLabeling):
     model_type = 'tesseract'
 
     def label(self, img):
-        return pytesseract.image_to_string(img)
+        dct = pytesseract.image_to_string(
+            img, config='-c tessedit_char_whitelist=0123456789')
+
+        nums = set('0123456789')
+        res = ''
+
+        for i in dct:
+            if i in nums:
+                res += i
+
+        return res
 
 class DifferenceMatching(AbstractLabeling):
     model_type = 'difference_matching'

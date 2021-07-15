@@ -3,9 +3,11 @@ from gscrap.data import builder
 def build():
     with builder.build() as bld:
         if bld:
-            event = bld.label_type("Event")
+            image = bld.label_type("Image")
             button = bld.label_type("Button")
             container = bld.label_type("Container")
+            number = bld.label_type("Number")
+            text = bld.label_type("Text")
 
             game = bld.project_type("Game")
             cards = bld.project_type("Cards")
@@ -22,8 +24,10 @@ def build():
 
             poker = card_game.add_child("Poker")
 
+            poker.add_label("Pot", number, capture=True)
+
             # state label where instances can be (active, inactive, ...)
-            state_label = poker.add_label("PlayerState", event, capture=True, classifiable=True)
+            state_label = poker.add_label("PlayerState", image, capture=True, classifiable=True)
 
             state_label.add_instance("Active")
             state_label.add_instance("Inactive")
@@ -32,7 +36,7 @@ def build():
             state_label.add_instance("Null")
 
             #label where instances are (bet, call, fold, ...)
-            poker_action_label = poker.add_label("Action", event, capture=True, classifiable=True)
+            poker_action_label = poker.add_label("Action", text, capture=True, classifiable=True)
 
             poker_action_label.add_instance("Check")
             poker_action_label.add_instance("Call")
@@ -53,15 +57,15 @@ def build():
 
             # poker_act_btn_lbl.add_component(poker_action_label)
 
-            card_state = cards.add_label("CardState", event, 2, capture=True, classifiable=True)
+            card_state = cards.add_label("CardState", image, 2, capture=True, classifiable=True)
 
             card_state.add_instance("Hidden")
             card_state.add_instance("Shown")
             card_state.add_instance("Null")
 
             card_label = cards.add_label("Card", container)
-            rank_label = cards.add_label("Rank", container, 13, capture=True, classifiable=True)
-            suit_label = cards.add_label("Suit", container, 4, capture=True, classifiable=True)
+            rank_label = cards.add_label("Rank", image, 13, capture=True, classifiable=True)
+            suit_label = cards.add_label("Suit", image, 4, capture=True, classifiable=True)
 
             rank_label.add_instance("A")
             rank_label.add_instance("K")
@@ -89,7 +93,7 @@ def build():
 
             poker_button = poker.add_label(
                 "Button",
-                container,
+                image,
                 capture=True,
                 classifiable=True
             )
@@ -101,11 +105,13 @@ def build():
 
             position = poker.add_label("Position", container)
 
-            board_label = poker.add_label("Board", container, True)
+            board_label = poker.add_label("Board", container)
 
             board_label.add_component(card_label)
 
             opponent = poker.add_label("Opponent", container)
+
+            #components are used to track which component belongs to which element
 
             opponent.add_component(card_label)
             opponent.add_component(poker_action_label)
@@ -113,7 +119,7 @@ def build():
             opponent.add_component(poker_button)
             opponent.add_component(position)
 
-            player = card_game.add_label("Player", container, True)
+            player = card_game.add_label("Player", container)
 
             player.add_component(card_label)
             player.add_component(poker_act_btn_lbl)

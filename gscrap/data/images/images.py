@@ -123,8 +123,8 @@ class ImageMetadata(object):
             label_name=label["label_name"],
             label_instance_name=label["instance_name"],
             width=self._width,
-            height=self._height
-        )
+            height=self._height,
+            rectangle_id=self._rectangle_id)
 
     def delete_image(self, connection):
         connection.execute(

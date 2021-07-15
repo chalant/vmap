@@ -324,5 +324,5 @@ class Samples(object):
 
         ig.clear_canvas(grid, grid.canvas, image_rectangles.values())
 
-        self._image_rectangles.clear()
+        image_rectangles.clear()
         self._items.clear()

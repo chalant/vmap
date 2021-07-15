@@ -55,6 +55,7 @@ class Initial(object):
             options.entryconfig("Add Label", state="normal")
 
             if res != self._clicked_rid:
+                options.entryconfig("Remove Label", state="disabled")
                 rct = mapper.get_rectangle(res)
                 # load labels
                 labels = mapper.get_rectangle_labels(rct.rectangle.id)

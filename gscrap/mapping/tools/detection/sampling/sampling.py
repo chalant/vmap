@@ -217,6 +217,7 @@ class SamplingController(object):
             [label.label_name for label in self._labels[label_type]])
 
         view.label_class_options["state"] = tk.NORMAL
+        view.save_button["state"] = tk.NORMAL
 
     def set_label_class(self, *args):
 
@@ -328,7 +329,9 @@ class SamplingController(object):
                     capture_zone.project_name
                 )
 
+            labeler.set_filter_pipeline(fm.filter_pipeline)
             label = self._detect(labeler, capture_zone.dimensions)
+
             view.label_instance_options["state"] = tk.ACTIVE
 
             if label == "N/A":
@@ -347,12 +350,13 @@ class SamplingController(object):
                 view.save_button["state"] = tk.DISABLED
                 view.clear_button["state"] = tk.NORMAL
 
-                self._image_metadata = im.get_image(
-                    connection,
-                    capture_zone.project_name,
-                    {'label_type': label_type,
-                     'label_class': label_class,
-                     'instance_name': label})
+                if label_group.classifiable:
+                    self._image_metadata = im.get_image(
+                        connection,
+                        capture_zone.project_name,
+                        {'label_type': label_type,
+                         'label_class': label_class,
+                         'instance_name': label})
 
                 view.save_button["state"] = tk.DISABLED
                 view.label_instance_options["state"] = tk.DISABLED
@@ -445,16 +449,20 @@ class SamplingController(object):
                     io.submit(self._load_samples, sv, meta, capture_zone)
                     self._threshold = 0
                     sv.threshold.set(0)
-                    self.set_threshold(0)
 
-                    sv.label_type_options.set("N/A")
-                    sv.label_instance_options.set("N/A")
-                    sv.label_class_options.set("N/A")
+                    #todo: problem: setting these creates events!!!
+
+
+                    # sv.label_type_options.set("N/A")
+                    # sv.label_instance_options.set("N/A")
+                    # sv.label_class_options.set("N/A")
+                    sv.label_type_options["state"] = tk.DISABLED
+                    sv.label_class_options["state"] = tk.DISABLED
+                    sv.label_instance_options["state"] = tk.DISABLED
 
             elif meta:
                 io.submit(self._load_samples, sv, meta, capture_zone)
 
-            sv.label_type_options["state"] = tk.DISABLED
             self._capture_zone = capture_zone
 
     def _load_samples(self, view, meta, capture_zone):
@@ -524,6 +532,8 @@ class SamplingController(object):
             grid.apply_filters(filters)
         else:
             grid.disable_filters()
+
+        self._labeler.filter_pipeline = filters.filter_pipeline
 
     def _apply_filters(self, filters, image):
         if filters.filters_enabled:
