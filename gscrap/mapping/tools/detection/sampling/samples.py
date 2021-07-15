@@ -318,6 +318,7 @@ class Samples(object):
 
     def clear(self):
         self._samples_buffer.clear()
+
         image_rectangles = self._image_rectangles
 
         grid = self._image_grid

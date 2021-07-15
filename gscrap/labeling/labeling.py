@@ -13,6 +13,8 @@ from sqlalchemy import text
 
 from gscrap.samples import source as src
 
+from gscrap.filtering import filters
+
 _ADD_MODEL = text(
     '''
     INSERT OR REPLACE
@@ -63,6 +65,9 @@ _UPDATE_DIFFERENCE_MATCHING = text(
     '''
 )
 
+_ALL_CHARACTERS = set('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+_NUMBERS = set('0123456789')
+
 #difference matching detection tolerance
 DIFF_MAX = 0
 
@@ -89,15 +94,19 @@ class NullLabeling(AbstractLabeling):
 class Tesseract(AbstractLabeling):
     model_type = 'tesseract'
 
-    def label(self, img):
-        dct = pytesseract.image_to_string(
-            img, config='-c tessedit_char_whitelist=0123456789')
+    def __init__(self, character_set):
+        self._character_set = character_set
 
-        nums = set('0123456789')
+    def label(self, img):
+        text = pytesseract.image_to_string(
+            cv2.resize(img, None, fx=1 * 3, fy=1 * 3, interpolation=cv2.INTER_LINEAR),
+            config='--psm 6 --oem 1')
+
+        characters = self._character_set
         res = ''
 
-        for i in dct:
-            if i in nums:
+        for i in text:
+            if i in characters:
                 res += i
 
         return res
@@ -108,9 +117,13 @@ class DifferenceMatching(AbstractLabeling):
     def __init__(self):
         self._samples_source = None
         self.threshold = DIFF_MAX
+        self._filter_pipeline = []
 
     def set_samples_source(self, samples_source):
         self._samples_source = samples_source
+
+    def set_filter_pipeline(self, pipeline):
+        self._filter_pipeline = pipeline
 
     def label(self, img):
         diff_max = self.threshold
@@ -118,8 +131,11 @@ class DifferenceMatching(AbstractLabeling):
         name = "N/A"
         best_match_name = "N/A"
 
+        pipeline = self._filter_pipeline
+
         for label, image in src.get_samples(self._samples_source):
-            diff_img = cv2.absdiff(img, image)
+
+            diff_img = cv2.absdiff(img, filters.apply_filters(pipeline, image))
 
             diff = int(np.sum(diff_img) / 255)
 
@@ -175,12 +191,17 @@ def load_labeling_model_metadata(connection, label_group, project_name):
         label_name=label_group.label_name,
         project_name=project_name).first()
 
-def get_labeling_model(model_type):
+def get_labeling_model(model_type, label_type):
     # load parameters
     if model_type == 'difference_matching':
         return DifferenceMatching()
     elif model_type == 'tesseract':
-        return Tesseract()
+        characters = _ALL_CHARACTERS
+
+        if label_type == 'Number':
+            characters = _NUMBERS
+
+        return Tesseract(characters)
     else:
         raise ValueError("No labeling model of type {}".format(model_type))
 

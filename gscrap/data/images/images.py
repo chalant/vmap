@@ -32,8 +32,9 @@ _GET_IMAGE = text(
 
 _ADD_IMAGE_METADATA = text(
     """
-    INSERT OR REPLACE INTO images(image_id, project_name, label_instance_name, label_type, label_name, width, height)
-    VALUES (:image_id, :project_name, :label_instance_name, :label_type, :label_name, :width, :height)
+    INSERT OR REPLACE 
+    INTO images(image_id, project_name, label_instance_name, label_type, label_name, width, height, rectangle_id)
+    VALUES (:image_id, :project_name, :label_instance_name, :label_type, :label_name, :width, :height, :rectangle_id)
     """
 )
 

@@ -136,19 +136,21 @@ class DetectionTool(tools.Tool):
         canvas.bind("<Button-1>", self.on_left_click)
 
     def clear_tool(self):
-        canvas = self._canvas
-        instances = self._instances
+        # canvas = self._canvas
+        # instances = self._instances
+        #
+        # for rid in instances.keys():
+        #     canvas.delete(rid)
+        #
+        # self._drawn_instance = None
+        # #clear sampling tool
+        # self._sampling.clear()
+        #
+        # instances.clear()
+        # canvas.unbind("<Motion>")
+        # canvas.unbind("<Button-1>")
 
-        for rid in instances.keys():
-            canvas.delete(rid)
-
-        self._drawn_instance = None
-        #clear sampling tool
-        self._sampling.clear()
-
-        instances.clear()
-        canvas.unbind("<Motion>")
-        canvas.unbind("<Button-1>")
+        pass
 
     def get_capture_zones(self):
         return self._instances.values()

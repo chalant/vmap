@@ -79,9 +79,6 @@ class SamplingController(object):
 
         self._labeler = labeler = lbl.Labeler()
 
-        self._difference_matching = mdl.DifferenceMatching()
-        self._tesseract = mdl.Tesseract()
-
         self._labeling = labeler.labeling
 
         self._video_metadata = None
@@ -248,7 +245,7 @@ class SamplingController(object):
 
             if meta:
                 model_name = meta['model_name']
-                labeling = mdl.get_labeling_model(meta['model_type']).load(
+                labeling = mdl.get_labeling_model(meta['model_type'], label_type).load(
                     connection,
                     model_name)
 
@@ -281,7 +278,9 @@ class SamplingController(object):
                 sc.load_samples(sample_source, connection)
 
                 # comparator = self._dlc
-                self._labeling = lb = self._difference_matching if not labeling else labeling
+                self._labeling = lb = mdl.get_labeling_model(
+                    'difference_matching',
+                    label_group.label_type) if not labeling else labeling
 
                 threshold = lb.threshold
 
@@ -292,13 +291,16 @@ class SamplingController(object):
                 self.set_threshold(threshold)
 
                 lb.set_samples_source(sample_source)
+                lb.set_filter_pipeline(fm.filter_pipeline)
 
                 self._save_sample = True
 
             else:
                 # can't save an unclassifiable element
-                view.threshold['state'] = tk.DISABLED
-                self._labeling = lb = self._tesseract if not labeling else labeling
+                # view.threshold['state'] = tk.DISABLED
+                self._labeling = lb = mdl.get_labeling_model(
+                    'tesseract',
+                    label_group.label_type) if not labeling else labeling
 
                 self._save_sample = False
 
@@ -330,9 +332,11 @@ class SamplingController(object):
                 )
 
             labeler.set_filter_pipeline(fm.filter_pipeline)
+
             label = self._detect(labeler, capture_zone.dimensions)
 
             view.label_instance_options["state"] = tk.ACTIVE
+            view.save_button["state"] = tk.NORMAL
 
             if label == "N/A":
                 view.label_instance_options['values'] = tuple([
@@ -343,11 +347,9 @@ class SamplingController(object):
                         label_class)])
 
                 self._label = view.label_instance.get()
-                view.save_button["state"] = tk.NORMAL
 
             else:
                 view.label_instance.set(label)
-                view.save_button["state"] = tk.DISABLED
                 view.clear_button["state"] = tk.NORMAL
 
                 if label_group.classifiable:
@@ -358,9 +360,9 @@ class SamplingController(object):
                          'label_class': label_class,
                          'instance_name': label})
 
-                view.save_button["state"] = tk.DISABLED
-                view.label_instance_options["state"] = tk.DISABLED
+                    view.save_button["state"] = tk.DISABLED
 
+                view.label_instance_options["state"] = tk.DISABLED
 
 
     def set_label(self, *args):
@@ -371,12 +373,6 @@ class SamplingController(object):
         #     view.detect_button["state"] = tk.DISABLED
 
         self._label = label
-
-    def detect(self):
-        self._sampling_view.label_instance.set(
-            self._detect(
-                self._labeler,
-                self._capture_zone.dimensions))
 
     def _detect(self, labeler, dimensions):
         return lbl.label(labeler, np.frombuffer(
