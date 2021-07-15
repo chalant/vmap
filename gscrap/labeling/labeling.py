@@ -109,6 +109,9 @@ class Tesseract(AbstractLabeling):
             if i in characters:
                 res += i
 
+        if not res:
+            return 'Null'
+
         return res
 
 class DifferenceMatching(AbstractLabeling):

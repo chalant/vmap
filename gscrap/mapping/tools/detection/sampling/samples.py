@@ -178,7 +178,7 @@ class Samples(object):
 
 
 
-        #todo: launch multiple threads
+        #todo: launch multiple to optimize sample extraction
 
         # futures = []
         # res = [[]] * len(capture_zone._siblings)
