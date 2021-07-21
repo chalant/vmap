@@ -36,7 +36,7 @@ class MappingController(object):
         self._mapping_active = False
 
         self._tools = tls = tools.ToolsController(mv.right_frame)
-        self._detection_tool = dtc = detection.DetectionTool(mv, pool)
+        self._detection_tool = dtc = detection.DetectionTool(mv)
         self._capture_tool = cpt = capture.CaptureTool(mv, self, pool)
 
         tls.add_tool(dtc, "Detection")

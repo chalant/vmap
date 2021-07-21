@@ -32,7 +32,7 @@ def add_sample(sample_data, image, label, connection):
 
     io.submit(_save_sample, meta, image)
 
-    meta.submit(connection)
+    meta._submit(connection)
 
     return meta
 

@@ -4,7 +4,7 @@ from functools import partial
 import tkinter as tk
 
 from gscrap.data import engine
-from gscrap.data import rectangle_labels as rct_lbl
+from gscrap.data.rectangles import rectangle_labels as rct_lbl
 
 
 class Initial(object):
@@ -13,7 +13,7 @@ class Initial(object):
 
         Parameters
         ----------
-        manager: tools.mapping.MappingTool
+        manager: gscrap.mapping.tools.mapping.mapping.MappingTool
         '''
 
         self._mapper = manager
@@ -29,6 +29,7 @@ class Initial(object):
 
         m.add_command(label="Add Label", command=self._on_set_label)
         m.add_command(label="Remove Label", command=self._on_remove_label)
+        m.add_separator()
         m.add_command(label="Edit", command=self._on_edit)
         m.add_command(label="Copy", command=self._on_clone)
         m.add_command(label="Delete", command=self._on_delete)
@@ -63,12 +64,12 @@ class Initial(object):
                 dct = defaultdict(list)
 
                 with engine.connect() as connection:
-                    for label in rct_lbl.get_labels(connection, rct.rectangle.id):
-                        dct[label.label_type].append(label)
+                    for label in rct_lbl.get_rectangle_labels(connection, rct.rectangle.id):
+                        dct[label._label_type].append(label)
 
                 #add unsaved labels
                 for label in labels.get_unsaved_labels():
-                    dct[label.label_type].append(label)
+                    dct[label._label_type].append(label)
 
                 self._labels = dct
 

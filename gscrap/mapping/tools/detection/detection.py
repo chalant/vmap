@@ -2,7 +2,8 @@ from collections import defaultdict
 
 from gscrap.rectangles import rectangles as rt
 
-from gscrap.data import rectangle_labels as rl, engine
+from gscrap.data import engine
+from gscrap.data.rectangles import rectangle_labels as rl
 
 from gscrap.mapping.tools.detection.sampling import sampling as spg
 from gscrap.mapping.tools.detection.sampling import samples as spl
@@ -14,7 +15,7 @@ from gscrap.mapping.tools import tools
 from gscrap.windows import windows, factory
 
 class DetectionTool(tools.Tool):
-    def __init__(self, main_view, thread_pool):
+    def __init__(self, main_view):
         """
 
         Parameters
@@ -66,8 +67,6 @@ class DetectionTool(tools.Tool):
         self._prev = None
         self._rid = None
 
-        self._thread_pool = thread_pool
-
         self._drawn_instance = None
 
         self._x = 1
@@ -100,18 +99,13 @@ class DetectionTool(tools.Tool):
         instances = self._instances
         ins_by_rid = self._instances_by_rectangle_id
 
-        instances.clear()
-        ins_by_rid.clear()
-
         #todo: depending on where we load the rectangles, we can set caching on rectangles
         # ex: in logging, we cache images
 
         #load capture zones...
         with engine.connect() as connection:
             for rct in project.get_rectangles(connection):
-                labels = rl.RectangleLabels(rct.id)
-
-                cap_labels = [label for label in labels.get_labels(connection) if label.capture]
+                cap_labels = [label for label in rl.get_rectangle_labels(connection, rct) if label.capture]
 
                 #create capturable rectangles
                 if cap_labels:
@@ -127,30 +121,34 @@ class DetectionTool(tools.Tool):
                             rid,
                             instance,
                             project,
-                            labels,
                             ins_by_rid[rct.id])
 
                         ins_by_rid[rct.id].append(zone)
+
+        #reload all the cleared data
+        self._sampling.load_data()
 
         canvas.bind("<Motion>", self.on_motion)
         canvas.bind("<Button-1>", self.on_left_click)
 
     def clear_tool(self):
-        # canvas = self._canvas
-        # instances = self._instances
-        #
-        # for rid in instances.keys():
-        #     canvas.delete(rid)
-        #
-        # self._drawn_instance = None
-        # #clear sampling tool
-        # self._sampling.clear()
-        #
-        # instances.clear()
-        # canvas.unbind("<Motion>")
-        # canvas.unbind("<Button-1>")
+        canvas = self._canvas
+        instances = self._instances
 
-        pass
+        for rid in instances.keys():
+            canvas.delete(rid)
+
+        self._drawn_instance = None
+
+        #clear sampling tool
+        self._sampling.clear_data()
+
+        self._instances_by_rectangle_id.clear()
+
+        instances.clear()
+
+        canvas.unbind("<Motion>")
+        canvas.unbind("<Button-1>")
 
     def get_capture_zones(self):
         return self._instances.values()

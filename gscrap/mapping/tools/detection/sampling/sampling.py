@@ -280,7 +280,7 @@ class SamplingController(object):
                 # comparator = self._dlc
                 self._labeling = lb = mdl.get_labeling_model(
                     'difference_matching',
-                    label_group.label_type) if not labeling else labeling
+                    label_group._label_type) if not labeling else labeling
 
                 threshold = lb.threshold
 
@@ -300,7 +300,7 @@ class SamplingController(object):
                 # view.threshold['state'] = tk.DISABLED
                 self._labeling = lb = mdl.get_labeling_model(
                     'tesseract',
-                    label_group.label_type) if not labeling else labeling
+                    label_group._label_type) if not labeling else labeling
 
                 self._save_sample = False
 
@@ -418,7 +418,7 @@ class SamplingController(object):
 
             # set sample store for each label type
             for label in capture_zone.get_labels(connection):
-                labels[label.label_type].append(label)
+                labels[label._label_type].append(label)
 
             sv.label_type_options["values"] = tuple(labels.keys())
 
@@ -548,7 +548,10 @@ class SamplingController(object):
 
         cz = self._capture_zone
         if cz:
-            io.submit(self._load_samples, self._sampling_view, video_meta, cz)
+            io.submit(
+                self._load_samples,
+                self._sampling_view,
+                video_meta, cz)
 
     def disable_video_read(self):
         self._video_metadata = None
@@ -556,5 +559,15 @@ class SamplingController(object):
     def add_samples_observer(self, observer):
         self._samples_observers.append(observer)
 
-    def clear(self):
+    def load_data(self):
+        meta = self._video_metadata
+        cz = self._capture_zone
+
+        if meta and cz:
+            io.submit(
+                self._load_samples,
+                self._sampling_view,
+                meta, cz)
+
+    def clear_data(self):
         self._samples_grid.clear()

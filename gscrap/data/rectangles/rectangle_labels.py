@@ -2,6 +2,8 @@ from collections import defaultdict
 
 from sqlalchemy import text
 
+from gscrap.data.rectangles import rectangles
+
 _GET_RECTANGLE_LABELS = text(
     """
     SELECT * FROM rectangle_labels
@@ -9,6 +11,16 @@ _GET_RECTANGLE_LABELS = text(
         rectangle_labels.label_name = labels.label_name AND 
         rectangle_labels.label_type = labels.label_type  
     WHERE rectangle_id=:rectangle_id
+    """
+)
+
+_GET_RECTANGLE_WITH_LABEL = text(
+    """
+    SELECT * FROM rectangles
+    INNER JOIN 
+        ON rectangle_labels rectangle_labels.rectangle_id = rectangle.rectangle_id
+    WHERE rectangle_labels.label_type=:label_type 
+        AND rectangle_labels.label_name=:label_name 
     """
 )
 
@@ -63,8 +75,8 @@ class RectangleLabel(object):
         return hash((self.label_type, self.label_name))
 
     def __eq__(self, other):
-        return other.label_type == self.label_type \
-               and other.label_name == self.label_name
+        return other._label_type == self.label_type and \
+               other.label_name == self.label_name
 
 
 class UnsavedRectangleLabel(object):
@@ -83,7 +95,7 @@ class UnsavedRectangleLabel(object):
         return hash((self.label_type, self.label_name))
 
     def __eq__(self, other):
-        return other.label_type == self.label_type \
+        return other._label_type == self.label_type \
                and other.label_name == self.label_name
 
 class RectangleLabels(object):
@@ -138,12 +150,28 @@ class RectangleLabels(object):
             rectangle_id=self._rectangle_id
         )
 
-def delete_rectangle_labels(connection, rectangle_id):
+def delete_all_rectangle_labels(connection, rectangle):
     connection.execute(
         _REMOVE_LABELS,
-        rectangle_id=rectangle_id
+        rectangle_id=rectangle.id
     )
 
-def get_labels(connection, rectangle_id):
-    for row in connection.execute(_GET_RECTANGLE_LABELS, rectangle_id=rectangle_id):
-        yield RectangleLabel(row, rectangle_id)
+def delete_rectangle_label(connection, rectangle_label):
+    rectangle_label.delete(connection)
+
+def get_rectangle_labels(connection, rectangle):
+    for row in connection.execute(_GET_RECTANGLE_LABELS, rectangle_id=rectangle.id):
+        yield RectangleLabel(row, rectangle)
+
+def get_rectangles_with_label(connection, label):
+    for row in connection.execute(
+        _GET_RECTANGLE_WITH_LABEL,
+        label_type=label.label_type,
+        label_name=label.label_name):
+
+        yield rectangles.Rectangle(
+            row['rectangle_id'],
+            row['project_name'],
+            row['width'],
+            row['height']
+        )

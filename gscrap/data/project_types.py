@@ -1,7 +1,7 @@
 from sqlalchemy import text
 
 from gscrap.data.base import _Element
-from gscrap.data.labels import _Label
+from gscrap.data.labels.labels import _Label
 
 ADD_PROJECT_TYPE = text(
     """
@@ -25,6 +25,7 @@ class _ProjectType(_Element):
         self._labels = []
         self._children = []
         self._components = []
+        self._properties = []
 
         self._submit_flag = False
 
@@ -48,21 +49,32 @@ class _ProjectType(_Element):
 
     def _submit(self, connection):
         if not self._submit_flag:
+            labels = self._labels
+            children = self._children
+            components = self._components
+
+            name = self._name
+
             connection.execute(
                 ADD_PROJECT_TYPE,
-                project_type=self._name,
+                project_type=name,
                 parent_project_type=self.parent_type,
-                has_child=True if self._children else False)
+                has_child=True if children else False)
 
-            for lbl in self._labels:
-                lbl.submit(connection)
+            for lbl in labels:
+                lbl._submit(connection)
 
-            for child in self._children:
-                child.submit(connection)
+            for child in children:
+                child._submit(connection)
 
-            for component in self._components:
+            for component in components:
                 connection.execute(
                     ADD_PROJECT_TYPE_COMPONENT,
-                    project_type=self._name,
+                    project_type=name,
                     component_project_type=component.name)
+
+            labels.clear()
+            children.clear()
+            components.clear()
+
             self._submit_flag = True

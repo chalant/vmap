@@ -190,7 +190,7 @@ def label(labeling_model, image):
 def load_labeling_model_metadata(connection, label_group, project_name):
     return connection.execute(
         _GET_MODEL,
-        label_type=label_group.label_type,
+        label_type=label_group._label_type,
         label_name=label_group.label_name,
         project_name=project_name).first()
 

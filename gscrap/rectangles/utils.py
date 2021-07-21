@@ -1,7 +1,5 @@
 from abc import abstractmethod, ABC
 
-from gscrap.data import rectangle_labels as rl
-
 
 class RectangleFactory(ABC):
     @abstractmethod
@@ -112,7 +110,7 @@ class RectangleWrapper(object):
 
     def submit(self, connection):
         #submit labels and instances
-        self._instance.submit(connection)
+        self._instance._submit(connection)
 
     def delete(self, connection):
         self._instance.delete(connection)

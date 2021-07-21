@@ -1,6 +1,4 @@
-from gscrap.data.images import images as im
-
-from gscrap.data import engine
+from gscrap.data.rectangles import rectangle_labels
 
 class CaptureZone(object):
     def __init__(
@@ -8,7 +6,6 @@ class CaptureZone(object):
             rid,
             rectangle_instance,
             project,
-            rectangle_labels,
             siblings):
 
         """
@@ -21,7 +18,6 @@ class CaptureZone(object):
         """
 
         self._rectangle_instance = rectangle_instance
-        self._rectangle_labels = rectangle_labels
         self._siblings = siblings
 
         self._image_item = None
@@ -89,7 +85,9 @@ class CaptureZone(object):
             yield sibling.bbox
 
     def get_labels(self, connection):
-        return self._rectangle_labels.get_labels(connection)
+        return rectangle_labels.get_rectangle_labels(
+            connection,
+            self._rectangle_instance.rectangle)
 
     def get_label_instances(self, connection, label_type, label_name):
         return self._project.get_label_instances(connection, label_name, label_type)

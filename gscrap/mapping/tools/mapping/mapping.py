@@ -4,8 +4,7 @@ from collections import defaultdict
 
 from gscrap.data import engine
 from gscrap.data import io
-from gscrap.data.rectangles import rectangles as rct_data
-from gscrap.data import rectangle_labels as rct_labels
+from gscrap.data.rectangles import rectangles as rct_data, rectangle_labels as rct_labels
 
 from gscrap.mapping.tools.mapping import mapping_states as states
 
@@ -177,6 +176,9 @@ class MappingTool(rectangle_utils.RectangleFactory):
     def get_rectangle(self, rid):
         return rectangles.get_rectangle(self._all_instances, rid)
 
+    def get_all_rectangles(self):
+        return self._all_instances.values()
+
     def create_rectangle(self, instance, x, y):
         return rectangle_utils.RectangleWrapper(
             instance.rectangle,
@@ -277,7 +279,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
         #count the number of instances of a rectangle
         for inst in all_instances.values():
-            dct[inst.rectangle.id] += 1
+            dct[inst.rectangle] += 1
 
         with engine.connect() as conn:
             for rct in rectangles.remove_rectangle(all_instances, rid):
@@ -286,12 +288,12 @@ class MappingTool(rectangle_utils.RectangleFactory):
                 rct.delete(conn)
                 del all_instances[id_]
 
-                dct[rct.rectangle.id] -= 1
+                dct[rct.rectangle] -= 1
 
             #delete rectangle, labels and samples if there are no more instances.
-            for rectangle_id, num_instances in dct.items():
+            for rectangle, num_instances in dct.items():
                 if num_instances == 0:
-                    rct_data.delete_rectangle(conn, rectangle_id)
+                    rct_data.delete_rectangle(conn, rectangle)
 
 
     def unselect_rectangle(self):
@@ -328,13 +330,13 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
             with engine.connect() as con:
                 for r in self._rectangles:
-                    r.submit(con)
+                    r._submit(con)
 
                 for wrapper in all_instances.values():
-                    wrapper.submit(con)
+                    wrapper._submit(con)
 
                 for labels in self._labels_per_rectangle.values():
-                    labels.submit(con)
+                    labels._submit(con)
 
 
         self._rectangles.clear()

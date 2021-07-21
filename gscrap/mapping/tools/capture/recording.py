@@ -160,7 +160,7 @@ class RecordingController(object):
             meta.time = t
 
             with engine.connect() as connection:
-                meta.submit(connection)
+                meta._submit(connection)
 
             #notify readers with new metadata
             for reader in self._readers:

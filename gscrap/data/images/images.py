@@ -45,14 +45,6 @@ _DELETE_IMAGE_METADATA = text(
     """
 )
 
-_DELETE_RECTANGLE_IMAGES = text(
-    '''
-    DELETE 
-    FROM images
-    WHERE rectangle_id=:rectangle_id
-    '''
-)
-
 _DELETE_ALL_PROJECT_IMAGES = text(
     """
     DELETE FROM images
@@ -206,8 +198,3 @@ def get_image(connection, project_name, label):
         res['height'],
         res['rectangle_id']
     )
-
-def delete_rectangle_images(connection, rectangle_id):
-    connection.execute(
-        _DELETE_RECTANGLE_IMAGES,
-        rectangle_id=rectangle_id)

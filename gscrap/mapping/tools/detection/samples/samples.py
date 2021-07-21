@@ -52,7 +52,7 @@ class Sample(object):
 
     @property
     def label_type(self):
-        return self._cz.label_type
+        return self._cz._label_type
 
     @property
     def label_name(self):
@@ -64,7 +64,7 @@ class Sample(object):
 
     def submit(self, connection):
         if self._changed:
-            self._meta.submit(connection)
+            self._meta._submit(connection)
 
     def delete(self, connection):
         self._meta.delete_image(connection)

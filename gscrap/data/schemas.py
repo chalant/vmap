@@ -41,12 +41,18 @@ def build_schema(meta):
         # Column("project_type", ForeignKey("project_trectanglesypes.project_type"), nullable=False)
     )
 
+    Table(
+        "label_names",
+        meta,
+        Column("label_name", String, primary_key=True)
+    )
+
     #pre-populated by admin
     Table(
         "labels",
         meta,
         Column("label_id", String, primary_key=True),
-        Column("label_name", String, nullable=False),
+        Column("label_name", String, ForeignKey("label_names"), nullable=False),
         Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False),
         # query: max == null || added < max
         Column("capture", Boolean, default=False), #whether to capture the label contents or not
@@ -64,6 +70,58 @@ def build_schema(meta):
         Column("label_id", String, ForeignKey("labels.label_id"), nullable=False),
         Column("component_id", String, ForeignKey("labels.label_id"), nullable=False),
         Column("lc_id", String, primary_key=True)
+    )
+
+    Table(
+        "property_types",
+        meta,
+        Column("property_type", Integer, primary_key=True, nullable=False)
+    )
+
+    Table(
+        "properties",
+        meta,
+        Column("property_name", String, primary_key=True, nullable=False)
+    )
+
+    Table(
+        "property_values",
+        meta,
+        Column("property_name", String, ForeignKey("properties.property_name"), nullable=False),
+        Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
+        Column("property_id", String, primary_key=True, nullable=False),
+        Column("property_value", String, nullable=False),
+    )
+
+    Table(
+        "attributes",
+        meta,
+        Column("attribute_name", Integer, primary_key=True)
+    )
+
+    Table(
+        "property_attributes",
+        meta,
+        Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
+        Column("property_name", String, ForeignKey("properties.property_name"), nullable=False),
+        Column("property_attribute", Integer, ForeignKey("attributes.attribute_name"), nullable=False)
+    )
+
+    Table(
+        "label_properties",
+        meta,
+        Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False),
+        Column("label_name", String, ForeignKey("label_names.label"), nullable=False),
+        Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
+        Column("property_name", String, ForeignKey("property_names.property_name"), nullable=False)
+    )
+
+    Table(
+        "project_types_labels",
+        meta,
+        Column("project_type", ForeignKey("project_types.project_type"), nullable=False),
+        Column("label_name", String, ForeignKey("label_names.label_name"), nullable=False),
+        Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False)
     )
 
     # multiple project per label
@@ -88,10 +146,18 @@ def build_schema(meta):
     )
 
     Table(
+        "rectangle_instances_property_values",
+        meta,
+        Column("r_instance_id", String, ForeignKey("rectangle_instances.rectangle_id"), nullable=False),
+        #no two rectangle instances share the save property value
+        Column("property_id", String, ForeignKey("property_values.property_id"), nullable=False),
+    )
+
+    Table(
         "rectangle_components",
         meta,
-        Column("r_instance_id", String, ForeignKey("rectangle_instances.r_instance_id")),
-        Column("r_component_id", String, ForeignKey("rectangle_instances.r_instance_id"))
+        Column("r_instance_id", String, ForeignKey("rectangle_instances.r_instance_id"), nullable=False),
+        Column("r_component_id", String, ForeignKey("rectangle_instances.r_instance_id"), nullable=False)
     )
 
     #provided by user
