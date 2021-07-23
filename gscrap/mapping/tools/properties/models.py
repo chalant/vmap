@@ -1,10 +1,89 @@
 from collections import OrderedDict
 
+from abc import ABC, abstractmethod
+
 from gscrap.data.properties import properties
 from gscrap.data.rectangles import rectangle_instances as ri
 
-def get_property_model(property_):
-    return PropertyModel(property_)
+def get_property_model(property_, value_store):
+    return PropertyModel(property_, value_store)
+
+class IncrementalIntegerGenerator(object):
+    def __init__(self, from_=0, increment=1):
+        self._p_value = from_
+        self._increment = increment
+
+    def next_value(self):
+        value = self._p_value
+        self._p_value += self._increment
+        return value
+
+class UniqueRandomIntegerGenerator(object):
+    def __init__(self):
+        self._generated = {}
+
+    def next_value(self):
+        pass
+
+class RandomIntegerGenerator(object):
+    def next_value(self):
+        pass
+
+class AbstractValueStore(ABC):
+    @abstractmethod
+    def get_value(self, index):
+        raise NotImplementedError
+
+    @abstractmethod
+    def put_value(self, value):
+        raise NotImplementedError
+
+class SharedValueStore(AbstractValueStore):
+    def __init__(self):
+        self._values = None
+
+    @property
+    def values(self):
+        return iter(self._values)
+
+    @values.setter
+    def values(self, ipt):
+        self._values = ipt
+
+    def get_value(self, index):
+        return self._values[index]
+
+    def put_value(self, value):
+        pass
+
+class DistinctValueStore(AbstractValueStore):
+    def __init__(self):
+        self._values = None
+        self._assigned = None
+
+    @property
+    def values(self):
+        #yields non-assigned values
+        for val in self._values:
+            if val is not None:
+                yield val
+
+    @values.setter
+    def values(self, ipt):
+        self._values = ipt
+        self._assigned = [None] * len(ipt)
+
+    def get_value(self, index):
+        value = self._values[index]
+        self._assigned[index] = value
+        self._values[index] = None
+
+        return value
+
+    def put_value(self, value):
+        index = self._assigned.index(value)
+        self._values[index] = value
+        self._assigned[index] = None
 
 class PropertyValueWrapper(object):
     def __init__(self, property_):
@@ -35,28 +114,22 @@ class PropertyValueWrapper(object):
         self._value = ipt
 
         if not self._property_value and ipt != None:
-            self._property_value = properties.PropertyValue(self.property_, ipt)
+            self._property_value = properties.PropertyValue(
+                self.property_,
+                ipt)
 
         elif ipt != None:
             self._property_value.value = ipt
 
 class PropertyModel(object):
-    def __init__(self, property_):
+    def __init__(self, property_, values):
         self._rectangle_instances = OrderedDict()
         self._property_values = []
 
-        self._values = ()
+        self._values = values
         self._property_ = property_
 
         self._index = 0
-
-    @property
-    def values(self):
-        return self._values
-
-    @values.setter
-    def values(self, ipt):
-        self._values = ipt
 
     @property
     def rectangle_instances(self):
@@ -68,11 +141,18 @@ class PropertyModel(object):
     def get_property_value(self, index):
         return self._property_values[index]
 
-    def set_value(self, index, value):
+    def assign_value(self, index, value):
+        value = self._values.get_value(value)
         self._property_values[index].value = value
 
     def remove_value(self, index):
-        self._property_values[index].value = None
+        property_values = self._property_values
+        ppt_val = property_values[index]
+
+        #put back value in the value store.
+        self._values.put_value(ppt_val.value)
+
+        ppt_val.value = None
 
     def add_rectangle_instance(self, rectangle_instance):
         self._rectangle_instances[self._index] = rectangle_instance

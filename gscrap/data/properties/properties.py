@@ -1,14 +1,15 @@
 from sqlalchemy import text
 
 from gscrap.data import attributes
+from gscrap.data.properties import values_sources
 
 INTEGER = 0
 BOOLEAN = 1
 
 PROPERTY_TYPES = {INTEGER, BOOLEAN}
 
-PROPERTY_TYPE_ATTRIBUTES = {
-    INTEGER:{attributes.INCREMENTAL, attributes.UNIQUE}
+PROPERTY_TYPE_VALUE_SOURCE = {
+    INTEGER:{values_sources.GENERATOR, values_sources.INTEGER}
 }
 
 _ADD_PROPERTY_TYPE = text(

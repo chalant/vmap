@@ -137,9 +137,18 @@ def build():
 
         position = bld.property_(pp.INTEGER, "Position")
 
-        #set property attributes
-        bld.property_attribute(position, attributes.UNIQUE)
-        bld.property_attribute(position, attributes.INCREMENTAL)
+        #positions are scoped to instances of the same rectangle
+        bld.property_attribute(position, attributes.RECTANGLE)
+
+        # bld.property_attribute(position, attributes.INCREMENTAL)
+
+        #todo attach a property value generator
+        #bld.property_value_generator(position, from_=0, increment=1)
+        #values = bld.property_values(position)
+        #bld.set_property_values(values, [])
+        #bld.set_property_values(values, bld.incremental_value_generator(from_=0, increment=1))
+
+        bld.incremental_generator_values_source(position)
 
         board_label = poker.add_label("Board", container)
 

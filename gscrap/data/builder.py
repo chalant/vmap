@@ -6,6 +6,7 @@ from gscrap.data.labels.labels import _LabelType
 
 from gscrap.data.properties import properties
 from gscrap.data import attributes
+from gscrap.data.properties import values_sources
 
 CLEAR_TABLE = '''
     DELETE FROM {};
@@ -19,6 +20,8 @@ _PROPERTIES = {}
 
 _PROPERTY_ATTRIBUTES = {}
 
+_PROPERTY_VALUE_SOURCES = {}
+
 def clear(connection):
     #clear tables
     table_names = [
@@ -31,7 +34,8 @@ def clear(connection):
         "properties",
         "property_types",
         "property_attributes",
-        "attributes"
+        "attributes",
+        "properties_values_sources"
     ]
 
     for name in table_names:
@@ -41,7 +45,7 @@ def _submit():
     with engine.connect() as connection:
         clear(connection)
 
-        attributes.add_attribute(connection, attributes.UNIQUE)
+        attributes.add_attribute(connection, attributes.DISTINCT)
         attributes.add_attribute(connection, attributes.INCREMENTAL)
 
         for pp in _PROPERTIES.values():
@@ -50,6 +54,9 @@ def _submit():
 
         for atr in _PROPERTY_ATTRIBUTES.values():
             properties.add_property_attribute(connection, atr)
+
+        for vs in _PROPERTY_VALUE_SOURCES.values():
+            values_sources.add_property_values_source(connection, vs)
 
         for pj in chain(
             _LABEL_TYPES.values(),
@@ -96,17 +103,31 @@ class _Builder(object):
             raise ValueError("Property type {} is not supported".format(type_))
 
     def property_attribute(self, property_, attribute):
-        if attribute not in properties.PROPERTY_TYPE_ATTRIBUTES[property_.property_type]:
-            raise ValueError("Cannot assign {} attribute to {} property type".format(
-                attribute,
-                property_.property_type))
-
         _add_property_attribute(property_, attribute)
+
+    def incremental_generator_values_source(self, property_, from_=0, increments=1):
+        #todo: raise an error if the there is a mismatch between the property type and
+        # the generator ex: if the property is a string, then this should raise an error
+        vn = values_sources.PropertyValueSource(
+            property_,
+            values_sources.IncrementalValuesGenerator(from_, increments))
+        _PROPERTY_VALUE_SOURCES[property_] = vn
+
+    def input_values_source(self, property_, values):
+        #todo: raise an error if the type of the property doesn't match with the
+        # type of the values
+        vn = values_sources.PropertyValueSource(
+            property_,
+            values_sources.InputValues(values))
+
+        _PROPERTY_VALUE_SOURCES[property_] = vn
+
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self._built:
             _submit()
-        self._built = True
+        else:
+            raise RuntimeError("Schema already built!")
 
 _BUILDER  = _Builder()
 
