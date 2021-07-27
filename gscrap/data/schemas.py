@@ -211,17 +211,30 @@ def build_schema(meta):
         meta,
         Column("property_name", String, ForeignKey("properties.property_name"), nullable=False),
         Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
-        Column("values_source", String, ForeignKey("values_sources.values_source"), nullable=False)
+        Column("value_source_id", ForeignKey("values_sources.value_source_id"), nullable=False)
+    )
+
+    Table(
+        "values_sources_names",
+        meta,
+        Column("values_source_name", String, primary_key=True)
+    )
+
+    Table(
+        "values_sources_types",
+        meta,
+        Column("values_source_type", String, primary_key=True)
     )
 
     Table(
         "values_sources",
         meta,
-        Column("values_source", String, primary_key=True),
+        Column("value_source_id", ForeignKey("values_sources.value_source_id"), nullable=False),
+        Column("value_source_id", String, primary_key=True)
     )
 
     Table(
-        "incremental_generator",
+        "incremental_value_generator",
         meta,
         Column("from", Float, default=0.0),
         Column("increment", Float, default=1.0),
@@ -231,21 +244,20 @@ def build_schema(meta):
     Table(
         "values_sources_incremental_value_generators",
         meta,
-        Column("values_source", String, ForeignKey("values_sources.values_source"), nullable=False),
+        Column("value_source_id", ForeignKey("values_sources.value_source_id"), nullable=False),
         Column("generator_id", String, ForeignKey("incremental_generator.generator_id"), nullable=False)
     )
 
     Table(
         "values_sources_values_inputs",
         meta,
-        Column("values_source", String, ForeignKey("values_sources.values_source"), nullable=False),
-        Column("inputs_id", Integer, ForeignKey("values_input.values_input_id"), nullable=False)
+        Column("value_source_id", ForeignKey("values_sources.value_source_id"), nullable=False),
+        Column("values_inputs_id", Integer, ForeignKey("values_input.values_input_id"), nullable=False)
     )
 
     Table(
         "values_input",
         meta,
-        Column("values_source", String, ForeignKey("values_sources.values_source"), nullable=False),
         Column("values_input_id", Integer, primary_key=True),
         Column("values", String, nullable=False)
     )

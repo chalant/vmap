@@ -1,16 +1,12 @@
 from sqlalchemy import text
 
-from gscrap.data import attributes
-from gscrap.data.properties import values_sources
 
 INTEGER = 0
 BOOLEAN = 1
+STRING = 2
+FLOAT = 3
 
 PROPERTY_TYPES = {INTEGER, BOOLEAN}
-
-PROPERTY_TYPE_VALUE_SOURCE = {
-    INTEGER:{values_sources.GENERATOR, values_sources.INTEGER}
-}
 
 _ADD_PROPERTY_TYPE = text(
     '''
@@ -132,6 +128,7 @@ def add_property(connection, property_):
 
 def add_property_attribute(connection, property_attribute):
     ppt = property_attribute.property_
+
     connection.execute(
         _ADD_PROPERTY_ATTRIBUTE,
         property_attribute=property_attribute.attribute,

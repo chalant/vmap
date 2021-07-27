@@ -129,26 +129,11 @@ def build():
         poker_button.add_instance("BigBlind")
         poker_button.add_instance("Null")
 
-        # integer = bld.property_type(pp.INTEGER)
-        # position = bld.property_name("Position")
-        #
-        # #add property here.
-        # poker.add_property(integer, position)
-
         position = bld.property_(pp.INTEGER, "Position")
 
-        #positions are scoped to instances of the same rectangle
-        bld.property_attribute(position, attributes.RECTANGLE)
+        bld.property_attribute(position, attributes.DISTINCT)
 
-        # bld.property_attribute(position, attributes.INCREMENTAL)
-
-        #todo attach a property value generator
-        #bld.property_value_generator(position, from_=0, increment=1)
-        #values = bld.property_values(position)
-        #bld.set_property_values(values, [])
-        #bld.set_property_values(values, bld.incremental_value_generator(from_=0, increment=1))
-
-        bld.incremental_generator_values_source(position)
+        bld.incremental_value_generator(position)
 
         board_label = poker.add_label("Board", container)
 

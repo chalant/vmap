@@ -1,7 +1,5 @@
 from sqlalchemy import text
 
-from gscrap.data.properties.values_sources import value_source
-
 _ADD_INCREMENTAL_GENERATOR = text(
     """
     INSERT OR IGNORE INTO incremental_generator(from, increment, generator_id)
@@ -23,7 +21,7 @@ _DELETE_INCREMENTAL_GENERATOR = text(
     """
 )
 
-class IncrementalGeneratorSpec(value_source.ValueSource):
+class IncrementalGeneratorSpec(object):
     __slots__ = ['from_', 'increment', '_hash']
     
     def __init__(self, from_=0, increment=1):
@@ -31,10 +29,6 @@ class IncrementalGeneratorSpec(value_source.ValueSource):
         self.increment=increment
 
         self._hash = hash((from_, increment))
-
-    @property
-    def name(self):
-        return 'incremental_generator'
 
     def __hash__(self):
         return self._hash

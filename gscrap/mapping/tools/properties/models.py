@@ -8,27 +8,6 @@ from gscrap.data.rectangles import rectangle_instances as ri
 def get_property_model(property_, value_store):
     return PropertyModel(property_, value_store)
 
-class IncrementalIntegerGenerator(object):
-    def __init__(self, from_=0, increment=1):
-        self._p_value = from_
-        self._increment = increment
-
-    def next_value(self):
-        value = self._p_value
-        self._p_value += self._increment
-        return value
-
-class UniqueRandomIntegerGenerator(object):
-    def __init__(self):
-        self._generated = {}
-
-    def next_value(self):
-        pass
-
-class RandomIntegerGenerator(object):
-    def next_value(self):
-        pass
-
 class AbstractValueStore(ABC):
     @abstractmethod
     def get_value(self, index):

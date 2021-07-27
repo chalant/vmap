@@ -1,12 +1,15 @@
 from gscrap.mapping.tools import tools
 
 from gscrap.data import engine
+from gscrap.data import attributes
 from gscrap.data.rectangles import rectangles, rectangle_labels
 from gscrap.data.labels import label_properties
 from gscrap.data.properties import properties
-from gscrap.data import attributes
+from gscrap.data.properties import property_values_source as pvs
+from gscrap.data.properties.values_sources import values_sources
 
 from gscrap.mapping.tools.properties import models
+from gscrap.mapping.tools.properties import value_generators
 
 class Properties(tools.Tool):
     def __init__(self, main_view):
@@ -17,38 +20,34 @@ class Properties(tools.Tool):
 
         with engine.connect() as connection:
             for label_property in label_properties.get_labels_with_properties(connection):
-                #create a property setter based on attributes (unique, incremental, ...) and property
-                # type (integer, string...)
-                #if attribute is "unique", each rectangle instance will have a unique property
-                # value.
 
                 property_ = label_property.property_
 
-                value_generator = models.IncrementalIntegerGenerator()
-                value_store = models.SharedValueStore()
-                ppt_type = properties.property_type(property_)
-                values = []
                 distinct = False
 
-                for att in properties.get_property_attributes(connection, property_):
-                    # distinct values must be generated
+                for att in properties.get_property_attributes(
+                        connection,
+                        property_):
+
                     if att.attribute == attributes.DISTINCT:
                         distinct = True
-                        value_store = models.DistinctValueStore()
-                        if ppt_type == properties.INTEGER:
-                            if att.attribute == attributes.RANDOM:
-                                #todo: attributes can have parameters (integer incremental generator has from_ and increments)
-                                value_generator = models.UniqueRandomIntegerGenerator()
 
+                if distinct:
+                    value_store = models.DistinctValueStore()
+                else:
+                    value_store = models.SharedValueStore()
 
-                    elif att.attribute == attributes.SHARED:
-                        if ppt_type == properties.BOOLEAN:
-                            values.append(False)
-                            values.append(True)
+                #load and draw values
 
+                values = []
 
+                ppt_vs = pvs.get_property_values_source(connection, property_)
 
                 ppt_model = models.get_property_model(property_, value_store)
+
+                source_type = values_sources.values_source_type(ppt_vs.value_source)
+
+                count = 0
 
                 for rct in rectangle_labels.get_rectangles_with_label(connection, label_property.label):
                     #todo: draw all instances on the canvas when we click on them, display all
@@ -57,9 +56,16 @@ class Properties(tools.Tool):
                     for ist in rectangles.get_rectangle_instances(connection, rct):
                         ppt_model.add_rectangle_instance(ist)
 
-                        if distinct:
-                            #generate a value for each rectangle instance
-                            values.append(value_generator.next_value())
+                        count += 1
+
+                if source_type == values_sources.GENERATOR:
+                    value_generator = value_generators.get_value_generator(ppt_vs)
+                    #generate a value for each rectangle instance
+                    for _ in range(count):
+                        values.append(value_generator.next_value())
+                elif source_type == values_sources.INPUT:
+                    #todo:
+                    raise NotImplementedError("input values source")
 
                 #assign values to value store
                 value_store.values = values
