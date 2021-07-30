@@ -1,16 +1,20 @@
 import tkinter as tk
 
-class ValuesList(object):
-    def __init__(self, name, controller):
-        self.name = name
-        self.controller = controller
-        self.listbox = None
+class PropertyView(object):
+    def __init__(self, controller, model, property_):
+        self.property_ = property_
+
+        self._model = model
+        self._controller = controller
+        self._listbox = None
 
     def render(self, container):
+        #todo: we need a "clear" button to un-map value from the rectangle instance.
+
         frame = tk.Frame(container)
         input_frame = tk.Frame(frame)
 
-        label = tk.Label(input_frame, text=self.name)
+        label = tk.Label(input_frame, text=self.property_.property_name)
 
         self.listbox = listbox = tk.Listbox(
             frame)
@@ -34,17 +38,20 @@ class ValuesList(object):
             sticky=tk.NW
         )
 
+        for idx, value in enumerate(self._model.values):
+            listbox.insert(idx, value)
+
         listbox['yscrollcommand'] = scrollbar.set
 
-        listbox.bind('<<ListboxSelect>>', self.controller.on_selection)
+        listbox.bind('<<ListboxSelect>>', self._on_selection)
 
         return frame
 
     def _on_selection(self, event):
-        self.controller.on_selection(self.listbox.curselection()[0])
+        self._controller.on_value_selection(self._listbox.curselection()[0])
 
     def insert(self, index, value):
-        self.listbox.insert(index, value)
+        self._listbox.insert(index, value)
 
     def remove(self, index):
-        self.listbox.delete(index)
+        self._listbox.delete(index)

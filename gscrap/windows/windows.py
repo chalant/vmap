@@ -78,7 +78,6 @@ class WindowRows(object):
         vbar.pack(side=tk.RIGHT, fill=tk.Y)
         canvas.pack(fill=tk.BOTH)
 
-
         canvas.bind("<MouseWheel>", self._on_mouse_wheel)
         canvas.bind("<Button-4>", self._on_mouse_wheel)
         canvas.bind("<Button-5>", self._on_mouse_wheel)
@@ -164,15 +163,12 @@ class WindowRows(object):
         self._height = 0
         self._row = 0
 
-        # canvas = self._canvas
+        canvas = self._canvas
 
-        # if canvas:
-        #     canvas.unbind("<MouseWheel>")
-        #     canvas.unbind("<Button-4>")
-        #     canvas.unbind("<Button-5>")
-        #
-        #     canvas.unbind("<Button-1>")
-        #     canvas.unbind("<Button-3>")
+        if canvas:
+            canvas.unbind("<MouseWheel>")
+            canvas.unbind("<Button-4>")
+            canvas.unbind("<Button-5>")
 
         self._right_click_bind = False
         self._left_click_bind = False
@@ -184,7 +180,7 @@ class WindowController(object):
         self._model = model
 
         self._windows = []
-        self._items = {}
+        self._items = []
 
         self._factory = item_factory
 
@@ -201,7 +197,7 @@ class WindowController(object):
 
         for window in windows:
             rid, bbox = view.add_item(factory, window.view())
-            items[index] = rid
+            items.append(rid)
             index += 1
 
         windows.clear()
@@ -210,6 +206,14 @@ class WindowController(object):
 
     def add_window(self, window):
         self._windows.append(window)
+
+    def clear(self):
+        view = self._view
+
+        for item in self._items:
+            self._view.delete_element(item)
+
+        view.clear()
 
     def close(self):
         self._view.close()

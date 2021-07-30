@@ -1,18 +1,18 @@
 from collections import defaultdict
 
-from gscrap.rectangles import rectangles as rt
-
 from gscrap.data import engine
 from gscrap.data.rectangles import rectangle_labels as rl
+
+from gscrap.windows import windows, factory
+
+from gscrap.mapping.tools import tools
+from gscrap.mapping.tools import display
+from gscrap.mapping.tools import interaction
 
 from gscrap.mapping.tools.detection.sampling import sampling as spg
 from gscrap.mapping.tools.detection.sampling import samples as spl
 from gscrap.mapping.tools.detection.filtering import filtering
 from gscrap.mapping.tools.detection import capture
-
-from gscrap.mapping.tools import tools
-
-from gscrap.windows import windows, factory
 
 class DetectionTool(tools.Tool):
     def __init__(self, main_view):
@@ -24,7 +24,13 @@ class DetectionTool(tools.Tool):
         main_view: gscrap.mapping.view.MainView
         """
 
-        self._canvas = main_view.canvas
+        self._canvas = canvas = main_view.canvas
+
+        self._display = None
+
+        self._interaction = interaction.Interaction(canvas, 0, 0)
+
+        self._capture_zones = {}
 
         self._window_manager = wm = windows.DefaultWindowModel(400, 600)
         self._windows_controller = wc = windows.WindowController(
@@ -61,7 +67,6 @@ class DetectionTool(tools.Tool):
         wc.add_window(flt)
         wc.add_window(sc)
 
-        self._instances = {}
         self._instances_by_rectangle_id = defaultdict(list)
 
         self._prev = None
@@ -73,8 +78,7 @@ class DetectionTool(tools.Tool):
         self._y = 1
         self._i = 0
 
-        self._height = 0
-        self._width = 0
+        self._capture_zone_factory = None
 
     def get_view(self, container):
         return self._windows_controller.start(container)
@@ -91,16 +95,18 @@ class DetectionTool(tools.Tool):
         None
         """
 
-        canvas = self._canvas
+        itc = self._interaction
 
-        self._height = project.height
-        self._width = project.width
+        itc.width = project.width
+        itc.height = project.height
 
-        instances = self._instances
+        capture_zones = self._capture_zones
         ins_by_rid = self._instances_by_rectangle_id
 
-        #todo: depending on where we load the rectangles, we can set caching on rectangles
-        # ex: in logging, we cache images
+        czf = capture.CaptureZoneFactory(project, ins_by_rid)
+
+        self._display = dsp = display.RectangleDisplay(
+            self._canvas)
 
         #load capture zones...
         with engine.connect() as connection:
@@ -110,34 +116,21 @@ class DetectionTool(tools.Tool):
                 #create capturable rectangles
                 if cap_labels:
                     for instance in rct.get_instances(connection):
-                        x0, y0, x1, y1 = instance.bbox
-                        rid = canvas.create_rectangle(
-                            x0-1, y0-1,
-                            x1, y1,
-                            width=1,
-                            dash=(4, 1))
 
-                        instances[rid] = zone = capture.CaptureZone(
-                            rid,
-                            instance,
-                            project,
-                            ins_by_rid[rct.id])
+                        zone = dsp.draw(instance, czf)
 
-                        ins_by_rid[rct.id].append(zone)
+                        capture_zones[zone.rid] = zone
+
+                        ins_by_rid[zone.rid].append(zone)
 
         #reload all the cleared data
         self._sampling.load_data()
 
-        canvas.bind("<Motion>", self.on_motion)
-        canvas.bind("<Button-1>", self.on_left_click)
+        itc.on_left_click(self._on_left_click)
+
+        itc.start(capture_zones)
 
     def clear_tool(self):
-        canvas = self._canvas
-        instances = self._instances
-
-        for rid in instances.keys():
-            canvas.delete(rid)
-
         self._drawn_instance = None
 
         #clear sampling tool
@@ -145,57 +138,38 @@ class DetectionTool(tools.Tool):
 
         self._instances_by_rectangle_id.clear()
 
-        instances.clear()
+        dsp = self._display
 
-        canvas.unbind("<Motion>")
-        canvas.unbind("<Button-1>")
+        self._interaction.unbind()
 
-    def get_capture_zones(self):
-        return self._instances.values()
+        for cz in self._capture_zones.values():
+            dsp.delete(cz.rid)
 
-    def _unbind(self, canvas):
-        prev = self._prev
+    def _on_left_click(self, rct):
+        """
 
-        if prev:
-            canvas.itemconfigure(prev, outline="black")
+        Parameters
+        ----------
+        rct: gscrap.data.rectangles.rectangles.RectangleInstance
 
-    def on_motion(self, event):
-        canvas = self._canvas
+        Returns
+        -------
 
-        x = event.x + canvas.xview()[0] * self._width
-        y = event.y + canvas.yview()[0] * self._height
+        """
+        rid = rct.id
 
-        instances = self._instances
+        sampling = self._sampling
 
-        res = rt.find_closest_enclosing(instances, x, y)
+        drawn_instance = self._drawn_instance
+        capture_zones = self._capture_zones
 
-        if res:
-            self._rid = rid = res[0]
-            self._unbind(canvas)
+        if not drawn_instance:
+            self._drawn_instance = rid
+            sampling.set_capture_zone(capture_zones[rid])
 
-            rct = rt.get_rectangle(instances, rid)
-            canvas.itemconfigure(rct.rid, outline="red")
-            self._prev = rid
-        else:
-            self._unbind(canvas)
-            self._rid = None
-
-    def on_left_click(self, event):
-        rid = self._rid
-
-        if rid:
-            sampling = self._sampling
-
-            drawn_instance = self._drawn_instance
-            rct = rt.get_rectangle(self._instances, rid)
-
-            if not drawn_instance:
-                self._drawn_instance = rid
-                sampling.set_capture_zone(rct)
-
-            elif rid != drawn_instance:
-                self._drawn_instance = rid
-                sampling.set_capture_zone(rct)
+        elif rid != drawn_instance:
+            self._drawn_instance = rid
+            sampling.set_capture_zone(capture_zones[rid])
 
     def enable_read(self, video_meta):
         self._sampling.set_video_metadata(video_meta)

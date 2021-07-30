@@ -2,31 +2,32 @@ from sqlalchemy import text
 
 _ADD_VALUES_INPUT = text(
     """
-    INSERT INTO values_input(values_source_name, values_source_type, values_input_id, values)
-    VALUES(:values_source_name, :values_source_type, :values_input_id, :values)
+    INSERT INTO values_input(values_source_id, values)
+    VALUES(:values_source_id, :values)
     """
 )
 
 _GET_VALUES_INPUT =  text(
     """
     SELECT * FROM values_input
-    WHERE values_input_id=:values_input_id
+    WHERE values_source_id=:values_source_id
     """
 )
 
 _DELETE_VALUES_INPUT = text(
     """
     DELETE FROM values_input
-    WHERE values_input_id:values_input_id
+    WHERE values_source_id:values_source_id
     """
 )
 
 class InputValues(object):
-    def __init__(self, values):
+    def __init__(self, values, values_source):
         self.values = values
+        self.values_source = values_source
 
     def __hash__(self):
-        return hash(str(self.values))
+        return hash(self.values_source)
 
     def __eq__(self, other):
         for a, b in zip(other.values, self.values):
@@ -40,7 +41,7 @@ def add_input_values(connection, values_input):
 
     connection.execute(
         _ADD_VALUES_INPUT,
-        values_input_id=hash(values),
+        values_source_id=hash(values_input.values_source),
         values=values
     )
 

@@ -64,7 +64,7 @@ class Initial(object):
                 dct = defaultdict(list)
 
                 with engine.connect() as connection:
-                    for label in rct_lbl.get_rectangle_labels(connection, rct.rectangle.id):
+                    for label in rct_lbl.get_rectangle_labels(connection, rct.rectangle):
                         dct[label._label_type].append(label)
 
                 #add unsaved labels

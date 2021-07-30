@@ -111,9 +111,9 @@ def build_schema(meta):
         "label_properties",
         meta,
         Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False),
-        Column("label_name", String, ForeignKey("label_names.label"), nullable=False),
+        Column("label_name", String, ForeignKey("label_names.label_name"), nullable=False),
         Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
-        Column("property_name", String, ForeignKey("property_names.property_name"), nullable=False)
+        Column("property_name", String, ForeignKey("properties.property_name"), nullable=False)
     )
 
     Table(
@@ -211,7 +211,7 @@ def build_schema(meta):
         meta,
         Column("property_name", String, ForeignKey("properties.property_name"), nullable=False),
         Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
-        Column("value_source_id", ForeignKey("values_sources.value_source_id"), nullable=False)
+        Column("values_source_id", String, ForeignKey("values_sources.values_source_id"), nullable=False)
     )
 
     Table(
@@ -229,35 +229,22 @@ def build_schema(meta):
     Table(
         "values_sources",
         meta,
-        Column("value_source_id", ForeignKey("values_sources.value_source_id"), nullable=False),
-        Column("value_source_id", String, primary_key=True)
+        Column("values_source_name", String, ForeignKey("values_sources_names.values_source_name"), nullable=False),
+        Column("values_source_type", String, ForeignKey("values_sources_types.values_source_type"), nullable=False),
+        Column("values_source_id", String, primary_key=True)
     )
 
     Table(
         "incremental_value_generator",
         meta,
-        Column("from", Float, default=0.0),
+        Column("start", Float, default=0.0),
         Column("increment", Float, default=1.0),
-        Column("generator_id", String, primary_key=True)
-    )
-
-    Table(
-        "values_sources_incremental_value_generators",
-        meta,
-        Column("value_source_id", ForeignKey("values_sources.value_source_id"), nullable=False),
-        Column("generator_id", String, ForeignKey("incremental_generator.generator_id"), nullable=False)
-    )
-
-    Table(
-        "values_sources_values_inputs",
-        meta,
-        Column("value_source_id", ForeignKey("values_sources.value_source_id"), nullable=False),
-        Column("values_inputs_id", Integer, ForeignKey("values_input.values_input_id"), nullable=False)
+        Column("values_source_id", String, ForeignKey("values_sources.values_source_id"), nullable=False, unique=True)
     )
 
     Table(
         "values_input",
         meta,
-        Column("values_input_id", Integer, primary_key=True),
-        Column("values", String, nullable=False)
+        Column("values", String, nullable=False),
+        Column("values_source_id", String, ForeignKey("values_sources.values_source_id"), nullable=False, unique=True)
     )

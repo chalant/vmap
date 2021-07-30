@@ -1,5 +1,7 @@
 from gscrap.data.properties.values_sources import values_sources
 
+from gscrap.data.properties import value_source_factory as vsf
+
 from abc import ABC, abstractmethod
 
 class Generator(ABC):
@@ -62,11 +64,13 @@ class IncrementalGenerator(Generator):
 
 def get_value_generator(property_value_source):
     property_ = property_value_source.property_
-    source = property_value_source.value_source
+    source = property_value_source.values_source
+
+    #todo: load incremental value source generator parameters using value source
 
     source_name = values_sources.values_source_name(source)
 
     if source_name == 'incremental_generator':
-        return IncrementalGenerator(source.from_, source.increment)
+        return vsf.incremental_value_generator(property_value_source)
     elif source_name == 'random_generator':
         raise NotImplementedError()

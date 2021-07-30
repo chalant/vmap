@@ -17,8 +17,8 @@ _GET_RECTANGLE_LABELS = text(
 _GET_RECTANGLE_WITH_LABEL = text(
     """
     SELECT * FROM rectangles
-    INNER JOIN 
-        ON rectangle_labels rectangle_labels.rectangle_id = rectangle.rectangle_id
+    INNER JOIN rectangle_labels
+        ON rectangle_labels.rectangle_id = rectangles.rectangle_id
     WHERE rectangle_labels.label_type=:label_type 
         AND rectangle_labels.label_name=:label_name 
     """

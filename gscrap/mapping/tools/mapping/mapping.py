@@ -330,13 +330,13 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
             with engine.connect() as con:
                 for r in self._rectangles:
-                    r._submit(con)
+                    r.submit(con)
 
                 for wrapper in all_instances.values():
-                    wrapper._submit(con)
+                    wrapper.submit(con)
 
                 for labels in self._labels_per_rectangle.values():
-                    labels._submit(con)
+                    labels.submit(con)
 
 
         self._rectangles.clear()

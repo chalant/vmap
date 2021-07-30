@@ -8,8 +8,8 @@ from gscrap.data.properties.values_sources import incremental_generator
 _GET_INCREMENTAL_GENERATOR = text(
     """
     SELECT * FROM incremental_value_generator
-    INNER JOIN values_sources_incremental_value_generators 
-        ON values_sources_incremental_value_generators.generator_id = incremental_value_generator.generator_id
+    INNER JOIN values_sources 
+        ON values_sources_values_source_id = incremental_value_generator.values_source_id
     WHERE value_source_id=:values_source_id
     """
 )
@@ -17,16 +17,16 @@ _GET_INCREMENTAL_GENERATOR = text(
 _GET_INPUT_VALUES = text(
     """
     SELECT * FROM values_input
-    INNER JOIN values_sources_values_inputs
-        ON values_sources_values_inputs.values_inputs_id = values_input.values_input_id
+    INNER JOIN values_sources
+        ON values_sources.values_inputs_id = values_input.values_input_id
     WHERE value_source_id=:values_source_id
     """
 )
 
 _MAP_VALUES_SOURCE_TO_ICR_GEN = text(
     """
-    INSERT INTO values_sources_incremental_value_generators(value_source_id, generator_id)
-    VALUES (:value_source_id, :generator_id)
+    INSERT INTO values_sources_incremental_value_generators(values_source_id, generator_id)
+    VALUES (:values_source_id, :generator_id)
     """
 )
 
@@ -54,41 +54,35 @@ class InputValues(ValueSourceInstance):
     def __init__(self, values, property_values_source):
         super(InputValues, self).__init__(property_values_source)
 
-        self._values = input_values.InputValues(values)
+        self.values = input_values.InputValues(
+            values,
+            property_values_source.values_souce)
 
     def save(self, connection):
-        values = self._values
+        values = self.values
         input_values.add_input_values(
             connection,
             values)
 
-        connection.execute(
-            _MAP_VALUES_SOURCE_TO_VAL_IPT,
-            value_source_id=hash(self.property_values_source.value_source),
-            values_inputs_id=hash(values)
-        )
-
     def delete(self, connection):
         #todo: count all the mappings. if count == 0 delete
-        input_values.delete_input_values(connection, self._values)
+        input_values.delete_input_values(connection, self.values)
 
 
 class IncrementalValuesGenerator(ValueSourceInstance):
     def __init__(self, from_, increment, property_values_source):
         super(IncrementalValuesGenerator, self).__init__(property_values_source)
 
-        self._spec = incremental_generator.IncrementalGeneratorSpec(from_, increment)
+        self._spec = incremental_generator.IncrementalGeneratorSpec(
+            property_values_source.values_source,
+            from_,
+            increment,
+        )
 
     def save(self, connection):
         spec = self._spec
 
         incremental_generator.add_incremental_generator(connection, spec)
-
-        connection.execute(
-            _MAP_VALUES_SOURCE_TO_ICR_GEN,
-            value_source_id=hash(self.property_values_source.value_source),
-            values_inputs_id=hash(spec)
-        )
 
     def delete(self, connection):
         # todo: count all the mappings. if count == 0 delete

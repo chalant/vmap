@@ -2,8 +2,8 @@ from sqlalchemy import text
 
 _ADD_INCREMENTAL_GENERATOR = text(
     """
-    INSERT OR IGNORE INTO incremental_generator(from, increment, generator_id)
-    VALUES(:from_, :increment, :generator_id)
+    INSERT OR IGNORE INTO incremental_value_generator(start, increment, values_source_id)
+    VALUES(:from_, :increment, :values_source_id)
     """
 )
 
@@ -24,11 +24,11 @@ _DELETE_INCREMENTAL_GENERATOR = text(
 class IncrementalGeneratorSpec(object):
     __slots__ = ['from_', 'increment', '_hash']
     
-    def __init__(self, from_=0, increment=1):
+    def __init__(self, values_source, from_=0, increment=1):
         self.from_ = from_
-        self.increment=increment
+        self.increment = increment
 
-        self._hash = hash((from_, increment))
+        self._hash = hash(values_source)
 
     def __hash__(self):
         return self._hash
@@ -42,7 +42,7 @@ def add_incremental_generator(connection, incremental_generator):
         _ADD_INCREMENTAL_GENERATOR,
         from_=incremental_generator.from_,
         increment=incremental_generator.increment,
-        generator_id=hash(incremental_generator)
+        values_source_id=hash(incremental_generator)
     )
 
 def get_incremental_generator_spec(connection, generator_id):

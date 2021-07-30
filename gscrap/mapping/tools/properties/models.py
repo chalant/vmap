@@ -1,9 +1,9 @@
-from collections import OrderedDict
-
 from abc import ABC, abstractmethod
 
 from gscrap.data.properties import properties
 from gscrap.data.rectangles import rectangle_instances as ri
+
+from gscrap.mapping.tools import display
 
 def get_property_model(property_, value_store):
     return PropertyModel(property_, value_store)
@@ -100,9 +100,33 @@ class PropertyValueWrapper(object):
         elif ipt != None:
             self._property_value.value = ipt
 
+class PropertyApplication(object):
+    def __init__(self, property_model, property_controller):
+        self.property_model = property_model
+        self.property_controller = property_controller
+        self.property_value = None
+
+    def view(self):
+        return self.property_controller.view()
+
+class PropertyRectangle(display.DisplayItem):
+    def __init__(self, id_, rectangle_instance):
+        super(PropertyRectangle, self).__init__(id_, rectangle_instance)
+        self.property_value = None
+
+        self.applications = []
+
+    def add_application(self, application):
+        self.applications.append(application)
+
+
+class PropertyRectangleFactory(object):
+    def create_instance(self, id_, rectangle):
+        return PropertyRectangle(id_, rectangle)
+
 class PropertyModel(object):
     def __init__(self, property_, values):
-        self._rectangle_instances = OrderedDict()
+        self._rectangle_instances = []
         self._property_values = []
 
         self._values = values
@@ -120,28 +144,26 @@ class PropertyModel(object):
     def get_property_value(self, index):
         return self._property_values[index]
 
-    def assign_value(self, index, value):
-        value = self._values.get_value(value)
-        self._property_values[index].value = value
+    def assign_value(self, index, rectangle_instance):
+        rectangle_instance.property_value = self._values.get_value(index)
 
-    def remove_value(self, index):
-        property_values = self._property_values
-        ppt_val = property_values[index]
+    def remove_value(self, rectangle_instance):
+        ppt_val = rectangle_instance.property_value
 
         #put back value in the value store.
-        self._values.put_value(ppt_val.value)
+        self._values.put_value(ppt_val)
 
-        ppt_val.value = None
+        rectangle_instance.property_value = None
 
     def add_rectangle_instance(self, rectangle_instance):
-        self._rectangle_instances[self._index] = rectangle_instance
+        self._rectangle_instances.append(rectangle_instance)
         self._index += 1
 
     def load_property_values(self, connection):
         property_ = self._property_
         property_values = [] * (self._index + 1)
 
-        for idx, instance in self._rectangle_instances.items():
+        for idx, instance in enumerate(self._rectangle_instances):
             pvw = PropertyValueWrapper(property_)
             pvw._property_value = ri.get_property_value(connection, instance, property_)
             property_values[idx] = pvw

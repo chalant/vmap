@@ -35,20 +35,20 @@ _UNMAP_PROPERTY_VALUES_SOURCE = text(
 )
 
 class PropertyValueSource(object):
-    __slots__ = ['property_', 'value_source', '_hash']
+    __slots__ = ['property_', 'values_source', '_hash']
 
-    def __init__(self, property_, value_source):
+    def __init__(self, property_, values_source):
         self.property_ = property_
-        self.value_source = value_source
+        self.values_source = values_source
 
-        self._hash = hash((property_, value_source))
+        self._hash = hash((property_, values_source))
 
     def __hash__(self):
         return self._hash
 
     def __eq__(self, other):
         return other.property_ == self.property_ and \
-               other.value_source == self.value_source
+               other.values_source == self.values_source
 
 def get_property_values_source(connection, property_):
     return PropertyValueSource(
@@ -65,7 +65,7 @@ def add_property_values_source(connection, property_values_source):
         values_source_id=hash(property_values_source.values_source)
     )
 
-    vs.save_value_source(connection, property_values_source.values_source)
+    # vs.save_value_source(connection, property_values_source.values_source)
 
 def unmap_property_value_source(connection, property_values_source):
     property_ = property_values_source.property_

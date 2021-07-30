@@ -20,9 +20,9 @@ def create_tables(engine, meta):
     meta.create_all(engine)
 
 # create tables
-if not _BUILT:
-    create_tables(_ENGINE, _META)
-    _BUILT = True
+# if not _BUILT:
+#     create_tables(_ENGINE, _META)
+#     _BUILT = True
 
 def connect():
     return _ENGINE.connect()

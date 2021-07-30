@@ -8,10 +8,12 @@ import gscrap.mapping.view as vw
 
 from gscrap.image_capture import capture_loop as cl
 
+from gscrap.mapping.tools import tools
+
 from gscrap.mapping.tools.mapping import mapping
 from gscrap.mapping.tools.detection import detection
 from gscrap.mapping.tools.capture import capture
-from gscrap.mapping.tools import tools
+from gscrap.mapping.tools.properties import properties
 
 import gscrap.mapping.menu as mn
 
@@ -38,8 +40,10 @@ class MappingController(object):
         self._tools = tls = tools.ToolsController(mv.right_frame)
         self._detection_tool = dtc = detection.DetectionTool(mv)
         self._capture_tool = cpt = capture.CaptureTool(mv, self, pool)
+        self._properties_tool = ppt = properties.Properties(mv)
 
         tls.add_tool(dtc, "Detection")
+        tls.add_tool(ppt, "Properties")
         tls.add_tool(cpt, "Capture")
 
         # self._detection_view = cpt.get_view(mv.right_frame)

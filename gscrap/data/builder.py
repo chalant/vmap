@@ -1,5 +1,7 @@
 from itertools import chain
 
+from sqlalchemy import text
+
 from gscrap.data import engine
 from gscrap.data.project_types import _ProjectType
 from gscrap.data.labels.labels import _LabelType
@@ -11,7 +13,7 @@ from gscrap.data.properties.values_sources import values_sources
 from gscrap.data.properties import property_values_source as pvs
 
 CLEAR_TABLE = '''
-    DELETE FROM {};
+    DROP TABLE IF EXISTS {};
 '''
 
 _PROJECT_TYPES = {}
@@ -24,10 +26,7 @@ _PROPERTY_ATTRIBUTES = {}
 
 _PROPERTY_VALUE_SOURCES = {}
 
-_ICR_GEN_VS = values_sources.ValuesSource('generator', 'incremental_generator')
-_RDN_GEN_VS = values_sources.ValuesSource('generator', 'random_generator')
-
-_INPUT_VS = values_sources.ValuesSource('input', 'values_input')
+_VALUES_SOURCES = []
 
 def clear(connection):
     #clear tables
@@ -43,20 +42,16 @@ def clear(connection):
         "property_attributes",
         "attributes",
         "properties_values_sources",
-        "values_sources_names",
-        "values_sources_types",
         "values_sources",
-        "values_sources_incremental_value_generators",
-        "values_sources_values_inputs"
+        "values_sources_names",
+        "values_sources_types"
     ]
 
     for name in table_names:
-        connection.execute(CLEAR_TABLE.format(name))
+        connection.execute(text(CLEAR_TABLE.format(name)))
 
 def _submit():
     with engine.connect() as connection:
-        clear(connection)
-
         #create value sources mappings
 
         values_sources.add_values_source_type(connection, 'input')
@@ -65,8 +60,8 @@ def _submit():
         values_sources.add_values_source_type(connection, 'generator')
         values_sources.add_values_source_name(connection, 'incremental_generator')
 
-        values_sources.add_values_source(connection, _INPUT_VS)
-        values_sources.add_values_source(connection, _ICR_GEN_VS)
+        for vs in _VALUES_SOURCES:
+            values_sources.add_values_source(connection, vs)
 
         attributes.add_attribute(connection, attributes.DISTINCT)
         attributes.add_attribute(connection, attributes.GLOBAL)
@@ -93,7 +88,7 @@ def _submit():
             pj._submit(connection)
             pj.clear()
 
-def project_type(name):
+def _project_type(name):
     pj = _ProjectType(name)
     _PROJECT_TYPES[name] = pj
     return pj
@@ -119,45 +114,58 @@ class _Builder(object):
         self._built = False
 
     def __enter__(self):
+        with engine.connect() as connection:
+            clear(connection)
+            engine.create_tables(engine._ENGINE, engine._META)
+
         return self
+
+    def project_type(self, name):
+        return _project_type(name)
 
     def label_type(self, name):
         return _label_type(name)
 
     def property_(self, type_, name):
         if type_ not in properties.PROPERTY_TYPES:
-            return _property_(type_, name)
-        else:
             raise ValueError("Property type {} is not supported".format(type_))
+        return _property_(type_, name)
 
     def property_attribute(self, property_, attribute):
         _add_property_attribute(property_, attribute)
 
-    def values_source(self, type_, name):
-        return values_sources.ValuesSource(type_, name)
-
-    def property_values_source(self, property_, values_source):
-        return pvs.PropertyValueSource(property_, values_source)
-
     def incremental_value_generator(self, property_, start=0, increment=1):
         if not property_ in _PROPERTY_VALUE_SOURCES:
-            ppt_vs = pvs.PropertyValueSource(property_, _ICR_GEN_VS)
+            vs = values_sources.ValuesSource(
+                'generator',
+                'incremental_generator',
+                hash((start, increment)))
+
+            _VALUES_SOURCES.append(vs)
+
+            ppt_vs = pvs.PropertyValueSource(property_, vs)
 
             _PROPERTY_VALUE_SOURCES[property_] = vsb.incremental_value_generator(
                 ppt_vs,
                 start,
                 increment)
+
         else:
             raise RuntimeError(
                 "Property {} already assigned to a values source".format(property_))
 
     def input_values(self, property_, values):
         if not property_ in _PROPERTY_VALUE_SOURCES:
-            ppt_vs = pvs.PropertyValueSource(property_, _INPUT_VS)
+            vs = values_sources.ValuesSource(
+                'input',
+                'values_input',
+                hash(str(values)))
 
-            _PROPERTY_VALUE_SOURCES[property_] = vsb.input_values(
-                values,
-                ppt_vs)
+            _VALUES_SOURCES.append(vs)
+
+            ppt_vs = pvs.PropertyValueSource(property_, vs)
+
+            _PROPERTY_VALUE_SOURCES[property_] = vsb.input_values(values, ppt_vs)
         else:
             raise RuntimeError(
                 "Property {} already assigned to a values source".format(property_))

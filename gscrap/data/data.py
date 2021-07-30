@@ -4,11 +4,11 @@ from gscrap.data import attributes
 
 def build():
     with builder.build() as bld:
-        image = bld._label_type("Image")
-        button = bld._label_type("Button")
-        container = bld._label_type("Container")
-        number = bld._label_type("Number")
-        text = bld._label_type("Text")
+        image = bld.label_type("Image")
+        button = bld.label_type("Button")
+        container = bld.label_type("Container")
+        number = bld.label_type("Number")
+        text = bld.label_type("Text")
 
         game = bld.project_type("Game")
         cards = bld.project_type("Cards")

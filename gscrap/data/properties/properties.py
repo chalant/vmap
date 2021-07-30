@@ -6,7 +6,7 @@ BOOLEAN = 1
 STRING = 2
 FLOAT = 3
 
-PROPERTY_TYPES = {INTEGER, BOOLEAN}
+PROPERTY_TYPES = {INTEGER, BOOLEAN, STRING, FLOAT}
 
 _ADD_PROPERTY_TYPE = text(
     '''
@@ -113,13 +113,13 @@ def property_type(property_):
 def add_property_type(connection, property_type):
     connection.execute(
         _ADD_PROPERTY_TYPE,
-        property_type=property_type.name
+        property_type=property_type
     )
 
 def add_property_name(connection, property_name):
     connection.execute(
         _ADD_PROPERTY,
-        property_name=property_name.name
+        property_name=property_name
     )
 
 def add_property(connection, property_):
@@ -171,4 +171,4 @@ def get_property_attributes(connection, property_):
         property_type=property_.property_type,
         property_name=property_.property_name):
 
-        yield PropertyAttribute(property_, res['attribute_name'])
+        yield PropertyAttribute(property_, res['property_attribute'])

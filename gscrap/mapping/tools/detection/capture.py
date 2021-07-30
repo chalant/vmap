@@ -1,6 +1,19 @@
 from gscrap.data.rectangles import rectangle_labels
+from gscrap.mapping.tools import display
 
-class CaptureZone(object):
+class CaptureZoneFactory(object):
+    def __init__(self, project, siblings):
+        self._project = project
+        self._siblings = siblings
+
+    def create_instance(self, id_, rectangle_instance):
+        return CaptureZone(
+            id_,
+            rectangle_instance,
+            self._project,
+            self._siblings)
+
+class CaptureZone(display.DisplayItem):
     def __init__(
             self,
             rid,
@@ -17,12 +30,12 @@ class CaptureZone(object):
         rectangle_labels: gscrap.data.rectangle_labels.RectangleLabels
         """
 
+        super(CaptureZone, self).__init__(rid, rectangle_instance)
+
         self._rectangle_instance = rectangle_instance
         self._siblings = siblings
 
         self._image_item = None
-        self._rid = rid
-
 
         self._project = project
 
@@ -38,10 +51,6 @@ class CaptureZone(object):
     @property
     def dimensions(self):
         return self._dimensions
-
-    @property
-    def rid(self):
-        return self._rid
 
     @property
     def top_left(self):

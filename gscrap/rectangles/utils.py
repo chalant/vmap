@@ -110,7 +110,7 @@ class RectangleWrapper(object):
 
     def submit(self, connection):
         #submit labels and instances
-        self._instance._submit(connection)
+        self._instance.submit(connection)
 
     def delete(self, connection):
         self._instance.delete(connection)

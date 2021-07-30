@@ -14,7 +14,7 @@ ADD_LABEL_TYPE = text(
 
 _ADD_LABEL = text(
     """
-    INSERT INTO labels(label_id, label_name, label_type, capture, max_instances, total, project_type, classifiable) 
+    INSERT OR IGNORE INTO labels(label_id, label_name, label_type, capture, max_instances, total, project_type, classifiable) 
     VALUES (:label_id, :label_name, :label_type, :capture, :max_instances, :total, :project_type, :classifiable);
      """
 )
