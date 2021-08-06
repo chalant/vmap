@@ -9,15 +9,15 @@ _ADD_INCREMENTAL_GENERATOR = text(
 
 _GET_INCREMENTAL_GENERATOR_SPEC = text(
     """
-    SELECT * FROM incremental_generator
-    WHERE generator_id=:generator_id
+    SELECT * FROM incremental_value_generator
+    WHERE values_source_id=:values_source_id
     """
 )
 
 _DELETE_INCREMENTAL_GENERATOR = text(
     """
     DELETE FROM incremental_generator
-    WHERE generator_id=:generator_id
+    WHERE values_source_id=:generator_id
     """
 )
 
@@ -45,11 +45,13 @@ def add_incremental_generator(connection, incremental_generator):
         values_source_id=hash(incremental_generator)
     )
 
-def get_incremental_generator_spec(connection, generator_id):
-    connection.execute(
+def get_incremental_generator_spec(connection, values_source):
+    res = connection.execute(
         _GET_INCREMENTAL_GENERATOR_SPEC,
-        generator_id=generator_id
-    )
+        values_source_id=values_source.id_
+    ).first()
+
+    return IncrementalGeneratorSpec(values_source, res['start'], res['increment'])
 
 def delete_incremental_generator(connection, incremental_generator):
     connection.execute(

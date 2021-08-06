@@ -8,34 +8,37 @@ from gscrap.mapping.tools import display
 def get_property_model(property_, value_store):
     return PropertyModel(property_, value_store)
 
-class AbstractValueStore(ABC):
+class AbstractValueAssignment(ABC):
     @abstractmethod
-    def get_value(self, index):
-        raise NotImplementedError
+    def assign_value(self, row_index, value_index, rectangle_instance):
+        raise  NotImplementedError
 
     @abstractmethod
-    def put_value(self, value):
+    def remove_value(self, row_index, value_index, rectangle_instance):
         raise NotImplementedError
 
-class SharedValueStore(AbstractValueStore):
+class SharedValueAssignment(AbstractValueAssignment):
     def __init__(self):
         self._values = None
 
     @property
     def values(self):
-        return iter(self._values)
+        return self._values
 
     @values.setter
     def values(self, ipt):
         self._values = ipt
 
-    def get_value(self, index):
-        return self._values[index]
+    def __iter__(self):
+        return iter([val.value for val in self._values])
 
-    def put_value(self, value):
+    def assign_value(self, row_index, value_index, rectangle_instance):
+        rectangle_instance.set_value(row_index, self._values[value_index])
+
+    def remove_value(self, row_index, value_index, rectangle_instance):
         pass
 
-class DistinctValueStore(AbstractValueStore):
+class DistinctValueAssignment(AbstractValueAssignment):
     def __init__(self):
         self._values = None
         self._assigned = None
@@ -44,25 +47,33 @@ class DistinctValueStore(AbstractValueStore):
     def values(self):
         #yields non-assigned values
         for val in self._values:
-            if val is not None:
-                yield val
+            yield val.value
 
     @values.setter
     def values(self, ipt):
         self._values = ipt
         self._assigned = [None] * len(ipt)
 
-    def get_value(self, index):
-        value = self._values[index]
-        self._assigned[index] = value
-        self._values[index] = None
+    def __iter__(self):
+        return iter([val.value for val in self._values])
 
-        return value
+    def assign_value(self, row_index, value_index, rectangle_instance):
+        ppt_value = self._values[value_index]
+        assigned = self._assigned
 
-    def put_value(self, value):
-        index = self._assigned.index(value)
-        self._values[index] = value
-        self._assigned[index] = None
+        rectangle_instance.set_value(row_index, ppt_value)
+
+        prv_instance = assigned[value_index]
+
+        if prv_instance:
+            # remove value from previous instance
+            ppt_value = prv_instance.get_value(row_index)
+            ppt_value.value = None
+
+        assigned[value_index] = rectangle_instance
+
+    def remove_value(self, row_index, value_index, rectangle_instance):
+        self._assigned[value_index] = None
 
 class PropertyValueWrapper(object):
     def __init__(self, property_):
@@ -101,23 +112,50 @@ class PropertyValueWrapper(object):
             self._property_value.value = ipt
 
 class PropertyApplication(object):
-    def __init__(self, property_model, property_controller):
+    def __init__(self, property_model, property_controller, index):
         self.property_model = property_model
         self.property_controller = property_controller
-        self.property_value = None
+        self.index = index
 
     def view(self):
         return self.property_controller.view()
 
+    @property
+    def controller(self):
+        return self.property_controller
+
+    @property
+    def model(self):
+        return self.property_model
+
+
 class PropertyRectangle(display.DisplayItem):
     def __init__(self, id_, rectangle_instance):
         super(PropertyRectangle, self).__init__(id_, rectangle_instance)
-        self.property_value = None
 
+        self.values = []
         self.applications = []
+
+        def null_callback(instance):
+            pass
+
+        self._callback = null_callback
+
+    def get_value(self, index):
+        return self.values[index]
+
+    def set_value(self, index, value):
+        ppt_val = self.values[index]
+        ppt_val.value = value
+
+        self._callback(self)
+
+    def on_value_set(self, callback):
+        self._callback = callback
 
     def add_application(self, application):
         self.applications.append(application)
+        self.values.append(None)
 
 
 class PropertyRectangleFactory(object):
@@ -125,14 +163,32 @@ class PropertyRectangleFactory(object):
         return PropertyRectangle(id_, rectangle)
 
 class PropertyModel(object):
-    def __init__(self, property_, values):
+    def __init__(self, property_, assignment):
+        """
+
+        Parameters
+        ----------
+        property_
+        assignment: AbstractValueAssignment
+        """
+
         self._rectangle_instances = []
         self._property_values = []
 
-        self._values = values
+        self._assignment = assignment
         self._property_ = property_
 
         self._index = 0
+        self.application_index = 0
+        self.selected_rectangle = None
+
+    @property
+    def values(self):
+        return self._assignment
+
+    @values.setter
+    def values(self, ipt):
+        self._assignment = ipt
 
     @property
     def rectangle_instances(self):
@@ -144,16 +200,17 @@ class PropertyModel(object):
     def get_property_value(self, index):
         return self._property_values[index]
 
-    def assign_value(self, index, rectangle_instance):
-        rectangle_instance.property_value = self._values.get_value(index)
+    def assign_value(self, value_index):
+        self._assignment.assign_value(
+            self.application_index,
+            value_index,
+            self.selected_rectangle)
 
-    def remove_value(self, rectangle_instance):
-        ppt_val = rectangle_instance.property_value
-
-        #put back value in the value store.
-        self._values.put_value(ppt_val)
-
-        rectangle_instance.property_value = None
+    def remove_value(self, value_index):
+        self._assignment.remove_value(
+            self.application_index,
+            value_index,
+            self.selected_rectangle)
 
     def add_rectangle_instance(self, rectangle_instance):
         self._rectangle_instances.append(rectangle_instance)
@@ -174,6 +231,9 @@ class PropertyModel(object):
         self._rectangle_instances.clear()
         self._index = 0
         self._property_values.clear()
+
+    def store(self, connection, value, rectangle_instance):
+        pass
 
     def submit(self, connection):
         instances = self._rectangle_instances
@@ -199,7 +259,3 @@ class PropertyModel(object):
         for property_value in self._property_values:
             if ri.count_mapped_instances(connection, property_value) == 0:
                 properties.delete_property_value(connection, property_value)
-
-
-
-

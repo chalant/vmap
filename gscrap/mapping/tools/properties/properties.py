@@ -20,9 +20,11 @@ from gscrap.mapping.tools import tools
 from gscrap.mapping.tools import display
 from gscrap.mapping.tools import interaction
 
+from gscrap.mapping.tools.properties import views
 from gscrap.mapping.tools.properties import models
 from gscrap.mapping.tools.properties import value_generators
 from gscrap.mapping.tools.properties import controller
+from gscrap.mapping.tools.properties import saving
 
 class Properties(tools.Tool):
     def __init__(self, main_view):
@@ -39,6 +41,7 @@ class Properties(tools.Tool):
         self._instances = {}
 
         self._selected_rectangle = None
+        self._selected_instance = None
 
         self._window_manager = wm = windows.DefaultWindowModel(400, 600)
         self._windows_controller = windows.WindowController(
@@ -65,7 +68,10 @@ class Properties(tools.Tool):
 
         rectangles_dict = defaultdict(list)
 
+        ppt_app_idx = 0
+
         with engine.connect() as connection:
+            #todo:
             for label_property in label_properties.get_labels_with_properties(connection):
 
                 property_ = label_property.property_
@@ -85,9 +91,9 @@ class Properties(tools.Tool):
                         distinct = True
 
                 if distinct:
-                    value_store = models.DistinctValueStore()
+                    value_store = models.DistinctValueAssignment()
                 else:
-                    value_store = models.SharedValueStore()
+                    value_store = models.SharedValueAssignment()
 
                 #load and draw values
 
@@ -96,15 +102,20 @@ class Properties(tools.Tool):
                 ppt_vs = pvs.get_property_values_source(connection, property_)
 
                 ppt_model = models.get_property_model(property_, value_store)
-                ppt_controller = controller.PropertyController(ppt_model, property_)
+                ppt_controller = controller.PropertyController(ppt_model)
+
+                ppt_view = views.PropertyView(ppt_controller, ppt_model, property_)
+                ppt_controller.set_view(ppt_view)
 
                 source_type = values_sources.values_source_type(ppt_vs.values_source)
 
                 count = 0
 
-                app = models.PropertyApplication(ppt_model, ppt_controller)
+                app = models.PropertyApplication(ppt_model, ppt_controller, ppt_app_idx)
 
-                #todo: we query and map rectangle to label to avoid reloading already loaded
+                ppt_app_idx += 1
+
+                #todo: pre-query and map rectangle to label to avoid reloading already loaded
                 # rectangles.
 
                 for rct in rectangle_labels.get_rectangles_with_label(connection, label_property.label):
@@ -118,15 +129,20 @@ class Properties(tools.Tool):
                             count += 1
 
                             rectangles_dict[rct.id].append(instance)
+                            instance.add_application(app)
                     else:
                         for instance in rectangles_dict[rct.id]:
                             instance.add_application(app)
 
                 if source_type == values_sources.GENERATOR:
-                    value_generator = value_generators.get_value_generator(ppt_vs)
+                    value_generator = value_generators.get_value_generator(
+                        connection,
+                        ppt_vs)
                     #generate a value for each rectangle instance
                     for _ in range(count):
-                        values.append(value_generator.next_value())
+                        values.append(properties.PropertyValue(
+                            property_,
+                            value_generator.next_value()))
 
                 elif source_type == values_sources.INPUT:
                     #todo:
@@ -138,31 +154,63 @@ class Properties(tools.Tool):
             #start interaction
             itc.start(instances)
             itc.on_left_click(self._on_left_click)
+            self._saving = saving.Saving(saving.SAVE_BUTTON, instances)
+
 
     def _on_left_click(self, rct):
-        rid = self._rectangle_id(rct)
+        rid = self._rectangle_id(rct.rectangle_instance)
         p_rid = self._selected_rectangle
 
-        #display property setters
+        iid = rct.rid
+        p_iid = self._selected_instance
+
+        #display property setters only if the rectangle has changed
+        # if the instance changed, update the values
         if rid != p_rid:
             wc = self._windows_controller
+
             for app in rct.applications:
                 wc.clear()
                 wc.add_window(app)
-                wc.start(self._container)
 
                 self._set_selected_instance(app.controller, rct)
+                self._set_application_index(app.model, app.index)
 
             self._selected_rectangle = rid
         else:
             for app in rct.applications:
-                self._set_selected_instance(app.controller, rct)
+                self._set_selected_instance(app.model, rct)
+                self._set_application_index(app.model, app.index)
+
+        #update values of the view.
+        if iid != p_iid:
+            self._update_view(zip(rct.values, rct.applications))
+            
+            self._selected_instance = iid
+
 
     def _set_selected_instance(self, property_controller, instance):
         property_controller.selected_instance = instance
 
+    def _set_application_index(self, property_model, index):
+        property_model.application_index = index
+
     def _rectangle_id(self, rectangle):
         return rectangle.id
+
+    def _update_view(self, value_app_pairs):
+        for value, app in value_app_pairs:
+            view = self._get_view(app)
+            view.set_value(value)
+
+    def _get_view(self, application):
+        return application.view()
+
+    def _store(self, connection, rectangle_instance):
+        #todo: save property values of the rectangle instance
+        # map property_value id to rectangle instance
+        for property_value in rectangle_instance.values:
+            connection.execute()
 
     def clear_tool(self):
         self._interaction.unbind()

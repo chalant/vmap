@@ -183,6 +183,7 @@ class WindowController(object):
         self._items = []
 
         self._factory = item_factory
+        self._started = False
 
     def start(self, container):
         view = self._view
@@ -193,19 +194,24 @@ class WindowController(object):
         windows = self._windows
         items = self._items
 
-        index = 0
-
         for window in windows:
             rid, bbox = view.add_item(factory, window.view())
             items.append(rid)
-            index += 1
 
         windows.clear()
+
+        self._started = True
 
         return frame
 
     def add_window(self, window):
-        self._windows.append(window)
+        view = self._view
+
+        if self._started:
+            rid, bbox = view.add_item(self._factory, window.view())
+            self._items.append(rid)
+        else:
+            self._windows.append(window)
 
     def clear(self):
         view = self._view

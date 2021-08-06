@@ -48,12 +48,14 @@ class Interaction(object):
         res = rt.find_closest_enclosing(instances, x, y)
 
         if res:
-            self._rid = rid = res[0]
-            self._unbind(canvas)
+            rid = res[0]
+            if res != self._prev:
+                self._unbind(canvas)
 
             rct = rt.get_rectangle(instances, rid)
             canvas.itemconfigure(rct.rid, outline="red")
-            self._prev = rid
+            self._prev = rct.rid
+            self._rid = rid
         else:
             self._unbind(canvas)
             self._rid = None

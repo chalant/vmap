@@ -1,5 +1,8 @@
 from sqlalchemy import text
 
+from gscrap.data.properties.values_sources import incremental_generator
+from gscrap.data.properties.values_sources import input_values
+
 _ADD_VALUES_SOURCE = text(
     """
     INSERT OR IGNORE INTO values_sources(values_source_name, values_source_type, values_source_id)
@@ -42,6 +45,9 @@ class ValuesSource(object):
     def __hash__(self):
         return hash(self.id_) if not None else hash((self.type_, self.name))
 
+    def __repr__(self):
+        return "ValueSource {} {}".format(self.type_, self.name)
+
     def __eq__(self, other):
         return other.type_ == self.type_ and \
                other.name == other.type_ and \
@@ -75,6 +81,9 @@ def values_source_name(values_source):
 
 def values_source_type(values_source):
     return values_source.type_
+
+def values_source_id(values_source):
+    return values_source.id_
 
 def unmap_values_source(connection, values_source):
     values_source.delete(connection)

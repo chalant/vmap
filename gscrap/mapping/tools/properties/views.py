@@ -1,5 +1,7 @@
 import tkinter as tk
 
+from tkinter import ttk
+
 class PropertyView(object):
     def __init__(self, controller, model, property_):
         self.property_ = property_
@@ -13,18 +15,21 @@ class PropertyView(object):
 
         frame = tk.Frame(container)
         input_frame = tk.Frame(frame)
+        s_frame = tk.Frame(frame)
 
         label = tk.Label(input_frame, text=self.property_.property_name)
 
-        self.listbox = listbox = tk.Listbox(
-            frame)
-
-        scrollbar = tk.Scrollbar(
+        self._listbox = listbox = ttk.Combobox(
             input_frame,
-            command=listbox.yview
+            state="readonly"
         )
 
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # scrollbar = tk.Scrollbar(
+        #     s_frame,
+        #     command=listbox.yview
+        # )
+        #
+        # scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         label.grid(
             column=0,
@@ -38,20 +43,35 @@ class PropertyView(object):
             sticky=tk.NW
         )
 
-        for idx, value in enumerate(self._model.values):
-            listbox.insert(idx, value)
+        # for idx, value in enumerate(self._model.values):
+        #     listbox.insert(idx, value)
 
-        listbox['yscrollcommand'] = scrollbar.set
+        listbox['values'] = list(self._model.values)
 
-        listbox.bind('<<ListboxSelect>>', self._on_selection)
+        # listbox['yscrollcommand'] = scrollbar.set
+
+        listbox.bind('<<ComboboxSelected>>', self._on_selection)
+
+        s_frame.pack()
+        input_frame.pack()
 
         return frame
 
     def _on_selection(self, event):
-        self._controller.on_value_selection(self._listbox.curselection()[0])
+        self._controller.on_value_selection(self._listbox.current())
 
     def insert(self, index, value):
         self._listbox.insert(index, value)
 
     def remove(self, index):
         self._listbox.delete(index)
+
+    def clear_value(self):
+        self._listbox.set('')
+
+    def set_value(self, value):
+        if not value:
+            self._listbox.set('')
+
+    def get_value(self):
+        self._listbox.get()
