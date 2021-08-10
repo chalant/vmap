@@ -9,6 +9,16 @@ def get_property_model(property_, value_store):
     return PropertyModel(property_, value_store)
 
 class AbstractValueAssignment(ABC):
+    @property
+    @abstractmethod
+    def values(self):
+        raise NotImplementedError
+
+    @values.setter
+    @abstractmethod
+    def values(self, ipt):
+        raise NotImplementedError
+
     @abstractmethod
     def assign_value(self, row_index, value_index, rectangle_instance):
         raise  NotImplementedError
@@ -30,7 +40,7 @@ class SharedValueAssignment(AbstractValueAssignment):
         self._values = ipt
 
     def __iter__(self):
-        return iter([val.value for val in self._values])
+        return iter([val for val in self._values])
 
     def assign_value(self, row_index, value_index, rectangle_instance):
         rectangle_instance.set_value(row_index, self._values[value_index])
@@ -47,7 +57,7 @@ class DistinctValueAssignment(AbstractValueAssignment):
     def values(self):
         #yields non-assigned values
         for val in self._values:
-            yield val.value
+            yield val
 
     @values.setter
     def values(self, ipt):
@@ -55,13 +65,13 @@ class DistinctValueAssignment(AbstractValueAssignment):
         self._assigned = [None] * len(ipt)
 
     def __iter__(self):
-        return iter([val.value for val in self._values])
+        return iter([val for val in self._values])
 
     def assign_value(self, row_index, value_index, rectangle_instance):
-        ppt_value = self._values[value_index]
+        value = self._values[value_index]
         assigned = self._assigned
 
-        rectangle_instance.set_value(row_index, ppt_value)
+        rectangle_instance.set_value(row_index, value)
 
         prv_instance = assigned[value_index]
 
@@ -74,6 +84,9 @@ class DistinctValueAssignment(AbstractValueAssignment):
 
     def remove_value(self, row_index, value_index, rectangle_instance):
         self._assigned[value_index] = None
+
+        ppt_value = rectangle_instance.get_value(row_index)
+        ppt_value.value = None
 
 class PropertyValueWrapper(object):
     def __init__(self, property_):
@@ -145,8 +158,8 @@ class PropertyRectangle(display.DisplayItem):
         return self.values[index]
 
     def set_value(self, index, value):
-        ppt_val = self.values[index]
-        ppt_val.value = value
+        print("LENGTH", self.values)
+        self.values[index].value = value
 
         self._callback(self)
 
@@ -155,7 +168,6 @@ class PropertyRectangle(display.DisplayItem):
 
     def add_application(self, application):
         self.applications.append(application)
-        self.values.append(None)
 
 
 class PropertyRectangleFactory(object):
@@ -172,90 +184,36 @@ class PropertyModel(object):
         assignment: AbstractValueAssignment
         """
 
-        self._rectangle_instances = []
-        self._property_values = []
-
         self._assignment = assignment
         self._property_ = property_
 
         self._index = 0
         self.application_index = 0
-        self.selected_rectangle = None
+        self.selected_instance = None
+
+    @property
+    def assignment(self):
+        return self._assignment
 
     @property
     def values(self):
-        return self._assignment
+        return self._assignment.values
 
     @values.setter
     def values(self, ipt):
-        self._assignment = ipt
-
-    @property
-    def rectangle_instances(self):
-        return self._rectangle_instances
-
-    def get_rectangle_instance(self, index):
-        return self._rectangle_instances[index]
-
-    def get_property_value(self, index):
-        return self._property_values[index]
+        self._assignment.values = ipt
 
     def assign_value(self, value_index):
         self._assignment.assign_value(
             self.application_index,
             value_index,
-            self.selected_rectangle)
+            self.selected_instance)
 
     def remove_value(self, value_index):
         self._assignment.remove_value(
             self.application_index,
             value_index,
-            self.selected_rectangle)
-
-    def add_rectangle_instance(self, rectangle_instance):
-        self._rectangle_instances.append(rectangle_instance)
-        self._index += 1
-
-    def load_property_values(self, connection):
-        property_ = self._property_
-        property_values = [] * (self._index + 1)
-
-        for idx, instance in enumerate(self._rectangle_instances):
-            pvw = PropertyValueWrapper(property_)
-            pvw._property_value = ri.get_property_value(connection, instance, property_)
-            property_values[idx] = pvw
-
-        self._property_values = property_values
-
-    def clear(self):
-        self._rectangle_instances.clear()
-        self._index = 0
-        self._property_values.clear()
+            self.selected_instance)
 
     def store(self, connection, value, rectangle_instance):
         pass
-
-    def submit(self, connection):
-        instances = self._rectangle_instances
-
-        for idx, ppt in enumerate(self._property_values):
-
-            rct = instances[idx]
-
-            #un-map any value set to none
-            property_value = ppt.property_value
-
-            if property_value:
-                if ppt.value == None:
-                    ri.unmap_from_property_value(connection, rct, property_value)
-                    continue
-
-                properties.add_property_value(connection, property_value)
-                ri.map_to_property_value(connection, instances[idx], property_value)
-
-
-        #remove property values that are not referenced by any rectangle instance.
-
-        for property_value in self._property_values:
-            if ri.count_mapped_instances(connection, property_value) == 0:
-                properties.delete_property_value(connection, property_value)

@@ -79,15 +79,23 @@ def build_schema(meta):
     )
 
     Table(
-        "properties",
+        "property_names",
         meta,
         Column("property_name", String, primary_key=True, nullable=False)
     )
 
     Table(
+        "properties",
+        meta,
+        Column("property_type", ForeignKey("property_types.property_type"), nullable=False),
+        Column("property_name", ForeignKey("property_names.property_name"), nullable=False),
+        Column("property_id", String, primary_key=True)
+    )
+
+    Table(
         "property_values",
         meta,
-        Column("property_name", String, ForeignKey("properties.property_name"), nullable=False),
+        Column("property_name", String, ForeignKey("property_names.property_name"), nullable=False),
         Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
         Column("property_id", String, primary_key=True, nullable=False),
         Column("property_value", String, nullable=False),
@@ -103,7 +111,7 @@ def build_schema(meta):
         "property_attributes",
         meta,
         Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
-        Column("property_name", String, ForeignKey("properties.property_name"), nullable=False),
+        Column("property_name", String, ForeignKey("property_names.property_name"), nullable=False),
         Column("property_attribute", Integer, ForeignKey("attributes.attribute_name"), nullable=False)
     )
 
@@ -113,7 +121,7 @@ def build_schema(meta):
         Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False),
         Column("label_name", String, ForeignKey("label_names.label_name"), nullable=False),
         Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
-        Column("property_name", String, ForeignKey("properties.property_name"), nullable=False)
+        Column("property_name", String, ForeignKey("property_names.property_name"), nullable=False)
     )
 
     Table(
@@ -209,7 +217,7 @@ def build_schema(meta):
     Table(
         "properties_values_sources",
         meta,
-        Column("property_name", String, ForeignKey("properties.property_name"), nullable=False),
+        Column("property_name", String, ForeignKey("property_names.property_name"), nullable=False),
         Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
         Column("values_source_id", String, ForeignKey("values_sources.values_source_id"), nullable=False)
     )

@@ -65,11 +65,11 @@ class Initial(object):
 
                 with engine.connect() as connection:
                     for label in rct_lbl.get_rectangle_labels(connection, rct.rectangle):
-                        dct[label._label_type].append(label)
+                        dct[label.label_type].append(label)
 
                 #add unsaved labels
                 for label in labels.get_unsaved_labels():
-                    dct[label._label_type].append(label)
+                    dct[label.label_type].append(label)
 
                 self._labels = dct
 

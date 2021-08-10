@@ -70,8 +70,10 @@ class PropertyView(object):
         self._listbox.set('')
 
     def set_value(self, value):
-        if not value:
+        if value is None:
             self._listbox.set('')
+        else:
+            self._listbox.set(str(value))
 
     def get_value(self):
         self._listbox.get()

@@ -81,6 +81,7 @@ class WindowRows(object):
         canvas.bind("<MouseWheel>", self._on_mouse_wheel)
         canvas.bind("<Button-4>", self._on_mouse_wheel)
         canvas.bind("<Button-5>", self._on_mouse_wheel)
+        canvas.config(borderwidth=0, highlightthickness=0)
 
         return frame
 

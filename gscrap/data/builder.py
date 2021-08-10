@@ -38,6 +38,7 @@ def clear(connection):
         "label_types",
         "label_instances",
         "properties",
+        "property_names",
         "label_properties",
         "property_types",
         "property_attributes",

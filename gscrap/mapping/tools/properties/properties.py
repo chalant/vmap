@@ -1,3 +1,4 @@
+import tkinter as tk
 from collections import defaultdict
 
 from gscrap.windows import windows
@@ -16,6 +17,8 @@ from gscrap.data.properties import property_values_source as pvs
 
 from gscrap.data.properties.values_sources import values_sources
 
+from gscrap.data.rectangles import rectangle_instances as ri
+
 from gscrap.mapping.tools import tools
 from gscrap.mapping.tools import display
 from gscrap.mapping.tools import interaction
@@ -24,7 +27,8 @@ from gscrap.mapping.tools.properties import views
 from gscrap.mapping.tools.properties import models
 from gscrap.mapping.tools.properties import value_generators
 from gscrap.mapping.tools.properties import controller
-from gscrap.mapping.tools.properties import saving
+from gscrap.mapping.tools.properties import menu_bar
+
 
 class Properties(tools.Tool):
     def __init__(self, main_view):
@@ -32,6 +36,12 @@ class Properties(tools.Tool):
 
         self._canvas = main_view.canvas
         self._container = main_view
+
+        save_button = menu_bar.SAVE_BUTTON
+
+        self._saving = saving = menu_bar.PropertyValueSaving(save_button)
+
+        menu_bar.set_controller(save_button, saving)
 
         self._display = display.RectangleDisplay(canvas)
         self._interaction = interaction.Interaction(canvas, 0, 0)
@@ -43,13 +53,19 @@ class Properties(tools.Tool):
         self._selected_rectangle = None
         self._selected_instance = None
 
-        self._window_manager = wm = windows.DefaultWindowModel(400, 600)
-        self._windows_controller = windows.WindowController(
+        self._properties_win = wm = windows.DefaultWindowModel(400, 600)
+        self._properties_wc = windows.WindowController(
             wm,
             wf.WindowFactory())
 
     def get_view(self, container):
-        return self._windows_controller.start(container)
+        frame = tk.Frame(container)
+        mb = menu_bar.MENU_BAR.render(frame)
+        mb.pack(anchor=tk.NW)
+
+        self._properties_wc.start(frame).pack()
+
+        return frame
 
     def start_tool(self, project):
 
@@ -58,6 +74,7 @@ class Properties(tools.Tool):
 
         dsp = display.RectangleDisplay(canvas)
         fct = models.PropertyRectangleFactory()
+        saving = self._saving
 
         itc = self._interaction
 
@@ -71,16 +88,8 @@ class Properties(tools.Tool):
         ppt_app_idx = 0
 
         with engine.connect() as connection:
-            #todo:
-            for label_property in label_properties.get_labels_with_properties(connection):
-
-                property_ = label_property.property_
-
-                #todo: create property view
-                # for each property, we have a mvc pattern.
-                # the view can get the property values from the model.
-                #problem: how do we map to the values?
-
+            for property_ in properties.get_properties(connection):
+                count = 0
                 distinct = False
 
                 for att in properties.get_property_attributes(
@@ -95,44 +104,61 @@ class Properties(tools.Tool):
                 else:
                     value_store = models.SharedValueAssignment()
 
-                #load and draw values
+                # load and draw values
 
                 values = []
-
-                ppt_vs = pvs.get_property_values_source(connection, property_)
 
                 ppt_model = models.get_property_model(property_, value_store)
                 ppt_controller = controller.PropertyController(ppt_model)
 
                 ppt_view = views.PropertyView(ppt_controller, ppt_model, property_)
                 ppt_controller.set_view(ppt_view)
-
-                source_type = values_sources.values_source_type(ppt_vs.values_source)
-
-                count = 0
-
-                app = models.PropertyApplication(ppt_model, ppt_controller, ppt_app_idx)
+                app = models.PropertyApplication(
+                    ppt_model,
+                    ppt_controller,
+                    ppt_app_idx)
 
                 ppt_app_idx += 1
 
-                #todo: pre-query and map rectangle to label to avoid reloading already loaded
-                # rectangles.
+                ppt_vs = pvs.get_property_values_source(connection, property_)
 
-                for rct in rectangle_labels.get_rectangles_with_label(connection, label_property.label):
-                    if rct.id not in rectangles_dict:
-                        for ist in rectangles.get_rectangle_instances(connection, rct):
+                for label_property in label_properties.get_labels_of_property(connection, property_):
+                    #todo: (optimization) pre-query and map rectangle to label to avoid reloading already loaded
+                    # rectangles.
 
-                            instances[count + 1] = instance = dsp.draw(ist, fct)
+                    for rct in rectangle_labels.get_rectangles_with_label(connection, label_property.label):
+                        if rct.id not in rectangles_dict:
+                            for ist in rectangles.get_rectangle_instances(connection, rct):
 
-                            ppt_model.add_rectangle_instance(ist)
+                                instances[count + 1] = instance = dsp.draw(ist, fct)
 
-                            count += 1
+                                rectangles_dict[rct.id].append(instance)
+                                instance.add_application(app)
 
-                            rectangles_dict[rct.id].append(instance)
-                            instance.add_application(app)
-                    else:
-                        for instance in rectangles_dict[rct.id]:
-                            instance.add_application(app)
+                                instance.values.append(ri.get_property_value(
+                                    connection,
+                                    instance.rectangle_instance,
+                                    property_
+                                ))
+
+                                count += 1
+
+                                #register saving
+                                instance.on_value_set(saving.on_value_set)
+
+                        else:
+                            for instance in rectangles_dict[rct.id]:
+
+                                instance.values.append(ri.get_property_value(
+                                    connection,
+                                    instance.rectangle_instance,
+                                    property_
+                                ))
+
+                                instance.add_application(app)
+                                instance.on_value_set(saving.on_value_set)
+
+                source_type = values_sources.values_source_type(ppt_vs.values_source)
 
                 if source_type == values_sources.GENERATOR:
                     value_generator = value_generators.get_value_generator(
@@ -140,9 +166,7 @@ class Properties(tools.Tool):
                         ppt_vs)
                     #generate a value for each rectangle instance
                     for _ in range(count):
-                        values.append(properties.PropertyValue(
-                            property_,
-                            value_generator.next_value()))
+                        values.append(value_generator.next_value())
 
                 elif source_type == values_sources.INPUT:
                     #todo:
@@ -154,7 +178,6 @@ class Properties(tools.Tool):
             #start interaction
             itc.start(instances)
             itc.on_left_click(self._on_left_click)
-            self._saving = saving.Saving(saving.SAVE_BUTTON, instances)
 
 
     def _on_left_click(self, rct):
@@ -166,14 +189,15 @@ class Properties(tools.Tool):
 
         #display property setters only if the rectangle has changed
         # if the instance changed, update the values
+
         if rid != p_rid:
-            wc = self._windows_controller
+            wc = self._properties_wc
 
             for app in rct.applications:
                 wc.clear()
                 wc.add_window(app)
 
-                self._set_selected_instance(app.controller, rct)
+                self._set_selected_instance(app.model, rct)
                 self._set_application_index(app.model, app.index)
 
             self._selected_rectangle = rid
@@ -188,9 +212,19 @@ class Properties(tools.Tool):
             
             self._selected_instance = iid
 
+    def _set_selected_instance(self, property_model, instance):
+        """
 
-    def _set_selected_instance(self, property_controller, instance):
-        property_controller.selected_instance = instance
+        Parameters
+        ----------
+        property_model:models.PropertyModel
+        instance
+
+        Returns
+        -------
+
+        """
+        property_model.selected_instance = instance
 
     def _set_application_index(self, property_model, index):
         property_model.application_index = index
@@ -199,18 +233,12 @@ class Properties(tools.Tool):
         return rectangle.id
 
     def _update_view(self, value_app_pairs):
-        for value, app in value_app_pairs:
+        for ppt_value, app in value_app_pairs:
             view = self._get_view(app)
-            view.set_value(value)
+            view.set_value(ppt_value.value)
 
     def _get_view(self, application):
         return application.view()
-
-    def _store(self, connection, rectangle_instance):
-        #todo: save property values of the rectangle instance
-        # map property_value id to rectangle instance
-        for property_value in rectangle_instance.values:
-            connection.execute()
 
     def clear_tool(self):
         self._interaction.unbind()

@@ -5,8 +5,6 @@ class MenuBar(object):
         self._buttons = []
 
     def add_button(self, button):
-        self._config(button.button)
-
         self._buttons.append(button)
 
     def render(self, container):
@@ -16,6 +14,7 @@ class MenuBar(object):
 
         for button in self._buttons:
             button.render(menu_bar).pack(side=tk.LEFT)
+            self._config(button.button)
 
         menu_bar.pack(side=tk.TOP, anchor=tk.NW)
 

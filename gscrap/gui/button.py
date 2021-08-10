@@ -29,6 +29,10 @@ class Button(object):
             text=self.name,
             command=self._controller.execute)
 
+        button["state"] = tk.DISABLED
+
+        button.config(borderwidth=0, highlightthickness=0)
+
         return button
 
     def set_controller(self, controller):

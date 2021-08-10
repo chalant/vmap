@@ -23,7 +23,6 @@ class DisplayItem(ABC):
 
 class RectangleDisplay(object):
     def __init__(self, canvas):
-        self._items = []
         self._canvas = canvas
 
     def draw(self, item, instance_factory):
@@ -40,4 +39,4 @@ class RectangleDisplay(object):
         return instance_factory.create_instance(rid, item)
 
     def delete(self, item):
-        self._canvas.delete(item)
+        self._canvas.delete(item.rid)
