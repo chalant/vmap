@@ -14,6 +14,7 @@ from gscrap.data.labels import label_properties
 
 from gscrap.data.properties import properties
 from gscrap.data.properties import property_values_source as pvs
+from gscrap.data.properties import rectangles as ppt_rct
 
 from gscrap.data.properties.values_sources import values_sources
 
@@ -74,6 +75,7 @@ class Properties(tools.Tool):
 
         dsp = display.RectangleDisplay(canvas)
         fct = models.PropertyRectangleFactory()
+
         saving = self._saving
 
         itc = self._interaction
@@ -83,9 +85,8 @@ class Properties(tools.Tool):
 
         instances = self._instances
 
-        rectangles_dict = defaultdict(list)
-
         ppt_app_idx = 0
+        value_idx = 0
 
         with engine.connect() as connection:
             for property_ in properties.get_properties(connection):
@@ -106,8 +107,6 @@ class Properties(tools.Tool):
 
                 # load and draw values
 
-                values = []
-
                 ppt_model = models.get_property_model(property_, value_store)
                 ppt_controller = controller.PropertyController(ppt_model)
 
@@ -118,45 +117,35 @@ class Properties(tools.Tool):
                     ppt_controller,
                     ppt_app_idx)
 
-                ppt_app_idx += 1
-
                 ppt_vs = pvs.get_property_values_source(connection, property_)
 
-                for label_property in label_properties.get_labels_of_property(connection, property_):
-                    #todo: (optimization) pre-query and map rectangle to label to avoid reloading already loaded
-                    # rectangles.
+                for rct in ppt_rct.get_rectangles_of_property(connection, property_):
+                    for ist in rectangles.get_rectangle_instances(connection, rct):
 
-                    for rct in rectangle_labels.get_rectangles_with_label(connection, label_property.label):
-                        if rct.id not in rectangles_dict:
-                            for ist in rectangles.get_rectangle_instances(connection, rct):
+                        instances[count + 1] = instance = dsp.draw(ist, fct)
 
-                                instances[count + 1] = instance = dsp.draw(ist, fct)
+                        ppt_value = ri.get_property_value(
+                            connection,
+                            instance.rectangle_instance,
+                            property_
+                        )
 
-                                rectangles_dict[rct.id].append(instance)
-                                instance.add_application(app)
+                        instance.add_application(app)
+                        instance.add_property_value(ppt_value)
 
-                                instance.values.append(ri.get_property_value(
-                                    connection,
-                                    instance.rectangle_instance,
-                                    property_
-                                ))
+                        if ppt_value.value is not None:
+                            value_store.add_value(ppt_value.value)
+                            value_store.assign_value(
+                                ppt_app_idx,
+                                count,
+                                instance)
 
-                                count += 1
+                        count += 1
 
-                                #register saving
-                                instance.on_value_set(saving.on_value_set)
+                        #register saving
+                        instance.on_value_set(saving.on_value_set)
 
-                        else:
-                            for instance in rectangles_dict[rct.id]:
-
-                                instance.values.append(ri.get_property_value(
-                                    connection,
-                                    instance.rectangle_instance,
-                                    property_
-                                ))
-
-                                instance.add_application(app)
-                                instance.on_value_set(saving.on_value_set)
+                ppt_app_idx += 1
 
                 source_type = values_sources.values_source_type(ppt_vs.values_source)
 
@@ -165,15 +154,12 @@ class Properties(tools.Tool):
                         connection,
                         ppt_vs)
                     #generate a value for each rectangle instance
-                    for _ in range(count):
-                        values.append(value_generator.next_value())
+                    for i in range(count):
+                        value_store.set_value(i, value_generator.next_value())
 
                 elif source_type == values_sources.INPUT:
                     #todo:
                     raise NotImplementedError("input values source")
-
-                #assign values to value store
-                value_store.values = values
 
             #start interaction
             itc.start(instances)

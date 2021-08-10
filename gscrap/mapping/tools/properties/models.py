@@ -50,8 +50,8 @@ class SharedValueAssignment(AbstractValueAssignment):
 
 class DistinctValueAssignment(AbstractValueAssignment):
     def __init__(self):
-        self._values = None
-        self._assigned = None
+        self._values = []
+        self._assigned = []
 
     @property
     def values(self):
@@ -77,10 +77,20 @@ class DistinctValueAssignment(AbstractValueAssignment):
 
         if prv_instance:
             # remove value from previous instance
-            ppt_value = prv_instance.get_value(row_index)
-            ppt_value.value = None
+            ppt_val = prv_instance.get_value(row_index)
+            val = int(ppt_val.value)
+
+            if val == value:
+                ppt_val.value = None
 
         assigned[value_index] = rectangle_instance
+
+    def add_value(self, value):
+        self._values.append(value)
+        self._assigned.append(None)
+
+    def set_value(self, index, value):
+        self._values[index] = value
 
     def remove_value(self, row_index, value_index, rectangle_instance):
         self._assigned[value_index] = None
@@ -141,7 +151,6 @@ class PropertyApplication(object):
     def model(self):
         return self.property_model
 
-
 class PropertyRectangle(display.DisplayItem):
     def __init__(self, id_, rectangle_instance):
         super(PropertyRectangle, self).__init__(id_, rectangle_instance)
@@ -153,6 +162,20 @@ class PropertyRectangle(display.DisplayItem):
             pass
 
         self._callback = null_callback
+
+    def add_property_value(self, property_value):
+        """
+
+        Parameters
+        ----------
+        property_value: gscrap.data.properties.properties.PropertyValue
+
+        Returns
+        -------
+        None
+        """
+
+        self.values.append(property_value)
 
     def get_value(self, index):
         return self.values[index]
