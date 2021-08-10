@@ -158,7 +158,6 @@ class PropertyRectangle(display.DisplayItem):
         return self.values[index]
 
     def set_value(self, index, value):
-        print("LENGTH", self.values)
         self.values[index].value = value
 
         self._callback(self)
