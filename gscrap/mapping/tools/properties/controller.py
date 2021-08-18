@@ -17,4 +17,8 @@ class PropertyController(object):
         self._view = view
 
     def on_value_selection(self, index):
-        self._model.assign_value(index)
+        self._view.set_value(self._model.assign_value(index))
+
+    def on_clear(self):
+        self._model.remove_value()
+        self._view.set_value(None)

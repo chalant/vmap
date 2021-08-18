@@ -32,7 +32,7 @@ _GET_INSTANCES_WITH_PROPERTY_VALUE = text(
     SELECT * FROM rectangle_instances_property_values 
     INNER JOIN property_values 
         ON rectangle_instances_property_values.property_id = property_values.property_id
-    WHERE property_id=:property_id
+    WHERE rectangle_instances_property_values.property_id=:property_id
     """
 )
 

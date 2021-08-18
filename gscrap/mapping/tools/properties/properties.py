@@ -1,5 +1,4 @@
 import tkinter as tk
-from collections import defaultdict
 
 from gscrap.windows import windows
 from gscrap.windows import factory as wf
@@ -8,9 +7,6 @@ from gscrap.data import engine
 from gscrap.data import attributes
 
 from gscrap.data.rectangles import rectangles
-from gscrap.data.rectangles import rectangle_labels
-
-from gscrap.data.labels import label_properties
 
 from gscrap.data.properties import properties
 from gscrap.data.properties import property_values_source as pvs
@@ -86,7 +82,6 @@ class Properties(tools.Tool):
         instances = self._instances
 
         ppt_app_idx = 0
-        value_idx = 0
 
         with engine.connect() as connection:
             for property_ in properties.get_properties(connection):
@@ -101,9 +96,9 @@ class Properties(tools.Tool):
                         distinct = True
 
                 if distinct:
-                    value_store = models.DistinctValueAssignment()
+                    value_store = models.DistinctValueAssignment(saving)
                 else:
-                    value_store = models.SharedValueAssignment()
+                    value_store = models.SharedValueAssignment(saving)
 
                 # load and draw values
 
@@ -139,11 +134,13 @@ class Properties(tools.Tool):
                                 ppt_app_idx,
                                 count,
                                 instance)
+                        else:
+                            value_store.add_value(None)
 
                         count += 1
 
-                        #register saving
-                        instance.on_value_set(saving.on_value_set)
+                        # #register saving
+                        # instance.on_value_set(saving.on_value_set)
 
                 ppt_app_idx += 1
 

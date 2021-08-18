@@ -1,5 +1,7 @@
 from sqlalchemy import text
 
+from gscrap.utils import key_generator
+
 
 INTEGER = 0
 BOOLEAN = 1
@@ -17,7 +19,7 @@ _ADD_PROPERTY_TYPE = text(
 
 _ADD_PROPERTY_VALUE = text(
     '''
-    INSERT INTO property_values(property_type, property_name, property_value, property_id)
+    INSERT OR IGNORE INTO property_values(property_type, property_name, property_value, property_id)
     VALUES (:property_type, :property_name, :property_value, :property_id)
     '''
 )
@@ -83,7 +85,7 @@ class Property(object):
         self.property_name = property_name
 
     def __hash__(self):
-        return hash((self.property_type, self.property_name))
+        return key_generator.generate_key(str(self.property_type) + str(self.property_name))
 
     def __eq__(self, other):
         return other.property_type == self.property_type and \
@@ -91,31 +93,31 @@ class Property(object):
 
 class PropertyAttribute(object):
     __slots__ = ['property_', 'attribute']
+
     def __init__(self, property_, attribute):
         self.property_ = property_
         self.attribute = attribute
 
     def __hash__(self):
-        return hash((self.property_, self.attribute))
+        return key_generator.generate_key(str(self.property_) + str(self.attribute))
 
     def __eq__(self, other):
         return other.property == self.property_ and \
                other.attribute == other.attribute
 
 class PropertyValue(object):
-    __slots__ = ['property_', 'value', '_hash']
+    __slots__ = ['property_', 'value']
 
     def __init__(self, property_, value):
         self.property_ = property_
         self.value = value
-        self._hash = hash((property_, value))
 
     def __eq__(self, other):
-        return other.property == self.property_ and \
+        return other.property_ == self.property_ and \
                other.value == self.value
 
     def __hash__(self):
-        return self._hash
+        return key_generator.generate_key(str(hash(self.property_)) + str(self.value))
 
 def property_name(property_):
     return property_.property_name

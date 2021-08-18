@@ -21,6 +21,11 @@ class DisplayItem(ABC):
     def top_left(self):
         return self.rectangle_instance.top_left
 
+    def __eq__(self, other):
+        if other:
+            return self.rid == other.rid
+        return False
+
 class RectangleDisplay(object):
     def __init__(self, canvas):
         self._canvas = canvas

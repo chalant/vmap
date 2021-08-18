@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+import copy
+
 from gscrap.data.properties import properties
 from gscrap.data.rectangles import rectangle_instances as ri
 
@@ -9,6 +11,9 @@ def get_property_model(property_, value_store):
     return PropertyModel(property_, value_store)
 
 class AbstractValueAssignment(ABC):
+    def __init__(self, saver):
+        self._saver = saver
+
     @property
     @abstractmethod
     def values(self):
@@ -24,11 +29,12 @@ class AbstractValueAssignment(ABC):
         raise  NotImplementedError
 
     @abstractmethod
-    def remove_value(self, row_index, value_index, rectangle_instance):
+    def remove_value(self, row_index, rectangle_instance):
         raise NotImplementedError
 
 class SharedValueAssignment(AbstractValueAssignment):
-    def __init__(self):
+    def __init__(self, saver):
+        super(SharedValueAssignment, self).__init__(saver)
         self._values = None
 
     @property
@@ -43,13 +49,18 @@ class SharedValueAssignment(AbstractValueAssignment):
         return iter([val for val in self._values])
 
     def assign_value(self, row_index, value_index, rectangle_instance):
-        rectangle_instance.set_value(row_index, self._values[value_index])
+        value = self._values[value_index]
+        rectangle_instance.set_value(row_index, value)
 
-    def remove_value(self, row_index, value_index, rectangle_instance):
+        return value
+
+    def remove_value(self, row_index, rectangle_instance):
         pass
 
 class DistinctValueAssignment(AbstractValueAssignment):
-    def __init__(self):
+    def __init__(self, saver):
+        super(DistinctValueAssignment, self).__init__(saver)
+
         self._values = []
         self._assigned = []
 
@@ -68,22 +79,39 @@ class DistinctValueAssignment(AbstractValueAssignment):
         return iter([val for val in self._values])
 
     def assign_value(self, row_index, value_index, rectangle_instance):
-        value = self._values[value_index]
         assigned = self._assigned
 
-        rectangle_instance.set_value(row_index, value)
-
         prv_instance = assigned[value_index]
+        value = self._values[value_index]
 
-        if prv_instance:
-            # remove value from previous instance
-            ppt_val = prv_instance.get_value(row_index)
-            val = int(ppt_val.value)
+        if prv_instance != rectangle_instance:
 
-            if val == value:
-                ppt_val.value = None
+            rectangle_instance.set_value(row_index, value, value_index)
 
-        assigned[value_index] = rectangle_instance
+            if prv_instance and prv_instance != rectangle_instance:
+                # remove value from previous instance
+                ppt_val = prv_instance.get_value(row_index)
+
+                val = ppt_val.value
+
+                if val != None:
+                    if int(val) == value:
+                        self._saver.delete_value(
+                            rectangle_instance,
+                            copy.copy(ppt_val))
+
+                        prv_instance.set_value(
+                            row_index,
+                            None,
+                            value_index)
+
+            assigned[value_index] = rectangle_instance
+
+            self._saver.save_value(
+                rectangle_instance.rectangle_instance,
+                rectangle_instance.get_value(row_index))
+
+        return value
 
     def add_value(self, value):
         self._values.append(value)
@@ -92,10 +120,41 @@ class DistinctValueAssignment(AbstractValueAssignment):
     def set_value(self, index, value):
         self._values[index] = value
 
-    def remove_value(self, row_index, value_index, rectangle_instance):
-        self._assigned[value_index] = None
+    def remove_value(self, row_index, rectangle_instance):
+        '''
+
+        Parameters
+        ----------
+        row_index
+        rectangle_instance: PropertyRectangle
+
+        Returns
+        -------
+
+        '''
+        assigned = self._assigned
+        saver = self._saver
+
+        value_index = rectangle_instance.indices[row_index]
+        ppt_instance = assigned[value_index]
+
+        if ppt_instance:
+            val = ppt_instance.get_value(row_index)
+
+            if val.value != None:
+                saver.delete_value(
+                    ppt_instance.rectangle_instance,
+                    copy.copy(val))
+
+                ppt_instance.set_value(row_index, None, value_index)
+
+        assigned[value_index] = None
 
         ppt_value = rectangle_instance.get_value(row_index)
+        saver.delete_value(
+            rectangle_instance.rectangle_instance,
+            copy.copy(ppt_value))
+
         ppt_value.value = None
 
 class PropertyValueWrapper(object):
@@ -156,6 +215,7 @@ class PropertyRectangle(display.DisplayItem):
         super(PropertyRectangle, self).__init__(id_, rectangle_instance)
 
         self.values = []
+        self.indices = []
         self.applications = []
 
         def null_callback(instance):
@@ -176,12 +236,18 @@ class PropertyRectangle(display.DisplayItem):
         """
 
         self.values.append(property_value)
+        self.indices.append(None)
 
     def get_value(self, index):
         return self.values[index]
 
-    def set_value(self, index, value):
+    def get_value_index(self, value_index):
+        return self.indices[value_index]
+
+    def set_value(self, index, value, value_index):
+        print("Setting Value", index, value)
         self.values[index].value = value
+        self.indices[index] = value_index
 
         self._callback(self)
 
@@ -226,15 +292,16 @@ class PropertyModel(object):
         self._assignment.values = ipt
 
     def assign_value(self, value_index):
-        self._assignment.assign_value(
+        print("Assigning value", value_index)
+
+        return self._assignment.assign_value(
             self.application_index,
             value_index,
             self.selected_instance)
 
-    def remove_value(self, value_index):
+    def remove_value(self):
         self._assignment.remove_value(
             self.application_index,
-            value_index,
             self.selected_instance)
 
     def store(self, connection, value, rectangle_instance):
