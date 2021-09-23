@@ -1,7 +1,7 @@
 from sqlalchemy import text
 
 from gscrap.data.base import _Element
-from gscrap.data.labels.labels import _Label
+from gscrap.data.labels.labels import LabelWriter
 
 ADD_PROJECT_TYPE = text(
     """
@@ -34,7 +34,7 @@ class _ProjectType(_Element):
         return self._name
 
     def add_label(self, name, type_, max_=None, capture=False, classifiable=False):
-        lbl = _Label(self._name, name, type_.name, max_, capture, classifiable)
+        lbl = LabelWriter(self._name, name, type_.name, max_, capture, classifiable)
         self._labels.append(lbl)
         return lbl
 

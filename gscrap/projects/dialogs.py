@@ -3,7 +3,7 @@ import tkinter as tk
 from gscrap.data import engine
 
 
-class NewProject(object):
+class NewScene(object):
     # todo: add Cancel Button
     def __init__(self, container, projects):
         """
@@ -30,7 +30,7 @@ class NewProject(object):
         root.grab_set()
         root.resizable(False, False)
         root.protocol("WM_DELETE_WINDOW", self._close)
-        root.wm_title("New Project")
+        root.wm_title("New Scene")
 
         rx = self._container.winfo_rootx()
         ry = self._container.winfo_rooty()
@@ -104,7 +104,7 @@ class NewProject(object):
     def _on_cancel(self):
         self._close()
 
-class OpenProject(object):
+class OpenScene(object):
     def __init__(self, container, projects):
         """
 
@@ -128,7 +128,7 @@ class OpenProject(object):
         root.grab_set()
         root.resizable(False, False)
         root.protocol("WM_DELETE_WINDOW", self._on_close)
-        root.wm_title("Open Project")
+        root.wm_title("Open Scene")
 
         rx = self._container.winfo_rootx()
         ry = self._container.winfo_rooty()

@@ -5,6 +5,7 @@ from sqlalchemy import text
 from gscrap.data import engine
 from gscrap.data.project_types import _ProjectType
 from gscrap.data.labels.labels import _LabelType
+from gscrap.data.labels import labels
 
 from gscrap.data.properties import properties
 from gscrap.data import attributes
@@ -52,43 +53,42 @@ def clear(connection):
     for name in table_names:
         connection.execute(text(CLEAR_TABLE.format(name)))
 
-def _submit():
-    with engine.connect() as connection:
-        #create value sources mappings
+def _submit(connection):
+    #create value sources mappings
 
-        values_sources.add_values_source_type(connection, 'input')
-        values_sources.add_values_source_name(connection, 'values_input')
+    values_sources.add_values_source_type(connection, 'input')
+    values_sources.add_values_source_name(connection, 'values_input')
 
-        values_sources.add_values_source_type(connection, 'generator')
-        values_sources.add_values_source_name(connection, 'incremental_generator')
+    values_sources.add_values_source_type(connection, 'generator')
+    values_sources.add_values_source_name(connection, 'incremental_generator')
 
-        for vs in _VALUES_SOURCES:
-            values_sources.add_values_source(connection, vs)
+    for vs in _VALUES_SOURCES:
+        values_sources.add_values_source(connection, vs)
 
-        attributes.add_attribute(connection, attributes.DISTINCT)
-        attributes.add_attribute(connection, attributes.GLOBAL)
+    attributes.add_attribute(connection, attributes.DISTINCT)
+    attributes.add_attribute(connection, attributes.GLOBAL)
 
-        for pp in _PROPERTIES.values():
-            properties.add_property_type(connection, pp.property_type)
-            properties.add_property_name(connection, pp.property_name)
+    for pp in _PROPERTIES.values():
+        properties.add_property_type(connection, pp.property_type)
+        properties.add_property_name(connection, pp.property_name)
 
-        for atr in _PROPERTY_ATTRIBUTES.values():
-            properties.add_property_attribute(connection, atr)
+    for atr in _PROPERTY_ATTRIBUTES.values():
+        properties.add_property_attribute(connection, atr)
 
-        for vs in _PROPERTY_VALUE_SOURCES.values():
-            pvs.add_property_values_source(
-                connection,
-                vs.property_values_source)
+    for vs in _PROPERTY_VALUE_SOURCES.values():
+        pvs.add_property_values_source(
+            connection,
+            vs.property_values_source)
 
-            #save value source instance
-            vs.save(connection)
+        #save value source instance
+        vs.save(connection)
 
-        for pj in chain(
-            _LABEL_TYPES.values(),
-            _PROJECT_TYPES.values()):
+    for pj in chain(
+        _LABEL_TYPES.values(),
+        _PROJECT_TYPES.values()):
 
-            pj._submit(connection)
-            pj.clear()
+        pj._submit(connection)
+        pj.clear()
 
 def _project_type(name):
     pj = _ProjectType(name)
@@ -114,6 +114,8 @@ def _add_property_attribute(property_, attribute):
 class _Builder(object):
     def __init__(self):
         self._built = False
+        self._to_import = {}
+        self._to_create = {}
 
     def __enter__(self):
         with engine.connect() as connection:
@@ -121,6 +123,15 @@ class _Builder(object):
             engine.create_tables(engine._ENGINE, engine._META)
 
         return self
+
+    def get_label(self, scene_name, label_name):
+        with engine.connect() as connection:
+            labels.get_label(connection, label_name, scene_name)
+
+    def new_scene(self, scene_name):
+        #todo
+        if scene_name not in self._to_create:
+            return self._to_create[scene_name]
 
     def project_type(self, name):
         return _project_type(name)
@@ -174,7 +185,16 @@ class _Builder(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self._built:
-            _submit()
+            #todo: import and create scenes
+            # if the scene doesn't exist in the database, create it
+            # if the scene ex
+
+            with engine.connect() as connection:
+                for element in self._to_create.values():
+                    #todo: create scene
+                    pass
+
+                _submit(connection)
         else:
             raise RuntimeError("Schema already built!")
 

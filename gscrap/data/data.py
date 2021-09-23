@@ -1,6 +1,6 @@
-from gscrap.data import builder
 from gscrap.data.properties import properties as pp
-from gscrap.data import attributes
+from gscrap.data import attributes, builder
+
 
 def build():
     with builder.build() as bld:
@@ -12,6 +12,9 @@ def build():
 
         game = bld.project_type("Game")
         cards = bld.project_type("Cards")
+
+        #will look for a scene with the name "Card" and create or load its schema
+        cards = bld.import_scene("Card")
 
         # numbers = bld.project_type("Numbers")
         #

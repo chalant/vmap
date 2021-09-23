@@ -2,6 +2,8 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
+from gscrap.utils import key_generator
+
 from gscrap.data.base import _Element
 from gscrap.data.properties import properties as pp
 
@@ -21,8 +23,8 @@ _ADD_LABEL = text(
 
 ADD_LABEL_COMPONENTS = text(
     """
-    INSERT INTO label_components(label_id, component_id, lc_id)
-    VALUES (:label_id, :component_id:, :lc_id);
+    INSERT INTO label_components(label_id, component_id)
+    VALUES (:label_id, :component_id);
     """
 )
 
@@ -37,6 +39,14 @@ ADD_LABEL_PROPERTY = text(
     """
     INSERT INTO label_properties(label_type, label_name, property_type, property_name)
     VALUES (:label_type, :label_name, :property_type, :property_name)
+    """
+)
+
+_GET_LABEL = text(
+    """
+    SELECT * 
+    FROM labels
+    WHERE label_name=:label_name AND scene_name=:scene_name
     """
 )
 
@@ -75,7 +85,7 @@ class _LabelInstance(_Element):
             label_type=self.label_type
         )
 
-class _Label(_Element):
+class LabelWriter(_Element):
     __slots__ = [
         "_instances",
         "_label_id",
@@ -88,19 +98,21 @@ class _Label(_Element):
 
     def __init__(
             self,
-            project_type,
-            label_name,
-            label_type,
+            scene_name,
+            label,
             max_=None,
             capture=False,
             classifiable=False):
 
-        super(_Label, self).__init__()
+        super(LabelWriter, self).__init__()
         self._label_id = uuid4().hex
 
-        self._label_name = label_name
-        self._label_type = label_type
-        self._project_type = project_type
+        self._label = label
+
+        self._label_type = label.label_type
+        self._label_name = label.label_name
+
+        self._scene_name = scene_name
 
         self._capture = capture
         self._max = max_
@@ -165,7 +177,7 @@ class _Label(_Element):
             label_id=self._label_id,
             label_name=label_name,
             label_type=label_type,
-            project_type=self._project_type,
+            scene_name=self._scene_name,
             max_instances=self._max,
             capture=self._capture,
             total=self._total,
@@ -182,9 +194,15 @@ class _Label(_Element):
                 property_name=property_.property_name
             )
 
-        #submit components
+        label_id = hash(self._label)
+
+        #map components to this label
         for label in self._components:
-            label.submit(connection)
+            connection.execute(
+                ADD_LABEL_COMPONENTS,
+                label_id,
+                hash(label)
+            )
 
         for instance in self._instances:
             instance.submit(connection)
@@ -197,7 +215,7 @@ class Label(object):
         self.label_name = label_name
 
     def __hash__(self):
-        return hash((self.label_type, self.label_name))
+        return key_generator.generate_key(self.label_type + self.label_name)
 
     def __eq__(self, other):
         return other.label_type == self.label_type and \
@@ -208,3 +226,11 @@ def label_type(label):
 
 def label_name(label):
     return label.label_name
+
+def get_label(connection, label_name, scene_name):
+    res = connection.execute(
+        _GET_LABEL,
+        label_name=label_name,
+        scene_name=scene_name)
+
+    return Label(res['label_type'], res['label_name'])

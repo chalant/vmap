@@ -33,6 +33,21 @@ def build_schema(meta):
         Column("width", Float(32), nullable=False)
     )
 
+    Table(
+        "scenes",
+        meta,
+        Column("scene_name", String, primary_key=True),
+
+    )
+
+    Table(
+        "scenes_sizes",
+        meta,
+        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False),
+        Column("height", Float(32), nullable=False),
+        Column("width", Float(32), nullable=False)
+    )
+
     # these are pre-populated by admin
     Table(
         "label_types",
@@ -59,17 +74,16 @@ def build_schema(meta):
         Column("max_instances", Integer), # maximum instances of this label
         Column("total", Integer, nullable=False, default=0), # tracks number of instances of this label
         # labels are bound to a project_type
-        Column("project_type", ForeignKey("project_types.project_type"), nullable=False),
         # each label is mapped to a detection model
-        Column("classifiable", Boolean, default=False)
+        Column("classifiable", Boolean, default=False),
+        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False)
     )
 
     Table(
         "label_components",
         meta,
         Column("label_id", String, ForeignKey("labels.label_id"), nullable=False),
-        Column("component_id", String, ForeignKey("labels.label_id"), nullable=False),
-        Column("lc_id", String, primary_key=True)
+        Column("component_id", String, ForeignKey("labels.label_id"), nullable=False)
     )
 
     Table(
@@ -140,7 +154,7 @@ def build_schema(meta):
         Column("height", Integer, nullable=False),
         Column("width", Integer, nullable=False),
         # project are per-project
-        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False))
+        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False))
 
     Table(
         "rectangle_instances",
@@ -190,7 +204,7 @@ def build_schema(meta):
         "images",
         meta,
         Column("image_id", String, primary_key=True),
-        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
+        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False),
         # each image is mapped to an instance id
         Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),

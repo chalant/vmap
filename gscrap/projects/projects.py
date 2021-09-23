@@ -228,8 +228,6 @@ class Project(object):
 
         #delete all elements related to the project
         vds.delete_for_project(connection, name)
-        img.delete_for_project(connection, name)
-        rectangles.delete_for_project(connection, name)
 
         io.execute(self._delete_template)
 

@@ -106,7 +106,7 @@ class MenuBar(object):
         tp.config(menu=menu)
 
         self.open_dialog = dialogs.OpenProject(menu, projects)
-        self.new_dialog = dialogs.NewProject(menu, projects)
+        self.new_dialog = dialogs.NewScene(menu, projects)
 
         self.file_menu = file_menu = tk.Menu(menu, tearoff=False)
 

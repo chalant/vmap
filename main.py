@@ -62,6 +62,7 @@ class MainWindow(object):
         self._manager = manager
 
         root = manager.container
+
         self._projects = projects = pj.Projects()
         self._mapping_controller = ctl.MappingController(
             projects,
