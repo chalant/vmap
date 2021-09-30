@@ -16,7 +16,6 @@ from gscrap.labeling import utils as mdl_utils
 from gscrap.labeling import labeler as lbl
 
 from gscrap.data import io
-from gscrap.data import engine
 from gscrap.data.filters import filters
 from gscrap.data.images import images as im
 
@@ -24,6 +23,7 @@ from gscrap.mapping.tools.detection import grid as gd
 from gscrap.mapping.tools.detection.sampling import view as vw
 from gscrap.mapping.tools.detection.sampling import image_grid as ig
 from gscrap.mapping.tools.detection.sampling import samples as spl
+
 
 class SamplingController(object):
     def __init__(self, filtering_model, width, height, on_label_set=None):
@@ -33,6 +33,8 @@ class SamplingController(object):
         ----------
         filtering_model: gscrap.mapping.tools.detection.filtering.filtering.FilteringModel
         """
+
+        self.scene = None
 
         self._filtering_model = filtering_model
         self._filter_group = None
@@ -109,6 +111,9 @@ class SamplingController(object):
 
         view.label_type_options["state"] = tk.ACTIVE
 
+    def set_scene(self, scene):
+        self.scene = scene
+
     def view(self):
         return self._sampling_view
 
@@ -116,7 +121,7 @@ class SamplingController(object):
         self._sampling_view.close()
 
     def clear_sample(self):
-        with engine.connect() as connection:
+        with self.scene.connect() as connection:
             view = self._sampling_view
             self._image_metadata.delete_image(connection)
 
@@ -126,9 +131,8 @@ class SamplingController(object):
             view.save_button["state"] = tk.DISABLED
             view.clear_button["state"] = tk.DISABLED
 
-
     def save(self):
-        with engine.connect() as connection:
+        with self.scene.connect() as connection:
             view = self._sampling_view
             image_idx = self._selected_image_index
             label = self._label
@@ -169,21 +173,21 @@ class SamplingController(object):
         # map labels to models and filters.
 
         parameter_id = filter_model.parameter_id
-        project_name = capture_zone.project_name
-        #if the filter_labels already belonged to a group, update the group and parameter
+        scene_name = capture_zone.scene_name
+        # if the filter_labels already belonged to a group, update the group and parameter
 
         if parameter_id and group_id and pgr and ppr:
-            if group_id != pgr or parameter_id!= ppr:
-                #if group has changed, remove the label from previous group
+            if group_id != pgr or parameter_id != ppr:
+                # if group has changed, remove the label from previous group
 
                 # filters.remove_label_from_group()
 
-                #note: label per project is always mapped to ONE group_id and parameter_id pair.
+                # note: label per project is always mapped to ONE group_id and parameter_id pair.
                 filters.update_filter_labels_group(
                     connection,
                     label_class,
                     label_type,
-                    project_name,
+                    scene_name,
                     group_id,
                 )
 
@@ -192,18 +196,18 @@ class SamplingController(object):
                         connection,
                         label_class,
                         label_type,
-                        project_name,
+                        scene_name,
                         parameter_id)
 
         elif parameter_id and group_id:
-            #if did not belong to any group, add it to database
+            # if did not belong to any group, add it to database
             filters.store_filter_labels(
                 connection,
                 group_id,
                 label_type,
                 label_class,
                 parameter_id,
-                project_name
+                scene_name
             )
 
     def set_label_type(self, *args):
@@ -227,21 +231,23 @@ class SamplingController(object):
         # todo: do nothing if this raises a stop iteration error
         label_group = next((l for l in self._labels[label_type] if l.label_name == label_class))
 
-        #todo: once the label class and label type have been set, do a callback to observers
+        # todo: once the label class and label type have been set, do a callback to observers
         # ex: the we load filters associated with the label.
 
         fm = self._filtering_model
 
-        #todo: should separate sampling from detection.
+        # todo: should separate sampling from detection.
 
         labeling = None
 
-        #try loading labeling model
-        with engine.connect() as connection:
+        scene = self.scene
+
+        # try loading labeling model
+        with scene.connect() as connection:
             meta = mdl.load_labeling_model_metadata(
                 connection,
                 label_group,
-                capture_zone.project_name)
+                capture_zone.scene_name)
 
             if meta:
                 model_name = meta['model_name']
@@ -255,11 +261,11 @@ class SamplingController(object):
                 connection,
                 label_class,
                 label_type,
-                capture_zone.project_name)
+                capture_zone.scene_name)
 
             if filter_group:
                 self._filter_group = filter_group['group_id']
-                #this will be displayed on the filters canvas.
+                # this will be displayed on the filters canvas.
                 fm.import_filters(
                     connection,
                     filter_group)
@@ -268,13 +274,13 @@ class SamplingController(object):
 
             if label_group.classifiable:
                 sample_source = sc.SampleSource(
-                    capture_zone.project_name,
+                    capture_zone.scene_name,
                     label_type,
                     label_class,
                     capture_zone.dimensions
                 )
 
-                #load samples into the sample source
+                # load samples into the sample source
                 sc.load_samples(sample_source, connection)
 
                 # comparator = self._dlc
@@ -306,12 +312,12 @@ class SamplingController(object):
 
             labeler = self._labeler
 
-            #set labeling model
+            # set labeling model
             labeler.labeling = lb
 
-            #store mappings if its a new model...
+            # store mappings if its a new model...
             if not labeling:
-                #map model to label and store
+                # map model to label and store
                 self._model_name = model_name = uuid4().hex
 
                 mdl.add_model(
@@ -328,7 +334,7 @@ class SamplingController(object):
                     model_name,
                     label_type,
                     label_class,
-                    capture_zone.project_name
+                    capture_zone.scene_name
                 )
 
             labeler.set_filter_pipeline(fm.filter_pipeline)
@@ -355,7 +361,7 @@ class SamplingController(object):
                 if label_group.classifiable:
                     self._image_metadata = im.get_image(
                         connection,
-                        capture_zone.project_name,
+                        scene,
                         {'label_type': label_type,
                          'label_class': label_class,
                          'instance_name': label})
@@ -363,7 +369,6 @@ class SamplingController(object):
                     view.save_button["state"] = tk.DISABLED
 
                 view.label_instance_options["state"] = tk.DISABLED
-
 
     def set_label(self, *args):
         view = self._sampling_view
@@ -376,9 +381,9 @@ class SamplingController(object):
 
     def _detect(self, labeler, dimensions):
         return lbl.label(labeler, np.frombuffer(
-                    self._samples_grid.get_sample(
-                        self._selected_image_index),
-                    np.uint8).reshape(dimensions[1], dimensions[0], 3))
+            self._samples_grid.get_sample(
+                self._selected_image_index),
+            np.uint8).reshape(dimensions[1], dimensions[0], 3))
 
     def enable_filters(self):
         self._filtering_model.enable_filtering()
@@ -400,7 +405,7 @@ class SamplingController(object):
 
         '''
 
-        with engine.connect() as connection:
+        with self.scene.connect() as connection:
             sv = self._sampling_view
             meta = self._video_metadata
 
@@ -427,13 +432,13 @@ class SamplingController(object):
             self._max_threshold = mt = 2000
 
             self._samples_data = st.SampleData(
-                capture_zone.project_name,
+                capture_zone.scene,
                 capture_zone.width,
                 capture_zone.height,
                 capture_zone.rectangle_id
             )
 
-            #initialize preview
+            # initialize preview
             self._preview.initialize(dims)
 
             sv.threshold.config(to=mt)
@@ -446,8 +451,7 @@ class SamplingController(object):
                     self._threshold = 0
                     sv.threshold.set(0)
 
-                    #todo: problem: setting these creates events!!!
-
+                    # todo: problem: setting these creates events!!!
 
                     # sv.label_type_options.set("N/A")
                     # sv.label_instance_options.set("N/A")
@@ -478,7 +482,7 @@ class SamplingController(object):
             im1, im2, self._threshold)
 
     def set_threshold(self, value):
-        #update threshold and re-compress elements
+        # update threshold and re-compress elements
         self._threshold = v = float(value)
 
         grid = self._samples_grid

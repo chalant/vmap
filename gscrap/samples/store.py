@@ -3,10 +3,10 @@ from gscrap.data import io
 from gscrap.data.images import images as im
 
 class SampleData(object):
-    __slots__ = ['project_name', 'position', 'width', 'height', 'rectangle_id']
+    __slots__ = ['scene', 'position', 'width', 'height', 'rectangle_id']
 
-    def __init__(self, project_name, width, height, rectangle_id):
-        self.project_name = project_name
+    def __init__(self, scene, width, height, rectangle_id):
+        self.scene = scene
         self.position = 0
         self.width = width
         self.height = height
@@ -19,7 +19,7 @@ def _save_sample(meta, image):
 
 def add_sample(sample_data, image, label, connection):
     meta = im.create_image_metadata(
-        sample_data.project_name,
+        sample_data.scene,
         label["label_name"],
         label["label_type"],
         label["instance_name"],

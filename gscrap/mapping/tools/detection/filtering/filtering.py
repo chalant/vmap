@@ -4,7 +4,7 @@ import tkinter as tk
 
 import cv2
 
-from gscrap.data import engine
+from gscrap.projects import projects
 from gscrap.data.filters import filters as flt
 
 from gscrap.rectangles import rectangles as rt
@@ -358,8 +358,7 @@ class FilteringController(object):
         if parameter_id and group_id:
             #only save when filters have changed.
             if parameter_id != ppid or group_id != pgid:
-                with engine.connect() as connection:
-
+                with projects.connect() as connection:
                     #only store when the either filter group or parameter does not exist.
                     #if it exists then the filter pipeline already exists.
 

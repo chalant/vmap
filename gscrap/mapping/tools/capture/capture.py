@@ -9,7 +9,7 @@ class CaptureTool(tools.Tool):
             self,
             main_view,
             main_controller,
-            thread_pool):
+            project):
 
         """
 
@@ -17,7 +17,7 @@ class CaptureTool(tools.Tool):
         ----------
         main_view: gscrap.mapping.view.MainView
         main_controller: gscrap.mapping.controller.MappingController
-        thread_pool:
+        project: gscrap.projects.projects.Project
         """
 
         self._main_controller = main_controller
@@ -30,9 +30,12 @@ class CaptureTool(tools.Tool):
 
         self._container = main_view.right_frame
 
-        self._records = rcd = records.RecordsController(self._new_video, self._video_open)
+        self._records = rcd = records.RecordsController(
+            project,
+            self._new_video,
+            self._video_open)
 
-        self._recorder = recorder = recording.RecordingController()
+        self._recorder = recorder = recording.RecordingController(project)
 
         #todo: set a video filter
         self._navigator = navigator = navigation.NavigationController(
@@ -83,8 +86,8 @@ class CaptureTool(tools.Tool):
     def get_view(self, container):
         return self._window_controller.start(container)
 
-    def start_tool(self, project):
-        self._records.set_project(project)
+    def start_tool(self, scene):
+        self._records.set_scene(scene)
 
     def clear_tool(self):
         #todo: clear any loaded data

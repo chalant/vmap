@@ -14,7 +14,7 @@ _GET_FILTER_GROUP = text(
         ON labels_filters.filter_group = filter_groups.group_id
     WHERE labels_filters.label_type =:label_type 
         AND labels_filters.label_name =:label_name
-        AND labels_filters.project_name =:project_name
+        AND labels_filters.scene_name =:scene_name
     ''')
 
 _REMOVE_LABEL_FROM_GROUP = text(
@@ -23,7 +23,7 @@ _REMOVE_LABEL_FROM_GROUP = text(
     WHERE labels_filters.label_type =:label_type 
         AND labels_filters.label_name =:label_name 
         AND labels_filters.filter_group =:group_id
-        AND labels_filters.project_name =:project_name
+        AND labels_filters.scene_name =:scene_name
     ''')
 
 _STORE_FILTER_GROUP = text(
@@ -54,7 +54,7 @@ _UPDATE_LABEL_FILTERS_GROUP = text(
     SET filter_group=:group_id
     WHERE labels_filters.label_name=:label_name
         AND labels_filters.label_type=:label_type
-        AND labels_filters.project_name=:project_name
+        AND labels_filters.scene_name=:scene_name
     ''')
 
 _GET_GROUPS = text(
@@ -88,9 +88,9 @@ _DELETE_FILTER = text(
 
 _STORE_FILTER_LABEL = text(
     '''
-    INSERT OR REPLACE 
-    INTO labels_filters(filter_group, label_type, label_name, parameter_id, project_name)
-    VALUES (:filter_group, :label_type, :label_name, :parameter_id, :project_name)
+    INSERT OR IGNORE
+    INTO labels_filters(filter_group, label_type, label_name, parameter_id, scene_name)
+    VALUES (:filter_group, :label_type, :label_name, :parameter_id, :scene_name)
     ''')
 
 _ADD_PARAMETER_ID = text(
@@ -111,7 +111,7 @@ _UPDATE_LABEL_FILTERS_PARAM_ID = text(
     SET parameter_id=:parameter_id
     WHERE labels_filters.label_name=:label_name
         AND labels_filters.label_type=:label_type
-        AND labels_filters.project_name=:project_name
+        AND labels_filters.scene_name=:scene_name
     ''')
 
 _PARAMETER_QUERY = """
@@ -183,14 +183,14 @@ def update_filter_labels_parameter_id(
         connection,
         label_name,
         label_type,
-        project_name,
+        scene_name,
         parameter_id):
 
     connection.execute(
         _UPDATE_LABEL_FILTERS_PARAM_ID,
         label_name=label_name,
         label_type=label_type,
-        project_name=project_name,
+        scene_name=scene_name,
         parameter_id=parameter_id
     )
 
@@ -198,30 +198,30 @@ def update_filter_labels_group(
         connection,
         label_name,
         label_type,
-        project_name,
+        scene_name,
         group_id):
 
     connection.execute(
         _UPDATE_LABEL_FILTERS_GROUP,
         label_name=label_name,
         label_type=label_type,
-        project_name=project_name,
+        scene_name=scene_name,
         group_id=group_id)
 
-def remove_label_from_group(connection, label_name, label_type, project_name):
+def remove_label_from_group(connection, label_name, label_type, scene_name):
     return connection.execute(
         _REMOVE_LABEL_FROM_GROUP,
         label_type=label_type,
         label_name=label_name,
-        project_name=project_name
+        scene_name=scene_name
     )
 
-def get_filter_group(connection, label_name, label_type, project_name):
+def get_filter_group(connection, label_name, label_type, scene_name):
     return connection.execute(
         _GET_FILTER_GROUP,
         label_type=label_type,
         label_name=label_name,
-        project_name=project_name
+        scene_name=scene_name
     ).first()
 
 def store_filter_group(connection, group_id):
@@ -235,7 +235,7 @@ def store_filter_labels(
         label_type,
         label_name,
         parameter_id,
-        project_name):
+        scene_name):
 
     connection.execute(
         _STORE_FILTER_LABEL,
@@ -243,7 +243,7 @@ def store_filter_labels(
         label_type=label_type,
         label_name=label_name,
         parameter_id=parameter_id,
-        project_name=project_name
+        scene_name=scene_name
     )
 
 def get_filter_parameters(connection, filter_, group, parameter_id):

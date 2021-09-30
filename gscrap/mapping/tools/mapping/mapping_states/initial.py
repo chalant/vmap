@@ -3,7 +3,8 @@ from functools import partial
 
 import tkinter as tk
 
-from gscrap.data import engine
+from gscrap.projects import scenes
+
 from gscrap.data.rectangles import rectangle_labels as rct_lbl
 
 
@@ -63,7 +64,7 @@ class Initial(object):
 
                 dct = defaultdict(list)
 
-                with engine.connect() as connection:
+                with scenes.connect(self._mapper.scene) as connection:
                     for label in rct_lbl.get_rectangle_labels(connection, rct.rectangle):
                         dct[label.label_type].append(label)
 
@@ -146,7 +147,7 @@ class Initial(object):
         self._labels[label_type].append(labels.add_label(label_name, label_type))
 
     def _on_set_label(self):
-        project = self._mapper._project
+        scene = self._mapper.scene
 
         x, y = self._clicked
 
@@ -157,13 +158,13 @@ class Initial(object):
 
         dct = self._labels
 
-        with engine.connect() as connection:
-            for lt in project.get_label_types(connection):
+        with scene.connect() as connection:
+            for lt in scene.get_label_types(connection):
                 lbm = tk.Menu(types, tearoff=False)
                 types.add_cascade(label=lt, menu=lbm)
 
                 assigned = set(label.label_name for label in dct[lt])
-                names = set(lb["label_name"] for lb in project.get_labels_of_type(connection, lt))
+                names = set(lb["label_name"] for lb in scene.get_labels_of_type(connection, lt))
 
                 #only display unassigned labels
                 for lb in names.difference(assigned):
@@ -193,7 +194,7 @@ class Initial(object):
         types_menu.tk_popup(x, y)
 
     def _remove_label(self, label):
-        with engine.connect() as connection:
+        with scenes.connect(self._mapper.scene) as connection:
             label.delete(connection)
 
     def _on_draw(self):

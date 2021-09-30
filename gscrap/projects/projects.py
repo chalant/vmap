@@ -1,16 +1,12 @@
-import os
-from os import path
-from functools import partial
+from os import path, listdir, mkdir
 
-from PIL import Image
+from sqlalchemy import text, engine, MetaData
 
-from sqlalchemy import text
+from gscrap.projects.scenes import scenes
+from gscrap.projects import schema
 
-from gscrap.data import engine, paths
-from gscrap.data.rectangles import rectangles
-from gscrap.data import io
+from gscrap.data import builder
 from gscrap.data.images import videos as vds
-from gscrap.data.images import images as img
 
 _GET_LEAF_PROJECT_TYPES = text(
     """
@@ -105,175 +101,131 @@ _ADD_IMAGE = text(
     """
 )
 
-class Project(object):
-    def __init__(self, name, type_, width=None, height=None):
-        self._name = name
-        self._type = type_
+_GET_SCENE = text(
+    """
+    SELECT * FROM project_scenes
+    WHERE scene_name=:scene_name
+    """
+)
 
-        self._width = width
-        self._height = height
+_PROJECT = None
+
+def set_project(working_directory):
+    global _PROJECT
+
+    if not _PROJECT:
+        _PROJECT = Project(working_directory)
+
+def get_project():
+    global _PROJECT
+
+    if not _PROJECT:
+        raise RuntimeError("Project was not set")
+
+    return _PROJECT
+
+def connect():
+    return _PROJECT.connect()
+
+def make_directory(path):
+    try:
+        mkdir(path)
+    except FileExistsError:
+        pass
+
+class Project(object):
+    _instance = None
+
+    def __init__(self, working_directory):
+        self.working_dir = working_directory
+        self.namespace = {}
+
+        self._scenes = {}
 
         self._update = False
 
-        self._template_path = path.join(paths.templates(), name)
+        self._engine = eng = engine.create_engine(
+            "sqlite:////{}".format(path.join(
+                self.working_dir,
+                "meta.db")))
 
-        def null_callback(data):
-            pass
+        self._meta = meta = MetaData()
 
-        self._update_callback = null_callback
-        self._template_callback = null_callback
+        schema.build_schema(meta)
+        meta.create_all(eng)
 
-    @property
-    def name(self):
-        return self._name
+    def connect(self):
+        return self._engine.connect()
 
-    @name.setter
-    def name(self, value):
-        self._name = value
-        self._update = True
+    def load_scene(self, scene_name):
+        scene = scenes.get_scene(self, scene_name)
 
-    @property
-    def project_type(self):
-        return self._type
+        #load scene and set dimensions.
+        with scene.connect() as connection:
+            scene = scenes.get_scene(self, scene_name)
+            dimensions = scenes.get_scene_dimensions(connection, scene)
+            scene.set_dimensions(dimensions)
 
-    @project_type.setter
-    def project_type(self, value):
-        self._type = value
-        self._update = True
+            #rebuild label data in case label schema changed
+            # todo: should use git to check for changes before rebuilding
 
-    @property
-    def width(self):
-        return self._width
+            self._build_label_data(
+                connection,
+                scene,
+                get_schema_name(connection, scene_name))
 
-    @width.setter
-    def width(self, value):
-        self._width = value
+        return scene
 
-    @property
-    def height(self):
-        return self._height
+    def create_scene(self, scene_name, schema_name):
 
-    @height.setter
-    def height(self, value):
-        self._height = value
+        scene = scenes.get_scene(self, scene_name)
+        pth = path.join(self.working_dir, 'scenes', scene_name)
 
-    def _get_labels(self, connection, project_type, label_type):
-        row = connection.execute(_GET_PROJECT_TYPE, project_type=project_type).fetchone()
+        scenes.create_tables(scene)
 
-        parent = row["parent_project_type"]
+        make_directory(pth)
+        make_directory(path.join(pth, 'images'))
 
-        for lt in connection.execute(_GET_LABEL, project_type=project_type):
-            if lt["label_type"] == label_type:
-                yield lt
+        with scene.connect() as connection:
+            self._build_label_data(connection, scene, schema_name)
 
-        for cmp in connection.execute(_GET_PROJECT_TYPE_COMPONENTS, project_type=project_type):
-            for element in self._get_labels(connection, cmp["component_project_type"], label_type):
-                yield element
+        return scene
 
-        while parent != None:
-            for element in self._get_labels(connection, parent, label_type):
-                yield element
+    def get_build_function(self, schema_name):
+        schema_path = path.join(self.working_dir, 'schemas', schema_name + '.py')
+        namespace = self.namespace
 
-            parent = connection.execute(_GET_PROJECT_TYPE, project_type=parent).fetchone()["parent_project_type"]
+        with open(schema_path, 'r') as f:
+            code = compile(f.read(), schema_path, 'exec')
+            exec(code, namespace)
 
-    def get_rectangles(self, connection):
-        return rectangles.get_rectangles(connection, self.name)
+        return namespace.get('build')
 
-    def create_rectangle(self, width, height):
-        return rectangles.create_rectangle(width, height, self.name)
+    def _build_label_data(self, connection, scene, schema_name):
+        with builder.build(connection, self, scene.name) as bld:
+            self.get_build_function(schema_name)(bld)
 
-    def get_label_types(self, connection):
-        for row in connection.execute(_GET_LABEL_TYPES):
-            yield row["label_type"]
+    def get_scene_schemas(self):
+        for element in listdir(path.join(self.working_dir, 'schemas')):
+            if element.endswith(".py"):
+                yield element.split(".")[0]
 
-    def get_labels_of_type(self, connection, label_type):
-        for element in self._get_labels(connection, self.project_type, label_type):
-            yield element
-
-    def get_label_instances(self, connection, label_name, label_type):
-        for element in connection.execute(
-                _GET_LABEL_INSTANCES,
-                label_name=label_name,
-                label_type=label_type):
-            yield element
-
-    def get_image_metadata(self, connection, instance_id):
-        for element in connection.execute(
-                _GET_IMAGE_PATHS,
-                project_name=self.name,
-                r_instance_id=instance_id):
-            yield element
+    def get_scene_names(self, connection):
+        return scenes.get_scene_names(connection)
 
     def get_video_metadata(self, connection):
-        return vds.get_metadata(connection, self.name)
+        vds.get_metadata(connection)
 
-    def get_label_components(self, connection, label_id):
-        pass
+    def __new__(cls, working_directory):
+        if cls._instance is None:
+            ist = Project(working_directory)
+            cls._instance = ist
+            return ist
+        else:
+            return cls._instance
 
-    def save(self, connection):
-        connection.execute(
-            _ADD_PROJECT,
-            project_name=self.name,
-            project_type=self.project_type,
-            width=self.width,
-            height=self.height)
-
-    def delete(self, connection):
-
-        name = self.name
-
-        connection.execute(
-            _DELETE_PROJECT,
-            project_name=name)
-
-        #delete all elements related to the project
-        vds.delete_for_project(connection, name)
-
-        io.execute(self._delete_template)
-
-    def _delete_template(self):
-        tp = self._template_path
-
-        if path.exists(tp):
-            os.remove(tp)
-
-    def store_template(self, image):
-        io.execute(partial(self._store_template, image=image))
-
-    def load_template(self, callback, on_error):
-        io.execute(partial(self._load_image, callback=callback, on_error=on_error))
-
-    def template_update(self, callback):
-        self._template_callback = callback
-
-    def _load_image(self, callback, on_error):
-        try:
-            # with open(self._template_path) as f:
-            callback(Image.open(self._template_path, formats=("PNG",)))
-        except FileNotFoundError as e:
-            on_error(e)
-
-    def _store_template(self, image):
-        image.save(self._template_path, "PNG")
-        self._template_callback(image)
-
-class Projects(object):
-    def create_project(self, name, type_):
-        return Project(name, type_)
-
-    def open_project(self, project_name):
-        with engine.connect() as con:
-            row = con.execute(_GET_PROJECT, project_name=project_name).fetchone()
-            return Project(
-                row["project_name"],
-                row["project_type"],
-                row["width"],
-                row["height"])
-
-    def get_project_names(self, connection):
-        for row in connection.execute(_GET_PROJECTS):
-            yield row["project_name"]
-
-    def get_project_types(self, connection):
-        for row in connection.execute(_GET_LEAF_PROJECT_TYPES):
-            yield row["project_type"]
+def get_schema_name(connection, scene_name):
+    return connection.execute(
+        _GET_SCENE,
+        scene_name=scene_name
+    )['schema_name']

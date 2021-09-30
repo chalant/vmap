@@ -4,21 +4,20 @@ from concurrent import futures
 
 from PIL import ImageTk, Image
 
-import gscrap.mapping.view as vw
-
 from gscrap.image_capture import capture_loop as cl
 
-from gscrap.mapping.tools import tools
+import gscrap.mapping.menu as mn
+import gscrap.mapping.view as vw
 
+from gscrap.mapping.tools import tools
+from gscrap.mapping.tools.capture import capture
 from gscrap.mapping.tools.mapping import mapping
 from gscrap.mapping.tools.detection import detection
-from gscrap.mapping.tools.capture import capture
 from gscrap.mapping.tools.properties import properties
 
-import gscrap.mapping.menu as mn
 
 class MappingController(object):
-    def __init__(self, projects, root, window_selector):
+    def __init__(self, project, root, window_selector):
         self._thread_pool = pool = futures.ThreadPoolExecutor(10)
 
         self._view = mv = vw.MainView(root, self)
@@ -26,10 +25,9 @@ class MappingController(object):
         mv.mapping_button["state"] = tk.DISABLED
 
         self._mapping_tool = mapping.MappingTool(root)
-        self._projects = projects
 
-        self._menu = menu = mn.MenuBar(root, self, projects)
-        self._menu_controller = mn.MenuBarController(menu, projects)
+        self._menu = menu = mn.MenuBar(root, self, project)
+        self._menu_controller = mn.MenuBarController(menu, project)
 
         # main states
         self._window_selector = window_selector
@@ -39,7 +37,7 @@ class MappingController(object):
 
         self._tools = tls = tools.ToolsController(mv.right_frame)
         self._detection_tool = dtc = detection.DetectionTool(mv)
-        self._capture_tool = cpt = capture.CaptureTool(mv, self, pool)
+        self._capture_tool = cpt = capture.CaptureTool(mv, self, project)
         self._properties_tool = ppt = properties.Properties(mv)
 
         tls.add_tool(dtc, "Detection")
@@ -52,7 +50,7 @@ class MappingController(object):
 
         cpt.add_video_reader(dtc)
 
-        self._project = None
+        self._scene = None
 
         self._template = None
 
@@ -76,7 +74,7 @@ class MappingController(object):
             # the mapping dict to the detection tool dict and reload from memory
             # instead of files.
             self._detection_tool.clear_tool()
-            self._detection_tool.start_tool(self._project)
+            self._detection_tool.start_tool(self._scene)
 
 
 
@@ -93,12 +91,12 @@ class MappingController(object):
             self._mapping_active = True
 
 
-    def project_update(self, project):
+    def scene_update(self, scene):
         """
 
         Parameters
         ----------
-        project: gscrap.projects.Project
+        scene: gscrap.projects.scenes._Scene
 
         Returns
         -------
@@ -114,11 +112,11 @@ class MappingController(object):
             view.display(template)
 
             # self._detection_tool.start_tool(project)
-            self._tools.set_project(project)
+            self._tools.set_scene(scene)
 
             #initialize mapping tool
             mapping_tool.set_template(template)
-            mapping_tool.set_project(project)
+            mapping_tool.set_scene(scene)
 
             view.window_selection["state"] = tk.NORMAL
             view.mapping_button["state"] = tk.NORMAL
@@ -126,11 +124,9 @@ class MappingController(object):
         def on_error(error):
             pass
 
-        if project.width: #project has a template
-            #load template image
-            project.load_template(template_load, on_error)
+        scene.load_template(template_load, on_error)
 
-        self._project = project
+        self._scene = scene
 
 
     def template_update(self, image):
@@ -146,20 +142,20 @@ class MappingController(object):
         self._capture_tool.stop()
         self._detection_tool.stop()
 
-    def new_project(self):
+    def new_scene(self):
         # todo:
         #  if there is already an existing project, we need to close it properly
         #  (save it, or create a dialog box to confirm save?)
         #  also, if we're capturing and/or mapping, we need to save and stop everything
 
-        self._menu.new_dialog.start(self.project_update)
+        self._menu.new_dialog.start(self.scene_update)
 
-    def open_project(self):
+    def open_scene(self):
         # todo:
         #  if there is already an existing project, we need to close it properly
         #  (save it, or create a dialog box to confirm save?)
         #  also, if we're capturing and/or mapping, we need to save and stop everything
-        self._menu.open_dialog.start(self.project_update)
+        self._menu.open_dialog.start(self.scene_update)
 
     def window_selection(self):
         #todo: activate image capture tool...
@@ -178,23 +174,23 @@ class MappingController(object):
         def on_selected(event):
             self._window_selected = True
 
-            project = self._project
+            scene = self._scene
 
-            width = project.width
+            width = scene.width
 
             if width:
                 window_selector.resize_window(
                     event.window_id,
                     width,
-                    project.height)
+                    scene.height)
             else:
                 #set project width and height to the captured selected window
-                project.width = event.width
-                project.height = event.height
+                scene.width = event.width
+                scene.height = event.height
 
             #change the values of the window event
-            event.width = int(project.width)
-            event.height = int(project.height)
+            event.width = int(scene.width)
+            event.height = int(scene.height)
 
             #initialize capture tool
             capture_tool.bind_window(event)
@@ -216,7 +212,7 @@ class MappingController(object):
                 "BGRX")
 
             self._template.paste(image)
-            project.store_template(image)
+            scene.store_template(image)
 
         if not self._window_selected:
             # view.container["cursor"] = "target"

@@ -2,7 +2,6 @@ import tkinter as tk
 from uuid import uuid4
 
 from gscrap.data.images import videos as vds
-from gscrap.data import engine
 
 from gscrap.mapping.tools.capture.records import loading
 
@@ -92,7 +91,7 @@ class RecordsView(object):
         return frame
 
 class RecordsController(object):
-    def __init__(self, on_new=None, on_load=None):
+    def __init__(self, project, on_new=None, on_load=None):
         self._view = RecordsView(self)
 
         def null_callback(meta):
@@ -104,12 +103,13 @@ class RecordsController(object):
             self.on_load_confirm,
             294, 300)
 
-        self._project = None
+        self._scene = None
 
         self._load_callback = on_load if on_load else null_callback
         self._new_callback = on_new if on_new else null_callback
 
         self._window = None
+        self._project = project
 
     def view(self):
         return self._view
@@ -170,10 +170,10 @@ class RecordsController(object):
 
         #render window
 
-        loader.load_records(self._project.name, window)
+        loader.load_records(self._scene.project, window)
 
     def _has_videos(self, project):
-        with engine.connect() as connection:
+        with project.connect() as connection:
             try:
                 next(project.get_video_metadata(connection))
                 return True
@@ -184,9 +184,9 @@ class RecordsController(object):
         view = self._view
 
         self._window = window
-        project = self._project
+        scene = self._scene
 
-        if project:
+        if scene:
             view.file_menu.entryconfig("New", state=tk.NORMAL)
 
     def unbind_window(self):
@@ -197,24 +197,23 @@ class RecordsController(object):
         view.file_menu.entryconfig("New", state=tk.DISABLED)
         # view.file_menu.entryconfig("Open", state=tk.DISABLED)
 
-    def set_project(self, project):
-        self._project = project
+    def set_scene(self, scene):
+        self._scene = scene
         view = self._view
 
         if self._window:
             view.file_menu.entryconfig("New", state=tk.NORMAL)
 
-        if self._has_videos(project):
+        if self._has_videos(scene.project):
             view.file_menu.entryconfig("Open", state=tk.NORMAL)
 
     def on_new_confirm(self, video_params):
-        project = self._project
+        scene = self._scene
 
         self._meta = meta = vds.VideoMetadata(
-            project.name,
             uuid4().hex,
             video_params.fps,
-            (int(project.width), int(project.height)))
+            (int(scene.width), int(scene.height)))
 
         # self._recorder = vd.VideoRecorder(
         #     meta,
@@ -223,7 +222,7 @@ class RecordsController(object):
         #     _BUFFER_SIZE)
 
         #save metadata
-        with engine.connect() as connection:
+        with self._project.connect() as connection:
             meta.submit(connection)
 
         self._top_level.destroy()

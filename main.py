@@ -1,14 +1,14 @@
 import tkinter as tk
 
+import click
+
 from gscrap.mapping import controller as ctl
 
-from gscrap.projects import projects as pj
+from gscrap.projects import projects
 
-from gscrap.data import data
+from gscrap.data import paths
 
 from gscrap.tools import window_selection as ws
-
-data.build() #build data
 
 # FONT = ("Mono", 11)
 
@@ -26,9 +26,9 @@ class WindowManager(object):
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
-        self._main = MainWindow(self)
+        self._main = None
         # self._root.wm_minsize(800, 500)
-        self._root.protocol("WM_DELETE_WINDOW", self._on_close)
+        root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     @property
     def container(self):
@@ -38,7 +38,8 @@ class WindowManager(object):
     def root(self):
         return self._root
 
-    def start(self):
+    def start(self, working_dir):
+        self._main = MainWindow(self, working_dir)
         self._root.mainloop()
 
     def exit(self):
@@ -49,7 +50,7 @@ class WindowManager(object):
         self._root.quit()
 
 class MainWindow(object):
-    def __init__(self, manager):
+    def __init__(self, manager, working_dir):
         """
 
         Parameters
@@ -57,15 +58,17 @@ class MainWindow(object):
         manager: WindowManager
         """
 
-
-
         self._manager = manager
 
         root = manager.container
 
-        self._projects = projects = pj.Projects()
+        projects.set_project(working_dir)
+        project = projects.get_project()
+
+        paths.set_project(project)
+
         self._mapping_controller = ctl.MappingController(
-            projects,
+            project,
             root,
             ws.WindowSelector(manager.root))
 
@@ -75,10 +78,18 @@ class MainWindow(object):
     def close(self):
         self._mapping_controller.stop()
 
-#todo: add a cli so that we can run the application in either logging mode, or
-# mapping mode.
-
 MANAGER = WindowManager()
 
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+@click.argument("directory")
+def run(directory):
+    # todo: build schemas from the files by compiling the scripts and injecting the builder
+    # data.build()  # build data
+    MANAGER.start(directory)
+
 if __name__ == '__main__':
-    MANAGER.start()
+    cli()

@@ -1,16 +1,17 @@
 from gscrap.data.rectangles import rectangle_labels
+
 from gscrap.mapping.tools import display
 
 class CaptureZoneFactory(object):
-    def __init__(self, project, siblings):
-        self._project = project
+    def __init__(self, scene, siblings):
+        self._scene = scene
         self._siblings = siblings
 
     def create_instance(self, id_, rectangle_instance):
         return CaptureZone(
             id_,
             rectangle_instance,
-            self._project,
+            self._scene,
             self._siblings)
 
 class CaptureZone(display.DisplayItem):
@@ -18,7 +19,7 @@ class CaptureZone(display.DisplayItem):
             self,
             rid,
             rectangle_instance,
-            project,
+            scene,
             siblings):
 
         """
@@ -26,7 +27,7 @@ class CaptureZone(display.DisplayItem):
         ----------
         rid:int
         rectangle_instance: gscrap.data.rectangles.rectangles.RectangleInstance
-        project: gscrap.projects.projects.Project
+        scene: gscrap.projects.scenes._Scene
         rectangle_labels: gscrap.data.rectangle_labels.RectangleLabels
         """
 
@@ -37,7 +38,7 @@ class CaptureZone(display.DisplayItem):
 
         self._image_item = None
 
-        self._project = project
+        self._scene = scene
 
         self._ltwh = xywh = (
             *self._rectangle_instance.top_left,
@@ -85,8 +86,12 @@ class CaptureZone(display.DisplayItem):
         return self._ltwh
 
     @property
-    def project_name(self):
-        return self._project.name
+    def scene_name(self):
+        return self._scene.name
+
+    @property
+    def scene(self):
+        return self._scene
 
     @property
     def all_bbox(self):
@@ -99,7 +104,7 @@ class CaptureZone(display.DisplayItem):
             self._rectangle_instance.rectangle)
 
     def get_label_instances(self, connection, label_type, label_name):
-        return self._project.get_label_instances(connection, label_name, label_type)
+        return self._scene.get_label_instances(connection, label_name, label_type)
 
     def process_image(self, image):
         """
@@ -126,7 +131,7 @@ class ObservableCaptureZone(CaptureZone):
     def __init__(self,
                  rid,
                  rectangle_instance,
-                 project,
+                 scene,
                  thread_pool,
                  hashes,
                  capture_tool,
@@ -134,7 +139,7 @@ class ObservableCaptureZone(CaptureZone):
         super(ObservableCaptureZone, self).__init__(
             rid,
             rectangle_instance,
-            project,
+            scene,
             thread_pool,
             hashes,
             capture_tool,

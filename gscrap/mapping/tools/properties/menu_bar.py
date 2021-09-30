@@ -1,7 +1,6 @@
 from gscrap.gui import button
 from gscrap.gui import menu_bar
 
-from gscrap.data import engine
 from gscrap.data.properties import properties
 from gscrap.data.rectangles import rectangle_instances as ri
 
@@ -17,6 +16,11 @@ class PropertyValueSaving(button.ButtonController):
 
         self._to_save = {}
         self._to_delete = {}
+
+        self._scene = None
+
+    def set_scene(self, scene):
+        self._scene = scene
 
     def on_value_set(self, rectangle_instance):
         self._to_save.append(rectangle_instance)
@@ -49,7 +53,7 @@ class PropertyValueSaving(button.ButtonController):
         self._button.enable_button()
 
     def _execute(self, button):
-        with engine.connect() as connection:
+        with self._scene.connect() as connection:
             for instance, value in self._to_save.values():
                 properties.add_property_value(
                     connection,

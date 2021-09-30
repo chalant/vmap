@@ -1,25 +1,22 @@
 import tkinter as tk
 
-from gscrap.data import engine
-
-
 class NewScene(object):
     # todo: add Cancel Button
-    def __init__(self, container, projects):
+    def __init__(self, container, project):
         """
 
         Parameters
         ----------
         container
-        projects: models.projects.Projects
-        controller
+        project: gscrap.projects.projects.Project
         """
+
+        self._project = project
         self._container = container
-        self._projects = projects
 
         self._root = None
-        self._project_name = None
-        self._project_type = None
+        self._scene_name = None
+        self._schema_name = None
 
     def start(self, callback):
         self._callback = callback
@@ -43,7 +40,7 @@ class NewScene(object):
         name = tk.Label(root, text="Name")
 
         self._input = tk.StringVar(root)
-        self._project_name = ipt = tk.Entry(root, textvariable=self._input)
+        self._scene_name = ipt = tk.Entry(root, textvariable=self._input)
 
         self._input.trace_add("write", self._on_input)
 
@@ -51,20 +48,22 @@ class NewScene(object):
 
         type_ = tk.Label(root, text="Type")
 
-        self._project_type = var = tk.Variable(root)
+        project = self._project
+
+        self._schema_name = var = tk.Variable(root)
         var.trace_add("write", self._on_input)
 
-        with engine.connect() as connection:
+        with project.connect() as connection:
             menu = tk.OptionMenu(
                 root,
                 var,
-                *self._projects.get_project_types(connection))
+                *list(project.get_scene_schemas()))
 
             menu["width"] = 15
 
-            self._project_names = {
+            self._scene_names = {
                 pj for pj in
-                self._projects.get_project_names(connection)
+                project.get_scene_names(connection)
             }
 
             self._done_btn = done_btn = tk.Button(
@@ -83,9 +82,9 @@ class NewScene(object):
 
     def _on_input(self, t, evt, b):
         ipt = self._input.get()
-        slc = self._project_type.get()
+        slc = self._schema_name.get()
 
-        if ipt not in self._project_names:
+        if ipt not in self._scene_names:
             if ipt and slc:
                 self._done_btn["state"] = "normal"
             else:
@@ -96,28 +95,29 @@ class NewScene(object):
         self._root.destroy()
 
     def _on_done(self):
-        self._callback(self._projects.create_project(
-            self._project_name.get(),
-            self._project_type.get()))
+        self._callback(self._project.create_scene(
+            self._scene_name.get(),
+            self._schema_name.get()))
         self._close()
 
     def _on_cancel(self):
         self._close()
 
 class OpenScene(object):
-    def __init__(self, container, projects):
+    def __init__(self, container, project):
         """
 
         Parameters
         ----------
         container
-        projects: models.projects.Projects
+        project: gscrap.projects.projects.Project
         """
+
         self._container = container
-        self._projects = projects
+        self._project = project
 
         self._root = None
-        self._project_name = None
+        self._scene_name = None
         self._callback = None
 
     def start(self, callback):
@@ -137,12 +137,13 @@ class OpenScene(object):
         h = 100
 
         root.geometry("{}x{}+{}+{}".format(w, h, rx + w, ry + h))
+        project = self._project
 
-        self._project_name = var = tk.Variable(root)
+        self._scene_name = var = tk.Variable(root)
 
         var.trace_add("write", self._on_input)
 
-        with engine.connect() as connection:
+        with project.connect() as connection:
             self._slc_frame = slc_frame = tk.Frame(root)
 
             # name = tk.Label(slc_frame, text="Project")
@@ -150,7 +151,7 @@ class OpenScene(object):
             menu = tk.OptionMenu(
                 slc_frame,
                 var,
-                *self._projects.get_project_names(connection))
+                *project.get_scene_names(connection))
 
             menu["width"] = 15
 
@@ -180,9 +181,9 @@ class OpenScene(object):
             done_btn.pack(side=tk.LEFT)
 
     def _on_done(self):
-        selection = self._project_name.get()
+        selection = self._scene_name.get()
         if selection:
-            self._callback(self._projects.open_project(selection))
+            self._callback(self._project.load_scene(selection))
         self._on_close()
 
     def _on_close(self):
@@ -190,7 +191,7 @@ class OpenScene(object):
         self._root.destroy()
 
     def _on_input(self, t, evt, b):
-        slc = self._project_name.get()
+        slc = self._scene_name.get()
         if slc:
             self._done_btn["state"] = "normal"
         else:

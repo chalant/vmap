@@ -2,10 +2,7 @@ import tkinter as tk
 
 from PIL import Image, ImageTk
 
-from gscrap.rectangles import rectangles
-
 from gscrap.data.images import videos
-from gscrap.data import engine
 
 from gscrap.windows import windows
 from gscrap.windows import factory as fct
@@ -137,7 +134,7 @@ class RecordLoadController(object):
     def view(self):
         return self._view
 
-    def load_records(self, project_name, container):
+    def load_records(self, project, container):
         self._container = container
 
         items = self._items
@@ -155,8 +152,8 @@ class RecordLoadController(object):
 
         self._view.render(container).pack()
 
-        with engine.connect() as connection:
-            for record in videos.get_metadata(connection, project_name):
+        with project.connect() as connection:
+            for record in videos.get_metadata(connection):
                 rv = RecordRowView(record, "record_row:{}".format(index))
                 views.append(rv)
 

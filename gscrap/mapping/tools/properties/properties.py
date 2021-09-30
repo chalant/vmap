@@ -3,7 +3,6 @@ import tkinter as tk
 from gscrap.windows import windows
 from gscrap.windows import factory as wf
 
-from gscrap.data import engine
 from gscrap.data import attributes
 
 from gscrap.data.rectangles import rectangles
@@ -64,7 +63,7 @@ class Properties(tools.Tool):
 
         return frame
 
-    def start_tool(self, project):
+    def start_tool(self, scene):
 
         #load rectangle instances with properties
         canvas = self._canvas
@@ -73,17 +72,18 @@ class Properties(tools.Tool):
         fct = models.PropertyRectangleFactory()
 
         saving = self._saving
+        saving.set_scene(scene)
 
         itc = self._interaction
 
-        itc.width = project.width
-        itc.height = project.height
+        itc.width = scene.width
+        itc.height = scene.height
 
         instances = self._instances
 
         ppt_app_idx = 0
 
-        with engine.connect() as connection:
+        with scene.connect() as connection:
             for property_ in properties.get_properties(connection):
                 count = 0
                 distinct = False

@@ -1,14 +1,14 @@
-from itertools import chain
-
 from sqlalchemy import text
 
-from gscrap.data import engine
+from gscrap.projects import scenes
+
 from gscrap.data.project_types import _ProjectType
 from gscrap.data.labels.labels import _LabelType
 from gscrap.data.labels import labels
 
-from gscrap.data.properties import properties
 from gscrap.data import attributes
+
+from gscrap.data.properties import properties
 from gscrap.data.properties import value_source_factory as vsb
 from gscrap.data.properties.values_sources import values_sources
 from gscrap.data.properties import property_values_source as pvs
@@ -16,18 +16,6 @@ from gscrap.data.properties import property_values_source as pvs
 CLEAR_TABLE = '''
     DROP TABLE IF EXISTS {};
 '''
-
-_PROJECT_TYPES = {}
-_LABEL_TYPES = {}
-_PROPERTY_TYPES = {}
-_PROPERTY_NAMES = {}
-_PROPERTIES = {}
-
-_PROPERTY_ATTRIBUTES = {}
-
-_PROPERTY_VALUE_SOURCES = {}
-
-_VALUES_SOURCES = []
 
 def clear(connection):
     #clear tables
@@ -53,112 +41,85 @@ def clear(connection):
     for name in table_names:
         connection.execute(text(CLEAR_TABLE.format(name)))
 
-def _submit(connection):
-    #create value sources mappings
-
-    values_sources.add_values_source_type(connection, 'input')
-    values_sources.add_values_source_name(connection, 'values_input')
-
-    values_sources.add_values_source_type(connection, 'generator')
-    values_sources.add_values_source_name(connection, 'incremental_generator')
-
-    for vs in _VALUES_SOURCES:
-        values_sources.add_values_source(connection, vs)
-
-    attributes.add_attribute(connection, attributes.DISTINCT)
-    attributes.add_attribute(connection, attributes.GLOBAL)
-
-    for pp in _PROPERTIES.values():
-        properties.add_property_type(connection, pp.property_type)
-        properties.add_property_name(connection, pp.property_name)
-
-    for atr in _PROPERTY_ATTRIBUTES.values():
-        properties.add_property_attribute(connection, atr)
-
-    for vs in _PROPERTY_VALUE_SOURCES.values():
-        pvs.add_property_values_source(
-            connection,
-            vs.property_values_source)
-
-        #save value source instance
-        vs.save(connection)
-
-    for pj in chain(
-        _LABEL_TYPES.values(),
-        _PROJECT_TYPES.values()):
-
-        pj._submit(connection)
-        pj.clear()
-
-def _project_type(name):
-    pj = _ProjectType(name)
-    _PROJECT_TYPES[name] = pj
-    return pj
-
-def _label_type(name):
-    lt = _LabelType(name)
-    _LABEL_TYPES[name] = lt
-    return lt
-
-def _property_(type_, name):
-    ppt = properties.Property(type_, name)
-    if ppt not in _PROPERTIES:
-        _PROPERTIES[ppt] = ppt
-    return ppt
-
-def _add_property_attribute(property_, attribute):
-    atr = properties.PropertyAttribute(property_, attribute)
-    if atr not in _PROPERTY_ATTRIBUTES:
-        _PROPERTY_ATTRIBUTES[atr] = atr
-
 class _Builder(object):
-    def __init__(self):
+    def __init__(self, connection, project, scene):
+        """
+
+        Parameters
+        ----------
+        project: gscrap.projects.projects.Project
+        scene: gscrap.projects.scenes._Scene
+        """
+        self._project = project
+        self._scene = scene
         self._built = False
-        self._to_import = {}
-        self._to_create = {}
+
+        self._connection = connection
+
+        self._project_types = {}
+        self._property_types = {}
+        self._property_names = {}
+        self._properties = {}
+
+        self._label_types = {}
+
+        self._property_attributes = {}
+        self._property_value_sources = {}
+
+        self._values_sources = []
+
+        self._scene_writer = scenes.SceneWriter(scene)
 
     def __enter__(self):
-        with engine.connect() as connection:
-            clear(connection)
-            engine.create_tables(engine._ENGINE, engine._META)
+        clear(self._connection)
 
         return self
 
-    def get_label(self, scene_name, label_name):
-        with engine.connect() as connection:
-            labels.get_label(connection, label_name, scene_name)
+    def scene(self):
+        return self._scene_writer
 
-    def new_scene(self, scene_name):
-        #todo
-        if scene_name not in self._to_create:
-            return self._to_create[scene_name]
+    def get_label(self, schema_name, label_name):
+        connection = self._connection
+        project = self._project
+
+        scene = self._scene
+
+        #build sub-schema
+        with _InnerBuilder(connection, project, scene) as bld:
+            project.get_build_function(schema_name)(bld)
+
+        scenes.map_schema_to_scene(connection, scene.name, schema_name)
+
+        return labels.get_label(connection, label_name, schema_name)
 
     def project_type(self, name):
-        return _project_type(name)
+        return self._project_type(name)
 
     def label_type(self, name):
-        return _label_type(name)
+        return self._label_type(name)
 
     def property_(self, type_, name):
         if type_ not in properties.PROPERTY_TYPES:
             raise ValueError("Property type {} is not supported".format(type_))
-        return _property_(type_, name)
+        return self._property_(type_, name)
 
     def property_attribute(self, property_, attribute):
-        _add_property_attribute(property_, attribute)
+        self._add_property_attribute(property_, attribute)
 
     def incremental_value_generator(self, property_, start=0, increment=1):
-        if not property_ in _PROPERTY_VALUE_SOURCES:
+        _pvs = self._property_value_sources
+
+        if not property_ in _pvs:
             vs = values_sources.ValuesSource(
                 'generator',
                 'incremental_generator',
                 hash((start, increment)))
 
-            _VALUES_SOURCES.append(vs)
+            self._values_sources.append(vs)
 
             ppt_vs = pvs.PropertyValueSource(property_, vs)
 
-            _PROPERTY_VALUE_SOURCES[property_] = vsb.incremental_value_generator(
+            _pvs[property_] = vsb.incremental_value_generator(
                 ppt_vs,
                 start,
                 increment)
@@ -168,37 +129,95 @@ class _Builder(object):
                 "Property {} already assigned to a values source".format(property_))
 
     def input_values(self, property_, values):
-        if not property_ in _PROPERTY_VALUE_SOURCES:
+        _pvs = self._property_value_sources
+
+        if not property_ in _pvs:
             vs = values_sources.ValuesSource(
                 'input',
                 'values_input',
                 hash(str(values)))
 
-            _VALUES_SOURCES.append(vs)
+            self._values_sources.append(vs)
 
             ppt_vs = pvs.PropertyValueSource(property_, vs)
 
-            _PROPERTY_VALUE_SOURCES[property_] = vsb.input_values(values, ppt_vs)
+            _pvs[property_] = vsb.input_values(values, ppt_vs)
         else:
             raise RuntimeError(
                 "Property {} already assigned to a values source".format(property_))
 
+    def _submit(self, connection):
+        # create value sources mappings
+        self._scene_writer.submit(connection)
+
+        values_sources.add_values_source_type(connection, 'input')
+        values_sources.add_values_source_name(connection, 'values_input')
+
+        values_sources.add_values_source_type(connection, 'generator')
+        values_sources.add_values_source_name(connection, 'incremental_generator')
+
+        for vs in self._values_sources:
+            values_sources.add_values_source(connection, vs)
+
+        attributes.add_attribute(connection, attributes.DISTINCT)
+        attributes.add_attribute(connection, attributes.GLOBAL)
+
+        for pp in self._properties.values():
+            properties.add_property_type(connection, pp.property_type)
+            properties.add_property_name(connection, pp.property_name)
+
+        for atr in self._property_attributes.values():
+            properties.add_property_attribute(connection, atr)
+
+        for vs in self._property_value_sources.values():
+            pvs.add_property_values_source(
+                connection,
+                vs.property_values_source)
+
+            # save value source instance
+            vs.save(connection)
+
+        for pj in self._label_types.values():
+            pj._submit(connection)
+            pj.clear()
+
+    def _project_type(self, name):
+        pj = _ProjectType(name)
+        self._project_types[name] = pj
+
+        return pj
+
+    def _label_type(self, name):
+        lt = _LabelType(name)
+        self._label_types[name] = lt
+
+        return lt
+
+    def _add_property_attribute(self, property_, attribute):
+        atr = properties.PropertyAttribute(property_, attribute)
+        property_attributes = self._property_attributes
+
+        if atr not in property_attributes:
+            property_attributes[atr] = atr
+
+    def _property_(self, type_, name):
+        ppt = properties.Property(type_, name)
+        _properties = self._properties
+
+        if ppt not in _properties:
+            _properties[ppt] = ppt
+        return ppt
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self._built:
-            #todo: import and create scenes
-            # if the scene doesn't exist in the database, create it
-            # if the scene ex
-
-            with engine.connect() as connection:
-                for element in self._to_create.values():
-                    #todo: create scene
-                    pass
-
-                _submit(connection)
+            self._submit(self._connection)
         else:
             raise RuntimeError("Schema already built!")
 
-_BUILDER  = _Builder()
+class _InnerBuilder(_Builder):
+    def __enter__(self):
+        #does delete tables.
+        return self
 
-def build():
-    return _BUILDER
+def build(connection, project, scene_name):
+    return  _Builder(connection, project, scene_name)

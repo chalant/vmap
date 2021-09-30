@@ -2,8 +2,6 @@ from datetime import datetime, timedelta
 
 import tkinter as tk
 
-from gscrap.data import engine
-
 from gscrap.image_capture import video_recorder as vd
 
 _BUFFER_SIZE = 10 #10 mb
@@ -70,7 +68,9 @@ class RecordingView(object):
         return frame
 
 class RecordingController(object):
-    def __init__(self, recording_callback=None):
+    def __init__(self, project, recording_callback=None):
+        self._project = project
+
         self._view = RecordingView(self)
 
         self._readers = []
@@ -159,8 +159,8 @@ class RecordingController(object):
             meta.time = view.time.get()
             meta.time = t
 
-            with engine.connect() as connection:
-                meta._submit(connection)
+            with self._project.connect() as connection:
+                meta.submit(connection)
 
             #notify readers with new metadata
             for reader in self._readers:

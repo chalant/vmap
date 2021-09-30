@@ -40,7 +40,7 @@ def load_samples(sample_source, connection):
 
     for meta in im.get_images(
             connection,
-            sample_source.project_name,
+            sample_source.scene_name,
             sample_source._label_type,
             sample_source.label_class):
 

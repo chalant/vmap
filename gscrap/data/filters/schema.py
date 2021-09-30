@@ -25,7 +25,7 @@ def build_schema(meta):
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
         Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
         Column("model_name", String, ForeignKey("models.model_name"), nullable=False),
-        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False)
+        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False)
     )
 
     Table(
@@ -50,7 +50,7 @@ def build_schema(meta):
         Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
         Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
-        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False)
+        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False)
     )
 
     Table(

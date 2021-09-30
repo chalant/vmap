@@ -2,7 +2,6 @@ import tkinter as tk
 
 from collections import defaultdict
 
-from gscrap.data import engine
 from gscrap.data import io
 from gscrap.data.rectangles import rectangles as rct_data, rectangle_labels as rct_labels
 
@@ -21,7 +20,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
         container
         """
         self._container = container
-        self._project = None
+        self.scene = None
         self._img_item = None
         self._canvas = None
         self._root = None
@@ -144,7 +143,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
     def add_rectangle(self, bbox, container_id=None):
         x0, y0, x1, y1 = bbox
 
-        rct = self._project.create_rectangle(x1 - x0, y1 - y0)
+        rct = self.scene.create_rectangle(x1 - x0, y1 - y0)
 
         instances = self._all_instances
 
@@ -185,18 +184,18 @@ class MappingTool(rectangle_utils.RectangleFactory):
             self.canvas.create_rectangle(x, y, x + instance.width, y + instance.height),
             instance)
 
-    def set_project(self, project):
+    def set_scene(self, scene):
         """
 
         Parameters
         ----------
-        project: gscrap.projects.projects.Project
+        project: gscrap.projects.scenes._Scene
 
         Returns
         -------
 
         """
-        self._project = project
+        self.scene = scene
 
     def close(self):
         #todo
@@ -244,14 +243,16 @@ class MappingTool(rectangle_utils.RectangleFactory):
         io.load(self._load_rectangles)
 
     def _load_rectangles(self):
-        with engine.connect() as con:
+        scene = self.scene
+
+        with scene.connect() as con:
             instances = self._all_instances
 
             for instance in rectangles.load_rectangle_instances(
                 con,
                 generators.append_yield(
                     self._rectangles,
-                    self._project.get_rectangles(con)),
+                    scene.get_rectangles(con)),
                     self):
 
                 instances[instance.rid] = instance
@@ -281,7 +282,7 @@ class MappingTool(rectangle_utils.RectangleFactory):
         for inst in all_instances.values():
             dct[inst.rectangle] += 1
 
-        with engine.connect() as conn:
+        with self.scene.connect() as conn:
             for rct in rectangles.remove_rectangle(all_instances, rid):
                 id_ = rct.rid
                 canvas.delete(id_)
@@ -317,18 +318,20 @@ class MappingTool(rectangle_utils.RectangleFactory):
         self._root = None
         self._canvas = None
 
+        scene = self.scene
+
         #submit new rectangles and instances
         if not self._aborted:
             all_instances = self._all_instances
 
-            with engine.connect() as con:
+            with scene.connect() as con:
                 for r in self._rectangles:
                     r.delete(con)
 
                 for wrapper in all_instances.values():
                     wrapper.delete(con)
 
-            with engine.connect() as con:
+            with scene.connect() as con:
                 for r in self._rectangles:
                     r.submit(con)
 

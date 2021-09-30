@@ -13,9 +13,7 @@ _GET_IMAGES = text(
     """
     SELECT *
     FROM images
-    WHERE project_name=:project_name 
-        AND label_name=:label_name 
-        AND label_type=:label_type
+    WHERE label_name=:label_name AND label_type=:label_type
     """
 )
 
@@ -23,8 +21,7 @@ _GET_IMAGE = text(
     """
     SELECT *
     FROM images
-    WHERE project_name=:project_name 
-        AND label_name=:label_name 
+    WHERE label_name=:label_name 
         AND label_type=:label_type 
         AND label_instance_name=:label_instance_name
     """
@@ -33,29 +30,28 @@ _GET_IMAGE = text(
 _ADD_IMAGE_METADATA = text(
     """
     INSERT OR REPLACE 
-    INTO images(image_id, project_name, label_instance_name, label_type, label_name, width, height, rectangle_id)
-    VALUES (:image_id, :project_name, :label_instance_name, :label_type, :label_name, :width, :height, :rectangle_id)
+    INTO images(image_id, label_instance_name, label_type, label_name, width, height, rectangle_id)
+    VALUES (:image_id, :label_instance_name, :label_type, :label_name, :width, :height, :rectangle_id)
     """
 )
 
 _DELETE_IMAGE_METADATA = text(
     """
     DELETE FROM images
-    WHERE image_id=:image_id AND project_name=:project_name
+    WHERE image_id=:image_id
     """
 )
 
-_DELETE_ALL_PROJECT_IMAGES = text(
+_DELETE_ALL_SCENE_IMAGES = text(
     """
     DELETE FROM images
-    WHERE project_name=:project_name
     """
 )
 
 class ImageMetadata(object):
     __slots__ = [
         '_id',
-        '_project_name',
+        '_scene',
         '_label',
         '_image',
         '_width',
@@ -66,14 +62,14 @@ class ImageMetadata(object):
     def __init__(
             self,
             id_,
-            project_name,
+            scene,
             label,
             width,
             height,
             rectangle_id):
 
         self._id = id_
-        self._project_name = project_name
+        self._scene = scene
         self._label = label
         self._height = height
         self._width = width
@@ -97,7 +93,7 @@ class ImageMetadata(object):
 
     @property
     def path(self):
-        return path.join(paths.images(), self._id)
+        return path.join(self._scene.path, 'images', self._id)
 
     @property
     def label(self):
@@ -111,7 +107,7 @@ class ImageMetadata(object):
         connection.execute(
             _ADD_IMAGE_METADATA,
             image_id=self._id,
-            project_name=self._project_name,
+            scene_name=self._scene.name,
             label_type=label["label_type"],
             label_name=label["label_name"],
             label_instance_name=label["instance_name"],
@@ -123,7 +119,7 @@ class ImageMetadata(object):
         connection.execute(
             _DELETE_IMAGE_METADATA,
             image_id=self._id,
-            project_name=self._project_name)
+            scene_name=self._scene.name)
 
         try:
             #remove image from disk
@@ -131,26 +127,25 @@ class ImageMetadata(object):
         except FileNotFoundError:
             pass
 
-def delete_for_project(connection, project_name):
+def delete_for_scene(connection, project_name):
     connection.execute(
-        _DELETE_ALL_PROJECT_IMAGES,
+        _DELETE_ALL_SCENE_IMAGES,
         project_name=project_name)
 
 def get_images(
         connection,
-        project_name,
+        scene,
         label_type,
         label_name):
 
     for im in connection.execute(
             _GET_IMAGES,
-        project_name=project_name,
         label_type=label_type,
         label_name=label_name):
 
         yield ImageMetadata(
             im["image_id"],
-            im["project_name"],
+            scene,
             {'label_name': label_name,
              'label_type': label_type,
              'instance_name': im["label_instance_name"]},
@@ -160,7 +155,7 @@ def get_images(
         )
 
 def create_image_metadata(
-        project_name,
+        scene,
         label_name,
         label_type,
         instance_name,
@@ -169,7 +164,7 @@ def create_image_metadata(
         rectangle_id):
     return ImageMetadata(
         uuid4().hex,
-        project_name,
+        scene,
         {
             'label_name': label_name,
             'label_type': label_type,
@@ -179,17 +174,16 @@ def create_image_metadata(
         height,
         rectangle_id)
 
-def get_image(connection, project_name, label):
+def get_image(connection, scene, label):
     res = connection.execute(
         _GET_IMAGE,
-        project_name=project_name,
         label_type=label['label_type'],
         label_name=label['label_class'],
         label_instance_name=label['instance_name']).first()
 
     return ImageMetadata(
         res['image_id'],
-        res['project_name'],
+        scene,
         {'label_name': res['label_name'],
          'label_type': res['label_type'],
          'instance_name': res['label_instance_name']

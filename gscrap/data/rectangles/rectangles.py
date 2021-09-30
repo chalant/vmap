@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
-from gscrap.data import engine
+from gscrap.projects import scenes
 
 from gscrap.data.rectangles import rectangle_labels as rct_lbl
 from gscrap.data.rectangles import rectangle_images as rct_img
@@ -176,7 +176,7 @@ class RectangleInstance(object):
     def get_components(self):
         components = []
 
-        with engine.connect() as con:
+        with scenes.connect(self.rectangle.scene) as con:
             for row in con.execute(_GET_RECTANGLE_COMPONENTS, r_instance_id=self._id):
                 components.append(row["r_component_id"])
 
@@ -216,21 +216,25 @@ class RectangleInstance(object):
 class Rectangle(object):
     __slots__ = [
         '_id',
-        '_project_name',
+        '_scene',
         '_width',
         '_height'
     ]
 
-    def __init__(self, id_, project_name, width, height):
+    def __init__(self, id_, scene, width, height):
         self._id = id_
-        self._project_name = project_name
+        self._scene = scene
 
         self._width = width
         self._height = height
 
     @property
-    def project_name(self):
-        return self._project_name
+    def scene_name(self):
+        return self._scene.name
+
+    @property
+    def scene(self):
+        return self._scene
 
     @property
     def id(self):
@@ -275,8 +279,7 @@ class Rectangle(object):
             _ADD_RECTANGLE,
             rectangle_id=self._id,
             height=self._height,
-            width=self._width,
-            project_name=self._project_name
+            width=self._width
         )
 
     @property

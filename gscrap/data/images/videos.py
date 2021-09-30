@@ -8,7 +8,6 @@ _GET_VIDEOS_META = text(
     """
     SELECT *
     FROM videos
-    WHERE project_name=:project_name
     """
 )
 
@@ -36,7 +35,6 @@ _DELETE_ALL_PROJECT_VIDEOS = text(
 class VideoMetadata(object):
     __slots__ = (
         'fps',
-        'project_name',
         'video_id',
         '_path',
         'byte_size',
@@ -47,7 +45,6 @@ class VideoMetadata(object):
 
     def __init__(
             self,
-            project_name,
             video_id,
             fps,
             dimensions,
@@ -56,7 +53,6 @@ class VideoMetadata(object):
             frames=0,
             total_time="00:00:00.00"):
 
-        self.project_name = project_name
         self.video_id = video_id
         self.fps = fps
         self.byte_size = byte_size
@@ -77,7 +73,6 @@ class VideoMetadata(object):
         w, h = self.dimensions
         connection.execute(
             _ADD_VIDEO_META,
-            project_name=self.project_name,
             video_id=self.video_id,
             fps=self.fps,
             byte_size=self.byte_size,
@@ -101,10 +96,9 @@ class VideoMetadata(object):
         except FileNotFoundError:
             pass
 
-def get_metadata(connection, project_name):
-    for res in connection.execute(_GET_VIDEOS_META, project_name=project_name):
+def get_metadata(connection):
+    for res in connection.execute(_GET_VIDEOS_META):
         yield VideoMetadata(
-            project_name,
             res['video_id'],
             res['fps'],
             (res['width'], res['height']),

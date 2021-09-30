@@ -1,6 +1,5 @@
 from collections import defaultdict
 
-from gscrap.data import engine
 from gscrap.data.rectangles import rectangle_labels as rl
 
 from gscrap.windows import windows, factory
@@ -83,12 +82,12 @@ class DetectionTool(tools.Tool):
     def get_view(self, container):
         return self._windows_controller.start(container)
 
-    def start_tool(self, project):
+    def start_tool(self, scene):
         """
 
         Parameters
         ----------
-        project: gscrap.projects.projects.Project
+        scene: gscrap.projects.scenes._Scene
 
         Returns
         -------
@@ -97,20 +96,24 @@ class DetectionTool(tools.Tool):
 
         itc = self._interaction
 
-        itc.width = project.width
-        itc.height = project.height
+        sampling = self._sampling
+
+        sampling.set_scene(scene)
+
+        itc.width = scene.width
+        itc.height = scene.height
 
         capture_zones = self._capture_zones
         ins_by_rid = self._instances_by_rectangle_id
 
-        czf = capture.CaptureZoneFactory(project, ins_by_rid)
+        czf = capture.CaptureZoneFactory(scene, ins_by_rid)
 
         self._display = dsp = display.RectangleDisplay(
             self._canvas)
 
         #load capture zones...
-        with engine.connect() as connection:
-            for rct in project.get_rectangles(connection):
+        with scene.connect() as connection:
+            for rct in scene.get_rectangles(connection):
                 cap_labels = [label for label in rl.get_rectangle_labels(connection, rct) if label.capture]
 
                 #create capturable rectangles
@@ -124,7 +127,7 @@ class DetectionTool(tools.Tool):
                         ins_by_rid[zone.rid].append(zone)
 
         #reload all the cleared data
-        self._sampling.load_data()
+        sampling.load_data()
 
         itc.on_left_click(self._on_left_click)
 

@@ -9,7 +9,7 @@ class Tool(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def start_tool(self, project):
+    def start_tool(self, scene):
         raise NotImplementedError
 
     @abstractmethod
@@ -36,6 +36,7 @@ class ToolsController(object):
         self._current_tool = None
 
         self._project = None
+        self._scene = None
 
     def add_tool(self, tool, name):
         view = self._view
@@ -48,8 +49,8 @@ class ToolsController(object):
         root = view.tabs.winfo_toplevel()
         root.wm_minsize(800, frame.winfo_height())
 
-    def set_project(self, project):
-        self._project = project
+    def set_scene(self, scene):
+        self._scene = scene
 
         ct = self._current_tool
 
@@ -57,7 +58,7 @@ class ToolsController(object):
         if ct:
             tool = self._tools[ct]
             tool.clear_tool()
-            tool.start_tool(project)
+            tool.start_tool(scene)
 
     def on_tab_selected(self, event):
         selected = event.widget.select()
@@ -72,9 +73,9 @@ class ToolsController(object):
 
         self._current_tool = name
 
-        project = self._project
+        scene = self._scene
 
         #start tool if a project has been set.
-        if project:
+        if scene:
             #load data etc.
-            tools[name].start_tool(project)
+            tools[name].start_tool(scene)

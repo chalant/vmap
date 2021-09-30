@@ -7,6 +7,8 @@ from sqlalchemy import (
     Table,
     Float)
 
+from gscrap.data.filters import schema as mld
+
 def build_schema(meta):
     # there is a hierarchy with project types (ex: game -> cards -> poker)
     Table(
@@ -36,8 +38,7 @@ def build_schema(meta):
     Table(
         "scenes",
         meta,
-        Column("scene_name", String, primary_key=True),
-
+        Column("scene_name", String, primary_key=True)
     )
 
     Table(
@@ -152,9 +153,8 @@ def build_schema(meta):
         meta,
         Column("rectangle_id", String, primary_key=True),
         Column("height", Integer, nullable=False),
-        Column("width", Integer, nullable=False),
-        # project are per-project
-        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False))
+        Column("width", Integer, nullable=False)
+    )
 
     Table(
         "rectangle_instances",
@@ -204,7 +204,6 @@ def build_schema(meta):
         "images",
         meta,
         Column("image_id", String, primary_key=True),
-        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False),
         # each image is mapped to an instance id
         Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
         Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
@@ -212,20 +211,6 @@ def build_schema(meta):
         Column("width", Integer, nullable=False),
         Column("height", Integer, nullable=False),
         Column("rectangle_id", String, ForeignKey('rectangles.rectangle_id'), nullable=False)
-    )
-
-    Table(
-        "videos",
-        meta,
-        Column("video_id", String, primary_key=True),
-        Column("project_name", String, ForeignKey("projects.project_name"), nullable=False),
-        Column("fps", Integer, nullable=False),
-        Column("byte_size", Integer, nullable=False),
-        Column("width", Integer, nullable=False),
-        Column("height", Integer, nullable=False),
-        Column("mode", String, nullable=False),
-        Column("frames", Integer, nullable=False),
-        Column("total_time", String, nullable=False)
     )
 
     Table(
@@ -270,3 +255,5 @@ def build_schema(meta):
         Column("values", String, nullable=False),
         Column("values_source_id", String, ForeignKey("values_sources.values_source_id"), nullable=False, unique=True)
     )
+
+    mld.build_schema(meta)
