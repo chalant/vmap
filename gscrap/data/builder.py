@@ -1,6 +1,6 @@
 from sqlalchemy import text
 
-from gscrap.projects import scenes
+from gscrap.projects.scenes import scenes
 
 from gscrap.data.project_types import _ProjectType
 from gscrap.data.labels.labels import _LabelType
@@ -52,7 +52,6 @@ class _Builder(object):
         """
         self._project = project
         self._scene = scene
-        self._built = False
 
         self._connection = connection
 
@@ -62,6 +61,7 @@ class _Builder(object):
         self._properties = {}
 
         self._label_types = {}
+        self._labels = {}
 
         self._property_attributes = {}
         self._property_value_sources = {}
@@ -71,7 +71,21 @@ class _Builder(object):
         self._scene_writer = scenes.SceneWriter(scene)
 
     def __enter__(self):
-        clear(self._connection)
+        # clear(self._connection)
+        connection = self._connection
+
+        self._scene_writer.submit(connection)
+        values_sources.add_values_source_type(connection, 'input')
+        values_sources.add_values_source_name(connection, 'values_input')
+
+        values_sources.add_values_source_type(connection, 'generator')
+        values_sources.add_values_source_name(connection, 'incremental_generator')
+
+        for vs in self._values_sources:
+            values_sources.add_values_source(connection, vs)
+
+        attributes.add_attribute(connection, attributes.DISTINCT)
+        attributes.add_attribute(connection, attributes.GLOBAL)
 
         return self
 
@@ -88,9 +102,8 @@ class _Builder(object):
         with _InnerBuilder(connection, project, scene) as bld:
             project.get_build_function(schema_name)(bld)
 
-        scenes.map_schema_to_scene(connection, scene.name, schema_name)
 
-        return labels.get_label(connection, label_name, schema_name)
+        return labels.get_label(connection, label_name, scene.name)
 
     def project_type(self, name):
         return self._project_type(name)
@@ -147,20 +160,7 @@ class _Builder(object):
                 "Property {} already assigned to a values source".format(property_))
 
     def _submit(self, connection):
-        # create value sources mappings
         self._scene_writer.submit(connection)
-
-        values_sources.add_values_source_type(connection, 'input')
-        values_sources.add_values_source_name(connection, 'values_input')
-
-        values_sources.add_values_source_type(connection, 'generator')
-        values_sources.add_values_source_name(connection, 'incremental_generator')
-
-        for vs in self._values_sources:
-            values_sources.add_values_source(connection, vs)
-
-        attributes.add_attribute(connection, attributes.DISTINCT)
-        attributes.add_attribute(connection, attributes.GLOBAL)
 
         for pp in self._properties.values():
             properties.add_property_type(connection, pp.property_type)
@@ -178,7 +178,7 @@ class _Builder(object):
             vs.save(connection)
 
         for pj in self._label_types.values():
-            pj._submit(connection)
+            pj.submit(connection)
             pj.clear()
 
     def _project_type(self, name):
@@ -209,15 +209,12 @@ class _Builder(object):
         return ppt
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if not self._built:
-            self._submit(self._connection)
-        else:
-            raise RuntimeError("Schema already built!")
+        self._submit(self._connection)
 
 class _InnerBuilder(_Builder):
     def __enter__(self):
         #does delete tables.
         return self
 
-def build(connection, project, scene_name):
-    return  _Builder(connection, project, scene_name)
+def build(connection, project, scene):
+    return  _Builder(connection, project, scene)

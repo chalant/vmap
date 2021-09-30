@@ -26,7 +26,7 @@ _DELETE_SCENE = text(
 
 _ADD_SCENE = text(
     """
-    INSERT INTO scenes(scene_name)
+    INSERT OR IGNORE INTO scenes(scene_name)
     VALUES (:scene_name)
     """
 )
@@ -113,8 +113,8 @@ _GET_LABEL = text(
 _SCENES = {}
 
 class SceneWriter(object):
-    def __init__(self, name):
-        self._name = name
+    def __init__(self, scene):
+        self._name = scene.name
         self._labels = []
 
         self._submit_flag = False
@@ -124,7 +124,7 @@ class SceneWriter(object):
         return self._name
 
     def add_label(self, name, type_, max_=None, capture=False, classifiable=False):
-        lbl = labels.LabelWriter(self._name, labels.Label(type_, name), max_, capture, classifiable)
+        lbl = labels.LabelWriter(self._name, labels.Label(type_.name, name), max_, capture, classifiable)
         self._labels.append(lbl)
         return lbl
 
@@ -138,7 +138,7 @@ class SceneWriter(object):
             scene_name=name)
 
         for lbl in labels:
-            lbl._submit(connection)
+            lbl.submit(connection)
 
         labels.clear()
 
@@ -172,7 +172,8 @@ class _Scene(object):
         self._engine = engine.create_engine(
             "sqlite:////{}".format(path.join(
                 self.project.working_dir,
-                "",
+                "scenes",
+                name,
                 "data.db")))
 
         def null_callback(data):
@@ -307,7 +308,7 @@ def create_tables(scene):
 
 def get_scene(project, scene_name):
     if scene_name not in _SCENES:
-        _SCENES[scene_name] = scene = _Scene(scene_name, project)
+        _SCENES[scene_name] = scene = _Scene(project, scene_name)
         return scene
     else:
         return _SCENES[scene_name]

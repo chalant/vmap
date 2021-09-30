@@ -181,12 +181,13 @@ class Project(object):
         scene = scenes.get_scene(self, scene_name)
         pth = path.join(self.working_dir, 'scenes', scene_name)
 
-        scenes.create_tables(scene)
-
         make_directory(pth)
         make_directory(path.join(pth, 'images'))
 
         with scene.connect() as connection:
+            builder.clear(connection)
+            scenes.create_tables(scene)
+
             self._build_label_data(connection, scene, schema_name)
 
         return scene
@@ -202,7 +203,7 @@ class Project(object):
         return namespace.get('build')
 
     def _build_label_data(self, connection, scene, schema_name):
-        with builder.build(connection, self, scene.name) as bld:
+        with builder.build(connection, self, scene) as bld:
             self.get_build_function(schema_name)(bld)
 
     def get_scene_schemas(self):
@@ -218,7 +219,7 @@ class Project(object):
 
     def __new__(cls, working_directory):
         if cls._instance is None:
-            ist = Project(working_directory)
+            ist = super().__new__(cls)
             cls._instance = ist
             return ist
         else:

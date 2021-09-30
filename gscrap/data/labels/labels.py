@@ -9,15 +9,15 @@ from gscrap.data.properties import properties as pp
 
 ADD_LABEL_TYPE = text(
     """
-    INSERT INTO label_types(label_type)
+    INSERT OR IGNORE INTO label_types(label_type)
     VALUES (:label_type)
     """
 )
 
 _ADD_LABEL = text(
     """
-    INSERT OR IGNORE INTO labels(label_id, label_name, label_type, capture, max_instances, total, project_type, classifiable) 
-    VALUES (:label_id, :label_name, :label_type, :capture, :max_instances, :total, :project_type, :classifiable);
+    INSERT OR IGNORE INTO labels(label_id, label_name, label_type, capture, max_instances, total, scene_name, classifiable) 
+    VALUES (:label_id, :label_name, :label_type, :capture, :max_instances, :total, :scene_name, :classifiable);
      """
 )
 
@@ -200,8 +200,8 @@ class LabelWriter(_Element):
         for label in self._components:
             connection.execute(
                 ADD_LABEL_COMPONENTS,
-                label_id,
-                hash(label)
+                label_id=label_id,
+                component_id=hash(label)
             )
 
         for instance in self._instances:
@@ -231,6 +231,6 @@ def get_label(connection, label_name, scene_name):
     res = connection.execute(
         _GET_LABEL,
         label_name=label_name,
-        scene_name=scene_name)
+        scene_name=scene_name).first()
 
     return Label(res['label_type'], res['label_name'])
