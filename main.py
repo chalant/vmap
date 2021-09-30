@@ -87,8 +87,6 @@ def cli():
 @cli.command()
 @click.argument("directory")
 def run(directory):
-    # todo: build schemas from the files by compiling the scripts and injecting the builder
-    # data.build()  # build data
     MANAGER.start(directory)
 
 if __name__ == '__main__':
