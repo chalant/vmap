@@ -188,10 +188,6 @@ def get_components(instances, rct):
         return rct.components
     return instances[rct].components
 
-def load_rectangles(connection, project):
-    for rct in project.get_rectangles(connection):
-        yield rct
-
 def load_rectangle_instances(connection, rectangles, factory):
     """
 

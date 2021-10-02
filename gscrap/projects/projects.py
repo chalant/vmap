@@ -8,21 +8,6 @@ from gscrap.projects import schema
 from gscrap.data import builder
 from gscrap.data.images import videos as vds
 
-_GET_LEAF_PROJECT_TYPES = text(
-    """
-    SELECT * 
-    FROM project_types
-    WHERE has_child=0;
-    """
-)
-
-_DELETE_PROJECT = text(
-    """
-    DELETE FROM projects
-    WHERE project_name=:project_name
-    """
-)
-
 _ADD_PROJECT = text(
     """
     INSERT OR REPLACE INTO projects(project_type, project_name, height, width)
@@ -30,81 +15,23 @@ _ADD_PROJECT = text(
     """
 )
 
-_GET_PROJECTS = text(
-    """
-    SELECT *
-    FROM projects
-    """
-)
-
-_GET_PROJECT = text(
-    """
-    SELECT *
-    FROM projects
-    WHERE project_name=:project_name;
-    """
-)
-
-_GET_LABEL = text(
-    """
-    SELECT *
-    FROM labels
-    WHERE project_type=:project_type;
-    """
-)
-
-_GET_LABEL_TYPES = text(
-    """
-    SELECT *
-    FROM label_types
-    """
-)
-
-_GET_PROJECT_TYPE = text(
-    """
-    SELECT * 
-    FROM project_types
-    WHERE project_type = :project_type;
-    """
-)
-
-_GET_PROJECT_TYPE_COMPONENTS = text(
-    """
-    SELECT *
-    FROM project_types
-    INNER JOIN project_type_components 
-        ON project_type_components.project_type = project_types.project_type
-    WHERE project_types.project_type=:project_type;
-    """
-)
-
-_GET_LABEL_INSTANCES = text(
-    """
-    SELECT *
-    FROM label_instances
-    WHERE label_name=:label_name AND label_type=:label_type
-    """
-)
-
-_GET_IMAGE_PATHS = text(
-    """
-    SELECT *
-    FROM images
-    WHERE project_name=:project_name AND r_instance_id=:r_instance_id
-    """
-)
-
-_ADD_IMAGE = text(
-    """
-    INSERT INTO images(image_id, project_name, label_instance_id, r_instance_id, hash_key, position)
-    VALUES (:image_id, :project_name, :label_instance_id, :r_instance_id, :hash_key, :position)
-    """
-)
-
 _GET_SCENE = text(
     """
     SELECT * FROM project_scenes
     WHERE scene_name=:scene_name
+    """
+)
+
+_GET_SCENES = text(
+    """
+    SELECT * FROM project_scenes
+    """
+)
+
+_ADD_SCENE = text(
+    """
+    INSERT INTO project_scenes(scene_name, schema_name)
+    VALUES (:scene_name, :schema_name)
     """
 )
 
@@ -162,17 +89,18 @@ class Project(object):
 
         #load scene and set dimensions.
         with scene.connect() as connection:
-            scene = scenes.get_scene(self, scene_name)
-            dimensions = scenes.get_scene_dimensions(connection, scene)
-            scene.set_dimensions(dimensions)
+            builder.clear(connection)
+            scenes.create_tables(scene)
+
+            scenes.load_dimensions(connection, scene)
 
             #rebuild label data in case label schema changed
             # todo: should use git to check for changes before rebuilding
-
-            self._build_label_data(
-                connection,
-                scene,
-                get_schema_name(connection, scene_name))
+            with self._engine.connect() as con:
+                self._build_label_data(
+                    connection,
+                    scene,
+                    get_schema_name(con, scene_name))
 
         return scene
 
@@ -189,6 +117,13 @@ class Project(object):
             scenes.create_tables(scene)
 
             self._build_label_data(connection, scene, schema_name)
+
+        with self._engine.connect() as connection:
+            connection.execute(
+                _ADD_SCENE,
+                scene_name=scene_name,
+                schema_name=schema_name
+            )
 
         return scene
 
@@ -212,10 +147,11 @@ class Project(object):
                 yield element.split(".")[0]
 
     def get_scene_names(self, connection):
-        return scenes.get_scene_names(connection)
+        for res in connection.execute(_GET_SCENES):
+            yield res['scene_name']
 
     def get_video_metadata(self, connection):
-        vds.get_metadata(connection)
+        return vds.get_metadata(connection)
 
     def __new__(cls, working_directory):
         if cls._instance is None:
@@ -228,5 +164,4 @@ class Project(object):
 def get_schema_name(connection, scene_name):
     return connection.execute(
         _GET_SCENE,
-        scene_name=scene_name
-    )['schema_name']
+        scene_name=scene_name).first()['schema_name']

@@ -10,8 +10,7 @@ from gscrap.data.rectangles import rectangle_instances as rct_ist
 
 _SELECT_RECTANGLES = text(
     """
-    SELECT * FROM rectangles
-    WHERE scene_name=:scene_name;
+    SELECT * FROM rectangles;
     """
 )
 
@@ -296,8 +295,8 @@ class Rectangle(object):
     def __hash__(self):
         return self._id
 
-def get_rectangles(connection, scene_name):
-    for row in connection.execute(_SELECT_RECTANGLES, scene_name=scene_name):
+def get_rectangles(connection):
+    for row in connection.execute(_SELECT_RECTANGLES):
         yield Rectangle(
             row["rectangle_id"],
             row["project_name"],
@@ -350,6 +349,6 @@ def get_rectangle_instances(connection, rectangle):
             container_id
         )
 
-def delete_for_scene(connection, scene_name):
-    for rectangle in get_rectangles(connection, scene_name):
+def delete_for_scene(connection):
+    for rectangle in get_rectangles(connection):
         rectangle.delete(connection)

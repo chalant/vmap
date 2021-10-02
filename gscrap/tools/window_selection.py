@@ -76,13 +76,16 @@ class WindowSelector(object):
         self._on_selected_callback = null_event_fn
         self._on_error_callback = null_fn
 
-    def start_selection(self, on_selected, on_abort, on_error=None):
+        self._dimensions = None
+
+    def start_selection(self, on_selected, on_abort, on_error=None, dimensions=None):
         # view = self._view
 
         container = self._container
 
         self._on_abort_callback = on_abort
         self._on_selected_callback = on_selected
+        self._dimensions = dimensions
 
         if on_error:
             self._on_error_callback = on_error
@@ -124,15 +127,27 @@ class WindowSelector(object):
     def _on_click(self, event):
         container = self._container
 
+        xdo_ = self._xdo
+
         try:
-            win_id = self._xdo.get_window_at_mouse()
+            win_id = xdo_.get_window_at_mouse()
             container.grab_release()
 
-            self._xdo.activate_window(win_id)
-            self._xdo.wait_for_window_active(win_id)
+            xdo_.activate_window(win_id)
+            xdo_.wait_for_window_active(win_id)
 
             dsp = Xlib.display.Display()
             root = dsp.screen().root
+
+            dimensions = self._dimensions
+
+            if dimensions:
+                width = int(dimensions.width)
+                height = int(dimensions.height)
+
+                xdo_.set_window_size(win_id, width, height)
+
+                libxdo.xdo_wait_for_window_size(xdo_._xdo, win_id, width, height, 0, 0)
 
             self._on_selected_callback(WindowSelectionEvent(
                 get_absolute_geometry(root, get_active_window(dsp, root)),

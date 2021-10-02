@@ -1,5 +1,7 @@
 import tkinter as tk
 
+import threading
+
 class NewScene(object):
     # todo: add Cancel Button
     def __init__(self, container, project):
@@ -91,14 +93,22 @@ class NewScene(object):
                 self._done_btn["state"] = "disabled"
 
     def _close(self):
-        self._root.grab_release()
-        self._root.destroy()
+        root = self._root
+
+        root.grab_release()
+        root.destroy()
 
     def _on_done(self):
-        self._callback(self._project.create_scene(
-            self._scene_name.get(),
-            self._schema_name.get()))
+        threading.Thread(
+            target=self._create_scene,
+            args=(self._scene_name.get(), self._schema_name.get())).start()
+
         self._close()
+
+    def _create_scene(self, scene_name, schema_name):
+        self._callback(self._project.create_scene(
+            scene_name,
+            schema_name))
 
     def _on_cancel(self):
         self._close()
@@ -183,8 +193,12 @@ class OpenScene(object):
     def _on_done(self):
         selection = self._scene_name.get()
         if selection:
-            self._callback(self._project.load_scene(selection))
+            threading.Thread(target=self._load_scene, args=(selection,)).start()
+
         self._on_close()
+
+    def _load_scene(self, scene_name):
+        self._callback(self._project.load_scene(scene_name))
 
     def _on_close(self):
         self._root.grab_release()

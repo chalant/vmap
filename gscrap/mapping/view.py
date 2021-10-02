@@ -105,6 +105,8 @@ class MainView(object):
         self.width = None
         self.height = None
 
+        self.img_item = None
+
     # def _on_resize(self, event):
     #     self._state.on_resize(event)
 
@@ -120,6 +122,10 @@ class MainView(object):
 
     def _on_y_scroll(self, *args):
         self.canvas.yview(*args)
+
+    def clear(self):
+        if self.img_item:
+            self.canvas.delete(self.img_item)
 
     def display(self, image):
         canvas = self.canvas

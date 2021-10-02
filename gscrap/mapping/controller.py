@@ -1,8 +1,8 @@
 import tkinter as tk
 
-from concurrent import futures
-
 from PIL import ImageTk, Image
+
+from gscrap.projects.scenes import scenes
 
 from gscrap.image_capture import capture_loop as cl
 
@@ -18,8 +18,6 @@ from gscrap.mapping.tools.properties import properties
 
 class MappingController(object):
     def __init__(self, project, root, window_selector):
-        self._thread_pool = pool = futures.ThreadPoolExecutor(10)
-
         self._view = mv = vw.MainView(root, self)
 
         mv.mapping_button["state"] = tk.DISABLED
@@ -116,9 +114,7 @@ class MappingController(object):
 
             #initialize mapping tool
             mapping_tool.set_template(template)
-            mapping_tool.set_scene(scene)
 
-            view.window_selection["state"] = tk.NORMAL
             view.mapping_button["state"] = tk.NORMAL
 
         def on_error(error):
@@ -126,8 +122,12 @@ class MappingController(object):
 
         scene.load_template(template_load, on_error)
 
-        self._scene = scene
+        self._tools.set_scene(scene)
+        mapping_tool.set_scene(scene)
 
+        view.window_selection["state"] = tk.NORMAL
+
+        self._scene = scene
 
     def template_update(self, image):
         self._template.paste(image)
@@ -148,17 +148,38 @@ class MappingController(object):
         #  (save it, or create a dialog box to confirm save?)
         #  also, if we're capturing and/or mapping, we need to save and stop everything
 
-        self._menu.new_dialog.start(self.scene_update)
+        self._menu.new_dialog.start(self._reset)
 
     def open_scene(self):
         # todo:
         #  if there is already an existing project, we need to close it properly
         #  (save it, or create a dialog box to confirm save?)
         #  also, if we're capturing and/or mapping, we need to save and stop everything
-        self._menu.open_dialog.start(self.scene_update)
+
+        self._menu.open_dialog.start(self._reset)
+
+    def _reset(self, scene):
+        template = self._template
+
+        if template:
+            view = self._view
+
+            view.window_selection["text"] = "Select Window"
+            view.window_selection["state"] = tk.DISABLED
+
+            view.mapping_button["state"] = tk.DISABLED
+
+            self.stop()
+
+            self._view.clear()
+            self._template = None
+
+        self.scene_update(scene)
 
     def window_selection(self):
         #todo: activate image capture tool...
+
+        scene = self._scene
 
         view = self._view
         window_selector = self._window_selector
@@ -174,23 +195,12 @@ class MappingController(object):
         def on_selected(event):
             self._window_selected = True
 
-            scene = self._scene
-
             width = scene.width
 
-            if width:
-                window_selector.resize_window(
-                    event.window_id,
-                    width,
-                    scene.height)
-            else:
-                #set project width and height to the captured selected window
+            if not width:
+                # set project width and height to the captured selected window
                 scene.width = event.width
                 scene.height = event.height
-
-            #change the values of the window event
-            event.width = int(scene.width)
-            event.height = int(scene.height)
 
             #initialize capture tool
             capture_tool.bind_window(event)
@@ -211,20 +221,51 @@ class MappingController(object):
                 "raw",
                 "BGRX")
 
-            self._template.paste(image)
+            template = self._template
+
+            if template:
+                template.paste(image)
+            else:
+
+                # template doesn't exist so save it
+                # and use dimensions as default dimensions
+
+                template = ImageTk.PhotoImage(image)
+                self._template = template
+
+                self._view.display(template)
+
+                with scene.connect() as connection:
+                    scenes.set_dimensions(
+                        connection,
+                        scene,
+                        image.width,
+                        image.height)
+
+            self._mapping_tool.set_template(template)
+
             scene.store_template(image)
+
 
         if not self._window_selected:
             # view.container["cursor"] = "target"
+            width = scene.width
 
-            window_selector.start_selection(
-                on_selected,
-                on_abort,
-                on_error)
+            if width:
+                #resize the window after selection
+                window_selector.start_selection(
+                    on_selected,
+                    on_abort,
+                    on_error,
+                    scene
+                )
+            else:
+                window_selector.start_selection(
+                    on_selected,
+                    on_abort,
+                    on_error)
 
         else:
-            # view.capture_button["state"] = tk.DISABLED
-            # view.capture_button["text"] = "Start Capture"
 
             view.window_selection["text"] = "Select Window"
             view.window_selection["state"] = tk.NORMAL

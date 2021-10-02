@@ -1,21 +1,16 @@
 import os
+from functools import partial
 from os import path
 
-from functools import partial
-
 from PIL import Image
-
 from sqlalchemy import text, exc, engine, MetaData
 
-from gscrap.projects.scenes import schema
-
 from gscrap.data import io
-from gscrap.data import paths
-
 from gscrap.data.images import images as img
-
-from gscrap.data.rectangles import rectangles
 from gscrap.data.labels import labels
+from gscrap.data.rectangles import rectangles
+
+from gscrap.projects.scenes import schema
 
 _DELETE_SCENE = text(
     """
@@ -143,10 +138,12 @@ class SceneWriter(object):
         labels.clear()
 
 class SceneDimensions(object):
-    def __init__(self, scene, height=None, width=None):
+    def __init__(self, scene, height=0, width=0):
         self.height = height
         self.width = width
         self._scene = scene
+
+        scene.set_dimensions(self)
 
     def save(self, connection):
         width = self.width
@@ -165,7 +162,11 @@ class _Scene(object):
         self.project = project
         self.name = name
 
-        self._template_path = paths.templates()
+        self._template_path = path.join(
+            project.working_dir,
+            'scenes',
+            name,
+            'template')
 
         self._dimensions = None
 
@@ -260,7 +261,7 @@ class _Scene(object):
         io.execute(self._delete_template)
 
     def get_rectangles(self, connection):
-        return rectangles.get_rectangles(connection, self.name)
+        return rectangles.get_rectangles(connection)
 
     def create_rectangle(self, width, height):
         return rectangles.create_rectangle(width, height, self.name)
@@ -301,6 +302,9 @@ class _Scene(object):
         image.save(self._template_path, "PNG")
         self._template_callback(image)
 
+        self.width = image.width()
+        self.height = image.height()
+
 def create_tables(scene):
     meta = MetaData()
     schema.build_schema(meta)
@@ -313,13 +317,19 @@ def get_scene(project, scene_name):
     else:
         return _SCENES[scene_name]
 
-def get_scene_dimensions(connection, scene):
+def load_dimensions(connection, scene):
     res = connection.execute(
         _GET_SCENE_SIZE,
         scene_name=scene.name
-    )
+    ).first()
 
-    return SceneDimensions(scene, res["height"], res["width"])
+    if res:
+        SceneDimensions(scene, res["height"], res["width"])
+    else:
+        SceneDimensions(scene)
+
+def set_dimensions(connection, scene, width, height):
+    SceneDimensions(scene, width, height).save(connection)
 
 def get_scene_names(connection):
     try:

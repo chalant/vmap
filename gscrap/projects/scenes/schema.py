@@ -10,31 +10,6 @@ from sqlalchemy import (
 from gscrap.data.filters import schema as mld
 
 def build_schema(meta):
-    # there is a hierarchy with project types (ex: game -> cards -> poker)
-    Table(
-        "project_types",
-        meta,
-        Column("project_type", String, primary_key=True),
-        Column("parent_project_type", String, ForeignKey("project_types.project_type")),
-        Column("has_child", Boolean, default=False)
-    )
-
-    Table(
-        "project_type_components",
-        meta,
-        Column("project_type", String, ForeignKey("project_types.project_type"), nullable=False),
-        Column("component_project_type", String, ForeignKey("project_types.project_type"), nullable=False)
-    )
-
-    Table(
-        "projects",
-        meta,
-        Column("project_type", String, ForeignKey("project_types.project_type"), nullable=False),
-        Column("project_name", String, primary_key=True),
-        Column("height", Float(32), nullable=False),
-        Column("width", Float(32), nullable=False)
-    )
-
     Table(
         "scenes",
         meta,
@@ -44,7 +19,7 @@ def build_schema(meta):
     Table(
         "scenes_sizes",
         meta,
-        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False),
+        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False, unique=True),
         Column("height", Float(32), nullable=False),
         Column("width", Float(32), nullable=False)
     )

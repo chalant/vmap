@@ -9,7 +9,7 @@ def build_schema(meta):
         'project_scenes',
         meta,
         Column('scene_name', String, primary_key=True),
-        Column('schema_name', String, nullable=False, unique=True)
+        Column('schema_name', String, nullable=False)
     )
 
     Table(
