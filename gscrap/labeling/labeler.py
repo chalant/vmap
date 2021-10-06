@@ -11,7 +11,7 @@ class Labeler(object):
 
         Parameters
         ----------
-        labeling_model: AbstractLabeling
+        labeling_model: labeling.AbstractLabeling
 
         Returns
         -------

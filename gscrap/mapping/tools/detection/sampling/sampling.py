@@ -286,7 +286,7 @@ class SamplingController(object):
                 # comparator = self._dlc
                 self._labeling = lb = mdl.get_labeling_model(
                     'difference_matching',
-                    label_group._label_type) if not labeling else labeling
+                    label_group.label_type) if not labeling else labeling
 
                 threshold = lb.threshold
 
