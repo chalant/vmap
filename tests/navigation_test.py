@@ -1,1 +1,0 @@
-from gscrap.mapping.tools.capture import capture
