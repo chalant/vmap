@@ -1,6 +1,6 @@
-import tkinter as tk
+import os
 
-import click
+import tkinter as tk
 
 from gscrap.mapping import controller as ctl
 
@@ -48,6 +48,7 @@ class WindowManager(object):
     def _on_close(self):
         self._main.close()
         self._root.quit()
+        self._root.destroy()
 
 class MainWindow(object):
     def __init__(self, manager, working_dir):
@@ -79,14 +80,8 @@ class MainWindow(object):
 
 MANAGER = WindowManager()
 
-@click.group()
-def cli():
-    pass
-
-@cli.command()
-@click.argument("directory")
-def run(directory):
-    MANAGER.start(directory)
-
-if __name__ == '__main__':
-    cli()
+def launch(directory=None):
+    if directory == None:
+        MANAGER.start(os.getcwd())
+    else:
+        MANAGER.start(directory)
