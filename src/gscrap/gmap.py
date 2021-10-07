@@ -82,6 +82,8 @@ MANAGER = WindowManager()
 
 def launch(directory=None):
     if directory == None:
-        MANAGER.start(os.getcwd())
+        path = os.getcwd()
     else:
-        MANAGER.start(directory)
+        path = os.path.join(os.getcwd(), directory)
+
+    MANAGER.start(path)
