@@ -6,6 +6,18 @@ from gscrap.data.rectangles import rectangles
 
 from gscrap.utils import key_generator
 
+_GET_RECTANGLE_COMPONENTS_WITH_LABEL = text(
+    """
+    SELECT * FROM rectangles_components
+    INNER JOIN rectangles ON 
+        rectangles.rectangle_id = rectangle_meta_components.rectangle_id
+    INNER JOIN labels ON 
+        rectangle_labels.label_name = labels.labels_name AND
+        rectangle_labels.label_type = labels.label_type
+    WHERE label_name=:label_name AND label_type=:label_type AND rectangle_id=:rectangle_id
+    """
+)
+
 _GET_RECTANGLE_LABELS = text(
     """
     SELECT * FROM rectangle_labels
@@ -191,3 +203,11 @@ def get_rectangles_with_label(connection, scene, label):
             row['width'],
             row['height']
         )
+
+def get_rectangle_components_with_label(connection, rectangle, label):
+    for res in connection.execute(
+        _GET_RECTANGLE_COMPONENTS_WITH_LABEL,
+        label_name = label.label_name,
+        label_type = label.label_type,
+        rectangle_id = rectangle.id):
+        yield rectangles.Rectangle(res['rectangle_id'], rectangle.scene, res["width"], res["height"])
