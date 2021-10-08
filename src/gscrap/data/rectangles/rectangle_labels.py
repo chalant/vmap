@@ -204,10 +204,15 @@ def get_rectangles_with_label(connection, scene, label):
             row['height']
         )
 
-def get_rectangle_components_with_label(connection, rectangle, label):
-    for res in connection.execute(
+def get_rectangle_component_with_label(connection, rectangle, label):
+    res = connection.execute(
         _GET_RECTANGLE_COMPONENTS_WITH_LABEL,
         label_name = label.label_name,
         label_type = label.label_type,
-        rectangle_id = rectangle.id):
-        yield rectangles.Rectangle(res['rectangle_id'], rectangle.scene, res["width"], res["height"])
+        rectangle_id = rectangle.id).first()
+
+    return rectangles.Rectangle(
+        res['rectangle_id'],
+        rectangle.scene,
+        res["width"],
+        res["height"])
