@@ -2,6 +2,24 @@ from sqlalchemy import text
 
 from gscrap.data.properties import properties
 
+_GET_RECTANGLE_OF_INSTANCE = text(
+    """
+    SELECT * FROM rectangles
+    INNER JOIN rectangle_instances 
+        ON rectangle_instances.rectangle_id = rectangles.rectangle_id
+    WHERE r_instance_id=:instance_id
+    """
+)
+
+_GET_COMPONENTS_OF_RECTANGLE = text(
+    """
+    SELECT * FROM rectangle_components
+    INNER JOIN rectangle_instances
+        ON rectangle_instances.r_instance_id = rectangle_components.r_instance_id
+    WHERE rectangle_id=:rectangle_id AND rectangle_components.r_instance_id=:instance_id
+    """
+)
+
 _MAP_TO_PROPERTY_VALUE = text(
     """
     INSERT OR IGNORE INTO rectangle_instances_property_values(r_instance_id, property_id)
@@ -107,3 +125,10 @@ def count_mapped_instances(connection, property_value):
         counter += 1
 
     return counter
+
+def get_components_of_rectangle(connection, instance, rectangle):
+    for res in connection.execute(
+            _GET_COMPONENTS_OF_RECTANGLE,
+            rectangle_id=rectangle.id,
+            instance_id=instance.id):
+        yield res['r_component_id']
