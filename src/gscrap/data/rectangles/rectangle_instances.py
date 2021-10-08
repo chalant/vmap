@@ -11,6 +11,19 @@ _GET_RECTANGLE_OF_INSTANCE = text(
     """
 )
 
+_GET_RECTANGLE_INSTANCES_WITH_LABEL = text(
+    """
+    SELECT * FROM rectangle_components
+    INNER JOIN rectangle_instances
+        ON rectangle_instances.r_instance_id = rectangle_components.r_instance_id
+    INNER JOIN rectangle_labels
+        ON rectangle_labels.rectangle_id = rectangle_instances.rectangle_id
+    WHERE label_type =:label_type 
+        AND label_name =:label_name 
+        AND rectangle_components.r_instance_id =: instance_id
+    """
+)
+
 _GET_COMPONENTS_OF_RECTANGLE = text(
     """
     SELECT * FROM rectangle_components
@@ -131,4 +144,13 @@ def get_components_of_rectangle(connection, instance, rectangle):
             _GET_COMPONENTS_OF_RECTANGLE,
             rectangle_id=rectangle.id,
             instance_id=instance.id):
+        yield res['r_component_id']
+
+def get_rectangle_instance_components_with_label(connection, rectangle_instance, label):
+    for res in connection.execute(
+        _GET_RECTANGLE_INSTANCES_WITH_LABEL,
+        instance_id = rectangle_instance.r_instance_id,
+        label_type=label.label_type,
+        label_name=label.label_name
+    ):
         yield res['r_component_id']
