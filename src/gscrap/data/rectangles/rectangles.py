@@ -8,6 +8,15 @@ from gscrap.data.rectangles import rectangle_labels as rct_lbl
 from gscrap.data.rectangles import rectangle_images as rct_img
 from gscrap.data.rectangles import rectangle_instances as rct_ist
 
+_GET_COMPONENTS_THAT_ARE_INSTANCES_OF_RECTANGLE = text(
+    """
+    SELECT * FROM rectangle_components
+    INNER JOIN rectangle_instances
+        ON rectangle_instances.r_instance_id = rectangle_components.r_instance_id
+    WHERE rectangle_components.r_instance_id =: instance_id
+    """
+)
+
 _GET_RECTANGLE_COMPONENTS_WITH_LABEL = text(
     """
     SELECT * FROM rectangles_components
@@ -473,3 +482,17 @@ def get_rectangle_component_with_label(connection, rectangle, label):
 def delete_for_scene(connection):
     for rectangle in get_rectangles(connection):
         rectangle.delete(connection)
+
+def get_components_that_are_instances_of_rectangle(connection, rectangle_instance, rectangle):
+    for res in connection.execute(
+        _GET_COMPONENTS_THAT_ARE_INSTANCES_OF_RECTANGLE,
+        instance_id=rectangle_instance.id,
+        rectangle_id=rectangle.id
+    ):
+        yield RectangleInstance(
+            res['r_instance_id'],
+            rectangle,
+            res['left'],
+            res['top'],
+            rectangle_instance.id
+        )
