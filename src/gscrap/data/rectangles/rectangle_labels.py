@@ -4,6 +4,8 @@ from sqlalchemy import text
 
 from gscrap.data.rectangles import rectangles
 
+from gscrap.utils import key_generator
+
 _GET_RECTANGLE_LABELS = text(
     """
     SELECT * FROM rectangle_labels
@@ -49,19 +51,33 @@ _REMOVE_LABELS = text(
 
 class RectangleLabel(object):
     __slots__ = [
-        'classifiable',
-        'capture',
-        'label_type',
-        'label_name',
-        'rectangle_id'
+        'label',
+        'rectangle'
     ]
 
-    def __init__(self, label, rectangle_id):
-        self.classifiable = label["classifiable"]
-        self.capture = label["capture"]
-        self.label_type = label["label_type"]
-        self.label_name = label["label_name"]
-        self.rectangle_id = rectangle_id
+    def __init__(self, label, rectangle):
+        self.label = label
+        self.rectangle = rectangle
+
+    @property
+    def classifiable(self):
+        return self.label["classifiable"]
+
+    @property
+    def capture(self):
+        return self.label["capture"]
+
+    @property
+    def label_type(self):
+        return self.label["label_type"]
+
+    @property
+    def label_name(self):
+        return self.label["label_name"]
+
+    @property
+    def rectangle_id(self):
+        return self.rectangle.id
 
     def delete(self, connection):
         connection.execute(
@@ -72,7 +88,7 @@ class RectangleLabel(object):
         )
 
     def __hash__(self):
-        return hash((self.label_type, self.label_name))
+        return key_generator.generate_key(self.label_type + self.label_name)
 
     def __eq__(self, other):
         return other._label_type == self.label_type and \
@@ -92,29 +108,29 @@ class UnsavedRectangleLabel(object):
         names.pop(names.index(self.label_name))
 
     def __hash__(self):
-        return hash((self.label_type, self.label_name))
+        return key_generator.generate_key(self.label_type + self.label_name)
 
     def __eq__(self, other):
         return other._label_type == self.label_type \
                and other.label_name == self.label_name
 
 class RectangleLabels(object):
-    def __init__(self, rectangle_id):
+    def __init__(self, rectangle):
         """
 
         Parameters
         ----------
         rectangle: models.rectangles.Rectangle
         """
-        self._rectangle_id = rectangle_id
+        self._rectangle = rectangle
         self._new_labels = defaultdict(list)
 
     def get_labels(self, connection):
-        rectangle_id = self._rectangle_id
+        rectangle = self._rectangle
         for label in connection.execute(
                 _GET_RECTANGLE_LABELS,
-                rectangle_id=rectangle_id):
-            yield RectangleLabel(label, rectangle_id)
+                rectangle_id=rectangle.id):
+            yield RectangleLabel(label, rectangle)
 
     def get_unsaved_labels(self):
         new_labels = self._new_labels

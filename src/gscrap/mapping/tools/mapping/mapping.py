@@ -88,14 +88,14 @@ class MappingTool(rectangle_utils.RectangleFactory):
         """
         return self._all_instances
 
-    def get_rectangle_labels(self, rectangle_id):
+    def get_rectangle_labels(self, rectangle):
         lpr = self._labels_per_rectangle
 
-        if not rectangle_id in lpr:
-            lpr[rectangle_id] = lbl = rct_labels.RectangleLabels(rectangle_id)
+        if not rectangle.id in lpr:
+            lpr[rectangle.id] = lbl = rct_labels.RectangleLabels(rectangle)
             return lbl
 
-        return lpr[rectangle_id]
+        return lpr[rectangle.id]
 
     def select_rectangle(self, x, y):
         res = rectangles.find_closest_enclosing(self._all_instances, x, y)

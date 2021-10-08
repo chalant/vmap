@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
-from gscrap.projects import scenes
+from gscrap.projects.scenes import scenes
 
 from gscrap.data.rectangles import rectangle_labels as rct_lbl
 from gscrap.data.rectangles import rectangle_images as rct_img
@@ -11,6 +11,20 @@ from gscrap.data.rectangles import rectangle_instances as rct_ist
 _SELECT_RECTANGLES = text(
     """
     SELECT * FROM rectangles;
+    """
+)
+
+_GET_RECTANGLE = text(
+    """
+    SELECT * FROM rectangles
+    WHERE rectangles.id=:rectangle_id
+    """
+)
+
+_GET_RECTANGLE_INSTANCE = text(
+    """
+    SELECT * FROM rectangle_instances
+    WHERE r_instance_id=:instance_id
     """
 )
 
@@ -173,13 +187,9 @@ class RectangleInstance(object):
         return self._rectangle.area
 
     def get_components(self):
-        components = []
-
         with scenes.connect(self.rectangle.scene) as con:
             for row in con.execute(_GET_RECTANGLE_COMPONENTS, r_instance_id=self._id):
-                components.append(row["r_component_id"])
-
-        return components
+                yield row["r_component_id"]
 
     def delete(self, connection):
         id_ = self._id
@@ -348,6 +358,20 @@ def get_rectangle_instances(connection, rectangle):
             res['top'],
             container_id
         )
+
+def get_rectangle(connection, rectangle_id):
+    connection.execute(
+        _GET_RECTANGLE,
+        rectangle_id=rectangle_id
+    )
+
+def get_rectangle_instance(connection, rectangle, instance_id):
+    res = connection.execute(
+        _GET_RECTANGLE_INSTANCE,
+        r_instance_id=instance_id
+    )
+
+    return RectangleInstance(instance_id, rectangle, res['left'], res['top'])
 
 def delete_for_scene(connection):
     for rectangle in get_rectangles(connection):

@@ -60,7 +60,7 @@ class Initial(object):
                 options.entryconfig("Remove Label", state="disabled")
                 rct = mapper.get_rectangle(res)
                 # load labels
-                labels = mapper.get_rectangle_labels(rct.rectangle.id)
+                labels = mapper.get_rectangle_labels(rct.rectangle)
 
                 dct = defaultdict(list)
 
@@ -142,7 +142,7 @@ class Initial(object):
 
         rct = mapper.get_rectangle(mapper.selected_rectangle)
 
-        labels = mapper.get_rectangle_labels(rct.rectangle.id)
+        labels = mapper.get_rectangle_labels(rct.rectangle)
 
         self._labels[label_type].append(labels.add_label(label_name, label_type))
 
