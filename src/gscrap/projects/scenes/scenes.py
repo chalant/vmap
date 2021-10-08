@@ -212,8 +212,12 @@ class _Scene(object):
     def save(self, connection):
         self._dimensions.save(connection)
 
-    def get_label(self, connection, label_name):
-        return labels.get_label(connection, self.name, label_name)
+    def get_label(self, connection, label_type, label_name):
+        return labels.get_label(
+            connection,
+            label_type,
+            label_name,
+            self.name)
 
     def get_label_instances(self, connection, label_name, label_type):
         for element in connection.execute(

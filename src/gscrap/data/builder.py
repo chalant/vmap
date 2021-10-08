@@ -41,6 +41,18 @@ def clear(connection):
     for name in table_names:
         connection.execute(text(CLEAR_TABLE.format(name)))
 
+class _SceneLabels(object):
+    def __init__(self, scene_name, connection):
+        self._connection = connection
+        self._scene_name = scene_name
+
+    def get_label(self, label_type, label_name):
+        return labels.get_label(
+            self._connection,
+            label_type,
+            label_name,
+            self._scene_name)
+
 class _Builder(object):
     def __init__(self, connection, project, scene):
         """
@@ -92,7 +104,7 @@ class _Builder(object):
     def scene(self):
         return self._scene_writer
 
-    def get_label(self, schema_name, label_name):
+    def import_scene(self, schema_name):
         connection = self._connection
         project = self._project
 
@@ -102,8 +114,7 @@ class _Builder(object):
         with _InnerBuilder(connection, project, scene) as bld:
             project.get_build_function(schema_name)(bld)
 
-
-        return labels.get_label(connection, label_name, scene.name)
+        return _SceneLabels(scene.name, connection)
 
     def project_type(self, name):
         return self._project_type(name)

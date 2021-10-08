@@ -46,7 +46,9 @@ _GET_LABEL = text(
     """
     SELECT * 
     FROM labels
-    WHERE label_name=:label_name AND scene_name=:scene_name
+    WHERE label_name=:label_name 
+        AND scene_name=:scene_name
+        AND label_type=:label_type
     """
 )
 
@@ -227,10 +229,11 @@ def label_type(label):
 def label_name(label):
     return label.label_name
 
-def get_label(connection, label_name, scene_name):
+def get_label(connection, label_type, label_name, scene_name):
     res = connection.execute(
         _GET_LABEL,
+        label_type=label_type,
         label_name=label_name,
-        scene_name=scene_name).first()
+        scene_name=scene_name)
 
     return Label(res['label_type'], res['label_name'])
