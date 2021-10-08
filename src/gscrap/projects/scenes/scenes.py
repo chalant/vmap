@@ -264,7 +264,7 @@ class _Scene(object):
         return rectangles.get_rectangles(connection)
 
     def create_rectangle(self, width, height):
-        return rectangles.create_rectangle(width, height, self.name)
+        return rectangles.create_rectangle(width, height, self)
 
     def _get_labels(self, connection, project_type, label_type):
         row = connection.execute(_GET_PROJECT_TYPE, project_type=project_type).fetchone()

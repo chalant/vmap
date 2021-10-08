@@ -147,6 +147,10 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
         instances = self._all_instances
 
+        if container_id:
+            container = instances[container_id]
+            container.rectangle.add_component(rct)
+
         wrapper = self.create_rectangle(self._create_instance(rct, x0, y0, container_id), x0, y0)
 
         # self._new_instances[rid] = wrapper

@@ -8,6 +8,20 @@ from gscrap.data.rectangles import rectangle_labels as rct_lbl
 from gscrap.data.rectangles import rectangle_images as rct_img
 from gscrap.data.rectangles import rectangle_instances as rct_ist
 
+_ADD_META_COMPONENT = text(
+    """
+    INSERT OR IGNORE INTO rectangle_meta_components(rectangle_id, component_id)
+    VALUE(:rectangle_id, :component_id)
+    """
+)
+
+_GET_META_COMPONENTS = text(
+    """
+    SELECT * FROM rectangle_meta_components
+    WHERE rectangle_meta_components.rectangle_id=:rectangle_id
+    """
+)
+
 _SELECT_RECTANGLES = text(
     """
     SELECT * FROM rectangles;
@@ -39,7 +53,7 @@ _SELECT_CAPTURE_RECTANGLES = text(
 
 _ADD_RECTANGLE = text(
     """
-    INSERT OR REPLACE INTO rectangles(rectangle_id, height, width, project_name)
+    INSERT OR IGNORE INTO rectangles(rectangle_id, height, width, project_name)
     VALUES (:rectangle_id, :height, :width, :project_name);
     """
 )
@@ -227,7 +241,8 @@ class Rectangle(object):
         '_id',
         '_scene',
         '_width',
-        '_height'
+        '_height',
+        '_components'
     ]
 
     def __init__(self, id_, scene, width, height):
@@ -236,6 +251,8 @@ class Rectangle(object):
 
         self._width = width
         self._height = height
+
+        self._components = []
 
     @property
     def scene_name(self):
@@ -265,6 +282,9 @@ class Rectangle(object):
     def height(self, value):
         self._height = value
 
+    def add_component(self, component):
+        self._components.append(component)
+
     def get_instances(self, connection):
         return get_rectangle_instances(connection, self)
 
@@ -275,6 +295,9 @@ class Rectangle(object):
         # deletes instances and components
         for instance in get_rectangle_instances(connection, self):
             instance.delete(connection)
+
+        for cmp in get_rectangle_components(connection, self._scene, self):
+            cmp.delete(connection)
 
         connection.execute(
             _DELETE_RECTANGLE,
@@ -290,6 +313,13 @@ class Rectangle(object):
             height=self._height,
             width=self._width
         )
+
+        for cmp in self._components:
+            connection.execute(
+                _ADD_META_COMPONENT,
+                rectangle_id = self._id,
+                component_id = cmp.id
+            )
 
     @property
     def perimeter(self):
@@ -313,8 +343,8 @@ def get_rectangles(connection):
             row["width"],
             row["height"])
 
-def create_rectangle(width, height, project_name):
-    return Rectangle(uuid4().hex, project_name, width, height)
+def create_rectangle(width, height, scene):
+    return Rectangle(uuid4().hex, scene, width, height)
 
 def number_of_instances(connection, rectangle_id):
     total = 0
@@ -359,11 +389,20 @@ def get_rectangle_instances(connection, rectangle):
             container_id
         )
 
-def get_rectangle(connection, rectangle_id):
-    connection.execute(
+def get_rectangle(connection, scene, rectangle_id):
+    res = connection.execute(
         _GET_RECTANGLE,
         rectangle_id=rectangle_id
     )
+
+    return Rectangle(res['rectangle_id'], scene, res["width"], res["height"])
+
+def get_rectangle_components(connection, scene, rectangle):
+    for res in connection.execute(
+        _GET_META_COMPONENTS,
+        rectangle_id=rectangle.id):
+
+        yield Rectangle(res['rectangle_id'], scene, res["width"], res["height"])
 
 def get_rectangle_instance(connection, rectangle, instance_id):
     res = connection.execute(

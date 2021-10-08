@@ -3,7 +3,7 @@ from functools import partial
 
 import tkinter as tk
 
-from gscrap.projects import scenes
+from gscrap.projects.scenes import scenes
 
 from gscrap.data.rectangles import rectangle_labels as rct_lbl
 

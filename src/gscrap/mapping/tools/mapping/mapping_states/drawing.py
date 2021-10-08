@@ -281,7 +281,7 @@ class Drawing(object):
         self._on_done()
 
     def add_rectangle(self, bbox, container_id=None):
-        rid = self._mapper.add_rectangle(bbox, container_id)
+        rid = self._mapper.add_rectangle(bbox, self._rid)
         self._rectangles[rid] = rid
         return rid
 

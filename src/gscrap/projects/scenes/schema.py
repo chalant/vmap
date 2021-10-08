@@ -151,6 +151,13 @@ def build_schema(meta):
     )
 
     Table(
+        "rectangle_meta_components",
+        meta,
+        Column("rectangle_id", String, ForeignKey("rectangles.rectangle_id"), nullable=False),
+        Column("component_id", String, ForeignKey("rectangles.rectangle_id"), nullable=False)
+    )
+
+    Table(
         "rectangle_components",
         meta,
         Column("r_instance_id", String, ForeignKey("rectangle_instances.r_instance_id"), nullable=False),

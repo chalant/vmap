@@ -146,7 +146,7 @@ class RectangleLabels(object):
         return UnsavedRectangleLabel(label_type, label_name, new_labels)
 
     def submit(self, connection):
-        id_ = self._rectangle_id
+        id_ = self._rectangle.id
         new_labels = self._new_labels
 
         for lt, labels in new_labels.items():
@@ -163,7 +163,7 @@ class RectangleLabels(object):
     def delete(self, connection):
         connection.execute(
             _REMOVE_LABELS,
-            rectangle_id=self._rectangle_id
+            rectangle_id=self._rectangle.id
         )
 
 def delete_all_rectangle_labels(connection, rectangle):
@@ -179,7 +179,7 @@ def get_rectangle_labels(connection, rectangle):
     for row in connection.execute(_GET_RECTANGLE_LABELS, rectangle_id=rectangle.id):
         yield RectangleLabel(row, rectangle)
 
-def get_rectangles_with_label(connection, label):
+def get_rectangles_with_label(connection, scene, label):
     for row in connection.execute(
         _GET_RECTANGLE_WITH_LABEL,
         label_type=label.label_type,
@@ -187,7 +187,7 @@ def get_rectangles_with_label(connection, label):
 
         yield rectangles.Rectangle(
             row['rectangle_id'],
-            row['project_name'],
+            scene,
             row['width'],
             row['height']
         )
