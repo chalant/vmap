@@ -8,6 +8,28 @@ from gscrap.data.rectangles import rectangle_labels as rct_lbl
 from gscrap.data.rectangles import rectangle_images as rct_img
 from gscrap.data.rectangles import rectangle_instances as rct_ist
 
+_GET_RECTANGLE_COMPONENTS_WITH_LABEL = text(
+    """
+    SELECT * FROM rectangles_components
+    INNER JOIN rectangles ON 
+        rectangles.rectangle_id = rectangle_meta_components.rectangle_id
+    INNER JOIN labels ON 
+        rectangle_labels.label_name = labels.labels_name AND
+        rectangle_labels.label_type = labels.label_type
+    WHERE label_name=:label_name AND label_type=:label_type AND rectangle_id=:rectangle_id
+    """
+)
+
+_GET_RECTANGLE_WITH_LABEL = text(
+    """
+    SELECT * FROM rectangles
+    INNER JOIN rectangle_labels
+        ON rectangle_labels.rectangle_id = rectangles.rectangle_id
+    WHERE rectangle_labels.label_type=:label_type 
+        AND rectangle_labels.label_name=:label_name 
+    """
+)
+
 _ADD_META_COMPONENT = text(
     """
     INSERT OR IGNORE INTO rectangle_meta_components(rectangle_id, component_id)
@@ -114,6 +136,7 @@ _DELETE_RECTANGLE_COMPONENT = text(
     """
 )
 
+
 class RectangleInstance(object):
     __slots__ = ['_id', '_left', '_top', '_rectangle', '_container_id', '_center']
 
@@ -169,7 +192,7 @@ class RectangleInstance(object):
 
         r = self._rectangle
 
-        self._center = (x + r.width/2, y + r.height/2)
+        self._center = (x + r.width / 2, y + r.height / 2)
 
     @property
     def top_left(self):
@@ -235,6 +258,7 @@ class RectangleInstance(object):
                 _ADD_RECTANGLE_COMPONENT,
                 r_instance_id=self._container_id,
                 r_component_id=self._id)
+
 
 class Rectangle(object):
     __slots__ = [
@@ -303,7 +327,6 @@ class Rectangle(object):
             _DELETE_RECTANGLE,
             rectangle_id=self._id)
 
-
     def submit(self, connection):
         # if self._num_instances == 1:
 
@@ -317,8 +340,8 @@ class Rectangle(object):
         for cmp in self._components:
             connection.execute(
                 _ADD_META_COMPONENT,
-                rectangle_id = self._id,
-                component_id = cmp.id
+                rectangle_id=self._id,
+                component_id=cmp.id
             )
 
     @property
@@ -327,13 +350,14 @@ class Rectangle(object):
 
     @property
     def area(self):
-        return (self._width * self._height)/2
+        return (self._width * self._height) / 2
 
     def __eq__(self, other):
         return other.id == self._id
 
     def __hash__(self):
         return self._id
+
 
 def get_rectangles(connection):
     for row in connection.execute(_SELECT_RECTANGLES):
@@ -343,8 +367,10 @@ def get_rectangles(connection):
             row["width"],
             row["height"])
 
+
 def create_rectangle(width, height, scene):
     return Rectangle(uuid4().hex, scene, width, height)
+
 
 def number_of_instances(connection, rectangle_id):
     total = 0
@@ -354,8 +380,9 @@ def number_of_instances(connection, rectangle_id):
 
     return total
 
+
 def delete_rectangle(connection, rectangle):
-    #delete all elements that references the rectangle first
+    # delete all elements that references the rectangle first
 
     for instance in get_rectangle_instances(connection, rectangle):
         rct_ist.delete_rectangle_instance(connection, instance)
@@ -370,7 +397,7 @@ def delete_rectangle(connection, rectangle):
 
 def get_rectangle_instances(connection, rectangle):
     for res in connection.execute(
-            _GET_RECTANGLE_INSTANCES, rectangle_id = rectangle.id):
+            _GET_RECTANGLE_INSTANCES, rectangle_id=rectangle.id):
 
         instance_id = res["r_instance_id"]
         container_id = None
@@ -389,6 +416,7 @@ def get_rectangle_instances(connection, rectangle):
             container_id
         )
 
+
 def get_rectangle(connection, scene, rectangle_id):
     res = connection.execute(
         _GET_RECTANGLE,
@@ -397,12 +425,13 @@ def get_rectangle(connection, scene, rectangle_id):
 
     return Rectangle(res['rectangle_id'], scene, res["width"], res["height"])
 
+
 def get_rectangle_components(connection, scene, rectangle):
     for res in connection.execute(
-        _GET_META_COMPONENTS,
-        rectangle_id=rectangle.id):
-
+            _GET_META_COMPONENTS,
+            rectangle_id=rectangle.id):
         yield Rectangle(res['rectangle_id'], scene, res["width"], res["height"])
+
 
 def get_rectangle_instance(connection, rectangle, instance_id):
     res = connection.execute(
@@ -411,6 +440,35 @@ def get_rectangle_instance(connection, rectangle, instance_id):
     )
 
     return RectangleInstance(instance_id, rectangle, res['left'], res['top'])
+
+
+def get_rectangle_with_label(connection, scene, label):
+    row = connection.execute(
+        _GET_RECTANGLE_WITH_LABEL,
+        label_type=label.label_type,
+        label_name=label.label_name).first()
+
+    return Rectangle(
+        row['rectangle_id'],
+        scene,
+        row['width'],
+        row['height']
+    )
+
+
+def get_rectangle_component_with_label(connection, rectangle, label):
+    res = connection.execute(
+        _GET_RECTANGLE_COMPONENTS_WITH_LABEL,
+        label_name=label.label_name,
+        label_type=label.label_type,
+        rectangle_id=rectangle.id).first()
+
+    return Rectangle(
+        res['rectangle_id'],
+        rectangle.scene,
+        res["width"],
+        res["height"])
+
 
 def delete_for_scene(connection):
     for rectangle in get_rectangles(connection):
