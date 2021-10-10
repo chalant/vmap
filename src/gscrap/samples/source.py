@@ -1,24 +1,32 @@
 import numpy as np
 
 from gscrap.data.images import images as im
-
-from gscrap.samples import image_buffer as ib
+from gscrap.filtering import filters
 
 class SampleSource(object):
     __slots__ = [
-        'project_name',
+        'scene_name',
         'label_type',
         'label_class',
         'dimensions',
         'samples',
-        'image_buffer']
+        'image_buffer',
+        'filter_pipeline'
+    ]
 
-    def __init__(self, project_name, label_type, label_class, dimensions):
-        self.project_name = project_name
+    def __init__(self,
+                 scene_name,
+                 label_type,
+                 label_class,
+                 dimensions,
+                 filter_pipeline):
+
+        self.scene_name = scene_name
         self.label_type = label_type
         self.label_class = label_class
 
         self.dimensions = dimensions
+        self.filter_pipeline = filter_pipeline
 
         self.samples = []
 
@@ -29,22 +37,35 @@ def load_image(meta):
 def get_samples(sample_source):
     dimensions = sample_source.dimensions
 
-    for label, index in sample_source.samples:
+    for label, img in sample_source.samples:
         yield label, np.frombuffer(
-            ib.get_image(index),
+            img,
             np.uint8).reshape(
             dimensions[1], dimensions[0], 3)
 
 def load_samples(sample_source, connection):
+    """
+
+    Parameters
+    ----------
+    sample_source: SampleSource
+    connection
+
+    Returns
+    -------
+
+    """
     samples = sample_source.samples
 
     for meta in im.get_images(
             connection,
             sample_source.scene_name,
-            sample_source._label_type,
+            sample_source.label_type,
             sample_source.label_class):
 
-        # store image into the image buffer (will return the image index)
-        index = ib.add_image(load_image(meta))
-        samples.append((meta.label['instance_name'], index))
+        samples.append((
+            meta.label['instance_name'],
+            filters.apply_filters(
+                sample_source.filter_pipeline,
+                load_image(meta))))
 

@@ -125,20 +125,15 @@ class DifferenceMatching(AbstractLabeling):
     def set_samples_source(self, samples_source):
         self._samples_source = samples_source
 
-    def set_filter_pipeline(self, pipeline):
-        self._filter_pipeline = pipeline
-
     def label(self, img):
         diff_max = self.threshold
         best_match_diff = diff_max
         name = "N/A"
         best_match_name = "N/A"
 
-        pipeline = self._filter_pipeline
-
         for label, image in src.get_samples(self._samples_source):
 
-            diff_img = cv2.absdiff(img, filters.apply_filters(pipeline, image))
+            diff_img = cv2.absdiff(img, image)
 
             diff = int(np.sum(diff_img) / 255)
 
@@ -187,12 +182,12 @@ def add_model(connection, model_name, model_type):
 def label(labeling_model, image):
     return labeling_model.label(image)
 
-def load_labeling_model_metadata(connection, label_group, project_name):
+def load_labeling_model_metadata(connection, label_group, scene_name):
     return connection.execute(
         _GET_MODEL,
         label_type=label_group._label_type,
         label_name=label_group.label_name,
-        project_name=project_name).first()
+        scene_name=scene_name).first()
 
 def get_labeling_model(model_type, label_type):
     # load parameters

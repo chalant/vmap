@@ -277,7 +277,8 @@ class SamplingController(object):
                     capture_zone.scene_name,
                     label_type,
                     label_class,
-                    capture_zone.dimensions
+                    capture_zone.dimensions,
+                    fm.filter_pipeline
                 )
 
                 # load samples into the sample source
@@ -297,7 +298,6 @@ class SamplingController(object):
                 self.set_threshold(threshold)
 
                 lb.set_samples_source(sample_source)
-                lb.set_filter_pipeline(fm.filter_pipeline)
 
                 self._save_sample = True
 
@@ -306,7 +306,7 @@ class SamplingController(object):
                 # view.threshold['state'] = tk.DISABLED
                 self._labeling = lb = mdl.get_labeling_model(
                     'tesseract',
-                    label_group._label_type) if not labeling else labeling
+                    label_group.label_type) if not labeling else labeling
 
                 self._save_sample = False
 
