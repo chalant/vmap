@@ -5,15 +5,12 @@ from abc import ABC, abstractmethod
 
 import cv2
 import numpy as np
-from PIL import Image
 
 import pytesseract
 
 from sqlalchemy import text
 
 from gscrap.samples import source as src
-
-from gscrap.filtering import filters
 
 _ADD_MODEL = text(
     '''
