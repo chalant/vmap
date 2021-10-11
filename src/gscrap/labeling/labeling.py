@@ -200,6 +200,14 @@ def get_labeling_model(model_type, label_type):
     else:
         raise ValueError("No labeling model of type {}".format(model_type))
 
+def get_tesseract(label_type):
+    characters = _ALL_CHARACTERS
+
+    if label_type == 'Number':
+        characters = _NUMBERS
+
+    return Tesseract(characters)
+
 def store_label_model(
         connection,
         model_name,

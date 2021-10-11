@@ -126,30 +126,3 @@ class CaptureZone(display.DisplayItem):
 
     def clear(self):
         pass
-
-class ObservableCaptureZone(CaptureZone):
-    def __init__(self,
-                 rid,
-                 rectangle_instance,
-                 scene,
-                 thread_pool,
-                 hashes,
-                 capture_tool,
-                 rectangle_labels):
-        super(ObservableCaptureZone, self).__init__(
-            rid,
-            rectangle_instance,
-            scene,
-            thread_pool,
-            hashes,
-            capture_tool,
-            rectangle_labels
-        )
-
-        self._observers = []
-
-    def process_image(self, image):
-        pass
-
-    def add_observer(self, observer):
-        self._observers.append(observer)
