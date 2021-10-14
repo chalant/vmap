@@ -6,14 +6,12 @@ from gscrap.windows import factory as wf
 from gscrap.data import attributes
 
 from gscrap.data.rectangles import rectangles
+from gscrap.data.rectangles import rectangle_instances as ri
 
 from gscrap.data.properties import properties
 from gscrap.data.properties import property_values_source as pvs
-from gscrap.data.properties import rectangles as ppt_rct
 
 from gscrap.data.properties.values_sources import values_sources
-
-from gscrap.data.rectangles import rectangle_instances as ri
 
 from gscrap.mapping.tools import tools
 from gscrap.mapping.tools import display
@@ -114,7 +112,7 @@ class Properties(tools.Tool):
 
                 ppt_vs = pvs.get_property_values_source(connection, property_)
 
-                for rct in ppt_rct.get_rectangles_of_property(connection, property_):
+                for rct in rectangles.get_rectangles_with_property(connection, property_):
                     for ist in rectangles.get_rectangle_instances(connection, rct):
 
                         instances[count + 1] = instance = dsp.draw(ist, fct)

@@ -8,6 +8,29 @@ from gscrap.data.rectangles import rectangle_labels as rct_lbl
 from gscrap.data.rectangles import rectangle_images as rct_img
 from gscrap.data.rectangles import rectangle_instances as rct_ist
 
+from gscrap.data.properties import properties
+
+_GET_RECTANGLES_WITH_PROPERTY = text(
+    """
+    SELECT * FROM rectangles
+    INNER JOIN rectangle_labels ON rectangle_labels.rectangle_id = rectangles.rectangle_id
+    INNER JOIN label_properties ON label_properties.label_type = rectangle_labels.label_type 
+        AND label_properties.label_name = rectangle_labels.label_name
+    WHERE property_type=:property_type AND property_name=:property_name
+    """
+)
+
+_GET_PROPERTY_VALUE_OF_RECTANGLE_INSTANCE = text(
+    """
+    SELECT * FROM property_values
+    INNER JOIN rectangle_instances_property_values 
+        ON rectangle_instances_property_values.property_id = property_values.property_id
+    WHERE property_values.property_type=:property_type 
+        AND property_values.property_name=:property_name
+        AND rectangle_instances_property_values.r_instance_id=:instance_id
+    """
+)
+
 _GET_COMPONENTS_THAT_ARE_INSTANCES_OF_RECTANGLE = text(
     """
     SELECT * FROM rectangle_components
@@ -496,3 +519,25 @@ def get_components_that_are_instances_of_rectangle(connection, rectangle_instanc
             res['top'],
             rectangle_instance.id
         )
+
+def get_rectangles_with_property(connection, property_):
+    for res in connection.execute(
+        _GET_RECTANGLES_WITH_PROPERTY,
+        property_type=property_.property_type,
+        property_name=property_.property_name):
+
+        yield Rectangle(
+            res["rectangle_id"],
+            res["project_name"],
+            res["width"],
+            res["height"])
+
+def get_property_value_of_rectangle_instance(connection, rectangle_instance, property_):
+    res = connection.execute(
+        _GET_PROPERTY_VALUE_OF_RECTANGLE_INSTANCE,
+        property_type=property_.property_type,
+        property_name=property_.property_name,
+        instance_id=rectangle_instance.id
+    )
+
+    return properties.PropertyValue(property_, res['property_value'])
