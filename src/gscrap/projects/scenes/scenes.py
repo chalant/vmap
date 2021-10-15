@@ -333,7 +333,7 @@ def load_dimensions(connection, scene):
         SceneDimensions(scene)
 
 def set_dimensions(connection, scene, width, height):
-    SceneDimensions(scene, width, height).save(connection)
+    SceneDimensions(scene, height, width).save(connection)
 
 def get_scene_names(connection):
     try:

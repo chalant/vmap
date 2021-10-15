@@ -153,7 +153,7 @@ class RecordingController(object):
             # if 'length' in params:
             #     meta.frames = params['length']
             # else:
-            meta.frames = int(view.frames.get())
+            meta.frames = int(float(view.frames.get()))
 
             meta.byte_size = int(view.size.get()[:len(size) - 2])
             meta.time = view.time.get()

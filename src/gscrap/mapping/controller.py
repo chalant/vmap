@@ -122,6 +122,9 @@ class MappingController(object):
 
         scene.load_template(template_load, on_error)
 
+        with scene.connect() as connection:
+            scenes.load_dimensions(connection, scene)
+
         self._tools.set_scene(scene)
         mapping_tool.set_scene(scene)
 
@@ -202,17 +205,12 @@ class MappingController(object):
                 scene.width = event.width
                 scene.height = event.height
 
-            #initialize capture tool
             capture_tool.bind_window(event)
-
-            # view.container["cursor"] = "arrow"
-
-            # view.capture_button["state"] = tk.NORMAL
-            # view.capture_button["text"] = "Start Capture"
 
             view.window_selection["text"] = "Unbind Window"
 
             view.mapping_button["state"] = tk.NORMAL
+
             #store template.
             image = Image.frombytes(
                 "RGB",
