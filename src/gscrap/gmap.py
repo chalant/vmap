@@ -15,20 +15,9 @@ from gscrap.tools import window_selection as ws
 class WindowManager(object):
     #manages all windows
     def __init__(self):
-        self._root = root = tk.Tk()
-        # self._right_frame = tk.LabelFrame(self._root, width=500, height=500)
-        # self._main_frame.pack()
-        root.title("GMAP")
-
-        self._container = container = tk.Frame(root)
-
-        container.pack(fill="both", expand=True)
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
-
+        self._root = None
         self._main = None
-        # self._root.wm_minsize(800, 500)
-        root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._container = None
 
     @property
     def container(self):
@@ -39,6 +28,18 @@ class WindowManager(object):
         return self._root
 
     def start(self, working_dir):
+        self._root = root = tk.Tk()
+        root.title("GMAP")
+
+        self._container = container = tk.Frame(root)
+
+        container.pack(fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        # self._root.wm_minsize(800, 500)
+        root.protocol("WM_DELETE_WINDOW", self._on_close)
+
         self._main = MainWindow(self, working_dir)
         self._root.mainloop()
 
@@ -84,6 +85,9 @@ def launch(directory=None):
     if directory == None:
         path = os.getcwd()
     else:
-        path = os.path.join(os.getcwd(), directory)
+        if '~' in directory:
+            path = os.path.expanduser(directory)
+        else:
+            path = os.path.join(os.getcwd(), directory)
 
     MANAGER.start(path)

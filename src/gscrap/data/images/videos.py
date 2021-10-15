@@ -13,22 +13,21 @@ _GET_VIDEOS_META = text(
 
 _ADD_VIDEO_META = text(
     """
-    INSERT OR REPLACE INTO videos(video_id, project_name, fps, byte_size, width, height, mode, frames, total_time)
-    VALUES (:video_id, :project_name, :fps, :byte_size, :width, :height, :mode, :frames, :total_time)
+    INSERT OR REPLACE INTO videos(video_id, fps, byte_size, width, height, mode, frames, total_time)
+    VALUES (:video_id, :fps, :byte_size, :width, :height, :mode, :frames, :total_time)
     """
 )
 
 _DELETE_VIDEO_META = text(
     """
     DELETE FROM videos
-    WHERE video_id=:video_id AND project_name=:project_name
+    WHERE video_id=:video_id
     """
 )
 
-_DELETE_ALL_PROJECT_VIDEOS = text(
-"""
+_DELETE_ALL_VIDEOS = text(
+    """
     DELETE FROM videos
-    WHERE project_name=:project_name
     """
 )
 

@@ -28,8 +28,7 @@ def build_schema(meta):
     Table(
         "label_types",
         meta,
-        Column("label_type", String, primary_key=True),
-        # Column("project_type", ForeignKey("project_trectanglesypes.project_type"), nullable=False)
+        Column("label_type", String, primary_key=True)
     )
 
     Table(
@@ -49,8 +48,6 @@ def build_schema(meta):
         Column("capture", Boolean, default=False), #whether to capture the label contents or not
         Column("max_instances", Integer), # maximum instances of this label
         Column("total", Integer, nullable=False, default=0), # tracks number of instances of this label
-        # labels are bound to a project_type
-        # each label is mapped to a detection model
         Column("classifiable", Boolean, default=False),
         Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False)
     )
@@ -112,14 +109,6 @@ def build_schema(meta):
         Column("label_name", String, ForeignKey("label_names.label_name"), nullable=False),
         Column("property_type", Integer, ForeignKey("property_types.property_type"), nullable=False),
         Column("property_name", String, ForeignKey("property_names.property_name"), nullable=False)
-    )
-
-    Table(
-        "project_types_labels",
-        meta,
-        Column("project_type", ForeignKey("project_types.project_type"), nullable=False),
-        Column("label_name", String, ForeignKey("label_names.label_name"), nullable=False),
-        Column("label_type", String, ForeignKey("label_types.label_type"), nullable=False)
     )
 
     # multiple project per label

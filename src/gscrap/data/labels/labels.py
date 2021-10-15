@@ -234,6 +234,6 @@ def get_label(connection, label_type, label_name, scene_name):
         _GET_LABEL,
         label_type=label_type,
         label_name=label_name,
-        scene_name=scene_name)
+        scene_name=scene_name).first()
 
     return Label(res['label_type'], res['label_name'])
