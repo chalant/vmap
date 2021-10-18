@@ -87,6 +87,7 @@ class WindowRows(object):
 
     def close(self):
         frame = self._frame
+
         if frame:
             frame.destroy()
 
@@ -166,10 +167,9 @@ class WindowRows(object):
 
         canvas = self._canvas
 
-        if canvas:
-            canvas.unbind("<MouseWheel>")
-            canvas.unbind("<Button-4>")
-            canvas.unbind("<Button-5>")
+        canvas.unbind("<MouseWheel>")
+        canvas.unbind("<Button-4>")
+        canvas.unbind("<Button-5>")
 
         self._right_click_bind = False
         self._left_click_bind = False

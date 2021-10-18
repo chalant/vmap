@@ -68,7 +68,7 @@ class ToolsController(object):
         tools = self._tools
 
         #clear any loaded data (samples etc.) and mouse bindings etc.
-        if ct != None:
+        if ct is not None:
             tools[ct].clear_tool()
 
         self._current_tool = name

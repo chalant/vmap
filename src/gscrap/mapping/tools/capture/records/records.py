@@ -147,6 +147,7 @@ class RecordsController(object):
 
         def on_abort():
             self._load_abort()
+            loader.clear()
             window.grab_release()
             window.destroy()
 
@@ -231,6 +232,7 @@ class RecordsController(object):
         self._new_callback(meta)
 
     def on_load_confirm(self, video_meta):
+        self._loading.clear()
         self._top_level.destroy()
 
         # notify observers that we opened a record

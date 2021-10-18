@@ -203,7 +203,7 @@ class _Scene(object):
 
     @property
     def path(self):
-        return path.join(self.project.working_dir, '')
+        return path.join(self.project.working_dir, 'scenes', self.name)
 
     def connect(self):
         return self._engine.connect()

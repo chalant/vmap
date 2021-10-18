@@ -144,10 +144,6 @@ class RecordLoadController(object):
         video_list = self._video_list
         views = self._views
 
-        video_list.clear()
-        items.clear()
-        views.clear()
-
         index = 0
 
         self._view.render(container).pack()
@@ -164,6 +160,16 @@ class RecordLoadController(object):
 
         video_list.on_motion(self._on_motion)
         video_list.on_left_click(self._on_left_click)
+
+    def clear(self):
+        items = self._items
+
+        video_list = self._video_list
+        views = self._views
+
+        video_list.clear()
+        items.clear()
+        views.clear()
 
     def _on_motion(self, event):
         # items = self._items

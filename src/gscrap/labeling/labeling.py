@@ -28,7 +28,7 @@ _GET_MODEL = text(
         ON models.model_name=labels_models.model_name
     WHERE labels_models.label_type=:label_type 
         AND labels_models.label_name=:label_name 
-        AND labels_models.project_name=:project_name
+        AND labels_models.scene_name=:scene_name
     '''
 )
 
@@ -41,8 +41,8 @@ _GET_PARAMETERS = '''
 _STORE_LABEL_MODEL = text(
     '''
     INSERT OR REPLACE 
-    INTO labels_models (label_name, label_type, model_name, project_name)
-    VALUES (:label_name, :label_type, :model_name, :project_name)
+    INTO labels_models (label_name, label_type, model_name, scene_name)
+    VALUES (:label_name, :label_type, :model_name, :scene_name)
     '''
 )
 
@@ -182,7 +182,7 @@ def label(labeling_model, image):
 def load_labeling_model_metadata(connection, label_group, scene_name):
     return connection.execute(
         _GET_MODEL,
-        label_type=label_group._label_type,
+        label_type=label_group.label_type,
         label_name=label_group.label_name,
         scene_name=scene_name).first()
 
@@ -213,11 +213,11 @@ def store_label_model(
         model_name,
         label_type,
         label_class,
-        project_name):
+        scene_name):
 
     return connection.execute(
         _STORE_LABEL_MODEL,
         model_name=model_name,
         label_type=label_type,
         label_name=label_class,
-        project_name=project_name)
+        scene_name=scene_name)

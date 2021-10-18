@@ -282,7 +282,7 @@ class SamplingController(object):
                 )
 
                 # load samples into the sample source
-                sc.load_samples(sample_source, connection)
+                sc.load_samples(sample_source, connection, scene)
 
                 # comparator = self._dlc
                 self._labeling = lb = mdl.get_labeling_model(

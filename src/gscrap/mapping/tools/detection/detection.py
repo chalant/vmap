@@ -124,7 +124,7 @@ class DetectionTool(tools.Tool):
 
                         capture_zones[zone.id] = zone
 
-                        ins_by_rid[zone.id].append(zone)
+                        ins_by_rid[rct.id].append(zone)
 
         #reload all the cleared data
         sampling.load_data()

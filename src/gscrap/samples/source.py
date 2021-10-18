@@ -5,7 +5,7 @@ from gscrap.filtering import filters
 
 class SampleSource(object):
     __slots__ = [
-        'scene_name',
+        'scene',
         'label_type',
         'label_class',
         'dimensions',
@@ -15,13 +15,13 @@ class SampleSource(object):
     ]
 
     def __init__(self,
-                 scene_name,
+                 scene,
                  label_type,
                  label_class,
                  dimensions,
                  filter_pipeline):
 
-        self.scene_name = scene_name
+        self.scene = scene
         self.label_type = label_type
         self.label_class = label_class
 
@@ -43,7 +43,7 @@ def get_samples(sample_source):
             np.uint8).reshape(
             dimensions[1], dimensions[0], 3)
 
-def load_samples(sample_source, connection):
+def load_samples(sample_source, connection, scene):
     """
 
     Parameters
@@ -59,7 +59,7 @@ def load_samples(sample_source, connection):
 
     for meta in im.get_images(
             connection,
-            sample_source.scene_name,
+            scene,
             sample_source.label_type,
             sample_source.label_class):
 

@@ -13,9 +13,11 @@ class SampleData(object):
         self.rectangle_id = rectangle_id
 
 
-def _save_sample(meta, image):
+def _save_sample(meta, image, connection):
     with open(meta.path, 'wb') as f:
         f.write(image)
+
+    meta.submit(connection)
 
 def add_sample(sample_data, image, label, connection):
     meta = im.create_image_metadata(
@@ -30,9 +32,10 @@ def add_sample(sample_data, image, label, connection):
 
     sample_data.position += 1
 
-    io.submit(_save_sample, meta, image)
+    # io.submit(_save_sample, meta, image)
 
-    meta._submit(connection)
+    with open(meta.path, 'wb') as f:
+        f.write(image)
 
     return meta
 

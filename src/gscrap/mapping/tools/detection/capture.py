@@ -95,7 +95,7 @@ class CaptureZone(display.DisplayItem):
 
     @property
     def all_bbox(self):
-        for sibling in self._siblings:
+        for sibling in self._siblings[self.rectangle_id]:
             yield sibling.bbox
 
     def get_labels(self, connection):
