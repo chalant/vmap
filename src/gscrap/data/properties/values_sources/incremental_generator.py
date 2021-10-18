@@ -48,7 +48,7 @@ def add_incremental_generator(connection, incremental_generator):
 def get_incremental_generator_spec(connection, values_source):
     res = connection.execute(
         _GET_INCREMENTAL_GENERATOR_SPEC,
-        values_source_id=values_source.id_
+        values_source_id=hash(values_source)
     ).first()
 
     return IncrementalGeneratorSpec(values_source, res['start'], res['increment'])

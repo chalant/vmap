@@ -10,7 +10,7 @@ class DisplayItem(ABC):
         rectangle_instance:gscrap.data.rectangles.rectangles.RectangleInstance
         """
 
-        self.rid = id_
+        self.id = id_
         self.rectangle_instance = rectangle_instance
 
     @property
@@ -23,7 +23,7 @@ class DisplayItem(ABC):
 
     def __eq__(self, other):
         if other:
-            return self.rid == other.rid
+            return self.id == other.id
         return False
 
 class RectangleDisplay(object):
@@ -44,4 +44,4 @@ class RectangleDisplay(object):
         return instance_factory.create_instance(rid, item)
 
     def delete(self, item):
-        self._canvas.delete(item.rid)
+        self._canvas.delete(item.id)

@@ -423,7 +423,7 @@ class SamplingController(object):
 
             # set sample store for each label type
             for label in capture_zone.get_labels(connection):
-                labels[label._label_type].append(label)
+                labels[label.label_type].append(label)
 
             sv.label_type_options["values"] = tuple(labels.keys())
 

@@ -122,9 +122,9 @@ class DetectionTool(tools.Tool):
 
                         zone = dsp.draw(instance, czf)
 
-                        capture_zones[zone.rid] = zone
+                        capture_zones[zone.id] = zone
 
-                        ins_by_rid[zone.rid].append(zone)
+                        ins_by_rid[zone.id].append(zone)
 
         #reload all the cleared data
         sampling.load_data()
@@ -146,7 +146,7 @@ class DetectionTool(tools.Tool):
         self._interaction.unbind()
 
         for cz in self._capture_zones.values():
-            dsp.delete(cz.rid)
+            dsp.delete(cz)
 
     def _on_left_click(self, rct):
         """

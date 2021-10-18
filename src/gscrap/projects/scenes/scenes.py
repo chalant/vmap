@@ -101,7 +101,6 @@ _GET_LABEL = text(
     """
     SELECT *
     FROM labels
-    WHERE project_type=:project_type;
     """
 )
 
@@ -265,29 +264,29 @@ class _Scene(object):
         io.execute(self._delete_template)
 
     def get_rectangles(self, connection):
-        return rectangles.get_rectangles(connection)
+        return rectangles.get_rectangles(connection, self)
 
     def create_rectangle(self, width, height):
         return rectangles.create_rectangle(width, height, self)
 
     def _get_labels(self, connection, project_type, label_type):
-        row = connection.execute(_GET_PROJECT_TYPE, project_type=project_type).fetchone()
+        # row = connection.execute(_GET_PROJECT_TYPE, project_type=project_type).fetchone()
+        #
+        # parent = row["parent_project_type"]
 
-        parent = row["parent_project_type"]
-
-        for lt in connection.execute(_GET_LABEL, project_type=project_type):
+        for lt in connection.execute(_GET_LABEL):
             if lt["label_type"] == label_type:
                 yield lt
 
-        for cmp in connection.execute(_GET_PROJECT_TYPE_COMPONENTS, project_type=project_type):
-            for element in self._get_labels(connection, cmp["component_project_type"], label_type):
-                yield element
+        # for cmp in connection.execute(_GET_PROJECT_TYPE_COMPONENTS, project_type=project_type):
+        #     for element in self._get_labels(connection, cmp["component_project_type"], label_type):
+        #         yield element
 
-        while parent != None:
-            for element in self._get_labels(connection, parent, label_type):
-                yield element
-
-            parent = connection.execute(_GET_PROJECT_TYPE, project_type=parent).fetchone()["parent_project_type"]
+        # while parent != None:
+        #     for element in self._get_labels(connection, parent, label_type):
+        #         yield element
+        #
+        #     parent = connection.execute(_GET_PROJECT_TYPE, project_type=parent).fetchone()["parent_project_type"]
 
     def _delete_template(self):
         tp = self._template_path

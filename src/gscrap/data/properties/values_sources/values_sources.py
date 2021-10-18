@@ -3,6 +3,8 @@ from sqlalchemy import text
 from gscrap.data.properties.values_sources import incremental_generator
 from gscrap.data.properties.values_sources import input_values
 
+from gscrap.utils import key_generator
+
 _ADD_VALUES_SOURCE = text(
     """
     INSERT OR IGNORE INTO values_sources(values_source_name, values_source_type, values_source_id)
@@ -37,13 +39,19 @@ GENERATOR = 'generator'
 INPUT = 'input'
 
 class ValuesSource(object):
-    def __init__(self, type_, name, id_=None):
+    __slots__ = ['type_', 'name', 'id_']
+
+    def __init__(self, type_, name):
         self.type_ = type_
         self.name = name
-        self.id_ = id_
+        self.id_ = None
 
     def __hash__(self):
-        return hash(self.id_) if not None else hash((self.type_, self.name))
+        if self.id_ is None:
+            self.id_ = id_ = key_generator.generate_key(str(self.type_) + str(self.name))
+            return id_
+        else:
+            return self.id_
 
     def __repr__(self):
         return "ValueSource {} {}".format(self.type_, self.name)
@@ -96,6 +104,5 @@ def get_value_source_by_property(connection, property_):
 
     return ValuesSource(
         res['values_source_type'],
-        res['values_source_name'],
-        res['values_source_id']
+        res['values_source_name']
     )

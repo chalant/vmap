@@ -245,7 +245,6 @@ class PropertyRectangle(display.DisplayItem):
         return self.indices[value_index]
 
     def set_value(self, index, value, value_index):
-        print("Setting Value", index, value)
         self.values[index].value = value
         self.indices[index] = value_index
 
@@ -292,7 +291,6 @@ class PropertyModel(object):
         self._assignment.values = ipt
 
     def assign_value(self, value_index):
-        print("Assigning value", value_index)
 
         return self._assignment.assign_value(
             self.application_index,

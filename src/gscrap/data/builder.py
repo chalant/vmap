@@ -32,8 +32,10 @@ def clear(connection):
         "property_types",
         "property_attributes",
         "attributes",
-        "properties_values_sources",
+        "incremental_value_generator",
+        "values_input",
         "values_sources",
+        "properties_values_sources",
         "values_sources_names",
         "values_sources_types"
     ]
@@ -87,14 +89,12 @@ class _Builder(object):
         connection = self._connection
 
         self._scene_writer.submit(connection)
+
         values_sources.add_values_source_type(connection, 'input')
         values_sources.add_values_source_name(connection, 'values_input')
 
         values_sources.add_values_source_type(connection, 'generator')
         values_sources.add_values_source_name(connection, 'incremental_generator')
-
-        for vs in self._values_sources:
-            values_sources.add_values_source(connection, vs)
 
         attributes.add_attribute(connection, attributes.DISTINCT)
         attributes.add_attribute(connection, attributes.GLOBAL)
@@ -136,8 +136,7 @@ class _Builder(object):
         if not property_ in _pvs:
             vs = values_sources.ValuesSource(
                 'generator',
-                'incremental_generator',
-                hash((start, increment)))
+                'incremental_generator')
 
             self._values_sources.append(vs)
 
@@ -158,8 +157,7 @@ class _Builder(object):
         if not property_ in _pvs:
             vs = values_sources.ValuesSource(
                 'input',
-                'values_input',
-                hash(str(values)))
+                'values_input')
 
             self._values_sources.append(vs)
 
@@ -172,6 +170,9 @@ class _Builder(object):
 
     def _submit(self, connection):
         self._scene_writer.submit(connection)
+
+        for vs in self._values_sources:
+            values_sources.add_values_source(connection, vs)
 
         for pp in self._properties.values():
             properties.add_property_type(connection, pp.property_type)

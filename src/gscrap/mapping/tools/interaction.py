@@ -53,8 +53,8 @@ class Interaction(object):
                 self._unbind(canvas)
 
             rct = rt.get_rectangle(instances, rid)
-            canvas.itemconfigure(rct.rid, outline="red")
-            self._prev = rct.rid
+            canvas.itemconfigure(rct.id, outline="red")
+            self._prev = rct.id
             self._rid = rid
         else:
             self._unbind(canvas)

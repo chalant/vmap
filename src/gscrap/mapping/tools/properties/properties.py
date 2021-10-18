@@ -112,7 +112,7 @@ class Properties(tools.Tool):
 
                 ppt_vs = pvs.get_property_values_source(connection, property_)
 
-                for rct in rectangles.get_rectangles_with_property(connection, property_):
+                for rct in rectangles.get_rectangles_with_property(connection, scene, property_):
                     for ist in rectangles.get_rectangle_instances(connection, rct):
 
                         instances[count + 1] = instance = dsp.draw(ist, fct)
@@ -165,7 +165,7 @@ class Properties(tools.Tool):
         rid = self._rectangle_id(rct.rectangle_instance)
         p_rid = self._selected_rectangle
 
-        iid = rct.rid
+        iid = rct.id
         p_iid = self._selected_instance
 
         #display property setters only if the rectangle has changed

@@ -107,8 +107,8 @@ _SELECT_CAPTURE_RECTANGLES = text(
 
 _ADD_RECTANGLE = text(
     """
-    INSERT OR IGNORE INTO rectangles(rectangle_id, height, width, project_name)
-    VALUES (:rectangle_id, :height, :width, :project_name);
+    INSERT OR IGNORE INTO rectangles(rectangle_id, height, width)
+    VALUES (:rectangle_id, :height, :width);
     """
 )
 
@@ -391,11 +391,11 @@ class Rectangle(object):
         return self._id
 
 
-def get_rectangles(connection):
+def get_rectangles(connection, scene):
     for row in connection.execute(_SELECT_RECTANGLES):
         yield Rectangle(
             row["rectangle_id"],
-            row["project_name"],
+            scene,
             row["width"],
             row["height"])
 
@@ -502,8 +502,8 @@ def get_rectangle_component_with_label(connection, rectangle, label):
         res["height"])
 
 
-def delete_for_scene(connection):
-    for rectangle in get_rectangles(connection):
+def delete_for_scene(connection, scene):
+    for rectangle in get_rectangles(connection, scene):
         rectangle.delete(connection)
 
 def get_components_that_are_instances_of_rectangle(connection, rectangle_instance, rectangle):
@@ -520,7 +520,7 @@ def get_components_that_are_instances_of_rectangle(connection, rectangle_instanc
             rectangle_instance.id
         )
 
-def get_rectangles_with_property(connection, property_):
+def get_rectangles_with_property(connection, scene, property_):
     for res in connection.execute(
         _GET_RECTANGLES_WITH_PROPERTY,
         property_type=property_.property_type,
@@ -528,7 +528,7 @@ def get_rectangles_with_property(connection, property_):
 
         yield Rectangle(
             res["rectangle_id"],
-            res["project_name"],
+            scene,
             res["width"],
             res["height"])
 
