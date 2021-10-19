@@ -141,23 +141,23 @@ class LabelWriter(_Element):
 
         """
         if self._classifiable:
-            if not self._max:
-                instance = _LabelInstance(
-                    uuid4().hex,
-                    instance_name,
-                    self._label_name,
-                    self._label_type)
+            # if not self._max:
+            instance = _LabelInstance(
+                uuid4().hex,
+                instance_name,
+                self._label_name,
+                self._label_type)
 
-                self._instances.append(instance)
-            else:
-                if self._total < self._max:
-                    instance = _LabelInstance(
-                        uuid4().hex,
-                        instance_name,
-                        self._label_name,
-                        self._label_type)
-                    self._total += 1
-                    self._instances.append(instance)
+            self._instances.append(instance)
+            # else:
+            #     if self._total < self._max:
+            #         instance = _LabelInstance(
+            #             uuid4().hex,
+            #             instance_name,
+            #             self._label_name,
+            #             self._label_type)
+            #         self._total += 1
+            #         self._instances.append(instance)
         else:
             raise ValueError(
                 "Non classifiable label"
