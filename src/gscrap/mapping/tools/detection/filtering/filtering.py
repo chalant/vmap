@@ -316,6 +316,8 @@ class FilteringController(object):
         self._group_id = ''
         self._parameter_id = ''
 
+        self._scene = None
+
     def view(self):
         return self._view
 
@@ -339,6 +341,9 @@ class FilteringController(object):
 
         self._view.save_button["state"] = tk.DISABLED
 
+    def set_scene(self, scene):
+        self._scene = scene
+
     def data_update(self, model):
         # called any time a filter is created or modified
 
@@ -358,7 +363,7 @@ class FilteringController(object):
         if parameter_id and group_id:
             #only save when filters have changed.
             if parameter_id != ppid or group_id != pgid:
-                with projects.connect() as connection:
+                with self._scene.connect() as connection:
                     #only store when the either filter group or parameter does not exist.
                     #if it exists then the filter pipeline already exists.
 

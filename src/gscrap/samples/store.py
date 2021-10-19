@@ -32,10 +32,9 @@ def add_sample(sample_data, image, label, connection):
 
     sample_data.position += 1
 
-    # io.submit(_save_sample, meta, image)
+    _save_sample(meta, image, connection)
 
-    with open(meta.path, 'wb') as f:
-        f.write(image)
+    # io.submit(_save_sample, meta, image, connection)
 
     return meta
 

@@ -99,6 +99,7 @@ class DetectionTool(tools.Tool):
         sampling = self._sampling
 
         sampling.set_scene(scene)
+        self._filtering.set_scene(scene)
 
         itc.width = scene.width
         itc.height = scene.height

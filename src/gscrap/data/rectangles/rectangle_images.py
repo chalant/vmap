@@ -11,4 +11,4 @@ _DELETE_RECTANGLE_IMAGES = text(
 def delete_rectangle_images(connection, rectangle):
     connection.execute(
         _DELETE_RECTANGLE_IMAGES,
-        rectangle_id=rectangle)
+        rectangle_id=rectangle.id)

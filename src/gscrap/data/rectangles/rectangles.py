@@ -388,7 +388,7 @@ class Rectangle(object):
         return other.id == self._id
 
     def __hash__(self):
-        return self._id
+        return int(self._id, 16)
 
 
 def get_rectangles(connection, scene):

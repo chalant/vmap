@@ -1,6 +1,7 @@
 import numpy as np
 
 from gscrap.data.images import images as im
+
 from gscrap.filtering import filters
 
 class SampleSource(object):
@@ -35,13 +36,7 @@ def load_image(meta):
         return f.read()
 
 def get_samples(sample_source):
-    dimensions = sample_source.dimensions
-
-    for label, img in sample_source.samples:
-        yield label, np.frombuffer(
-            img,
-            np.uint8).reshape(
-            dimensions[1], dimensions[0], 3)
+    return sample_source.samples
 
 def load_samples(sample_source, connection, scene):
     """
@@ -55,6 +50,11 @@ def load_samples(sample_source, connection, scene):
     -------
 
     """
+
+    def as_array(image, dimensions):
+        # return np.asarray(Image.frombytes("RGB", dimensions, image))
+        return np.frombuffer(image, np.uint8).reshape(dimensions[1], dimensions[0], 3)
+
     samples = sample_source.samples
 
     for meta in im.get_images(
@@ -67,5 +67,5 @@ def load_samples(sample_source, connection, scene):
             meta.label['instance_name'],
             filters.apply_filters(
                 sample_source.filter_pipeline,
-                load_image(meta))))
+                as_array(load_image(meta), (meta.width, meta.height)))))
 
