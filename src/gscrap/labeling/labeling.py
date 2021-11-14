@@ -86,7 +86,7 @@ class AbstractLabeling(ABC):
 
 class NullLabeling(AbstractLabeling):
     def label(self, img):
-        return "N/A"
+        return ''
 
 class Tesseract(AbstractLabeling):
     model_type = 'tesseract'
@@ -106,9 +106,6 @@ class Tesseract(AbstractLabeling):
             if i in characters:
                 res += i
 
-        if not res:
-            return 'Null'
-
         return res
 
 class DifferenceMatching(AbstractLabeling):
@@ -125,8 +122,8 @@ class DifferenceMatching(AbstractLabeling):
     def label(self, img):
         diff_max = self.threshold
         best_match_diff = diff_max
-        name = "N/A"
-        best_match_name = "N/A"
+        name = ""
+        best_match_name = ""
 
         for label, image in src.get_samples(self._samples_source):
 

@@ -95,7 +95,7 @@ class Project(object):
             scenes.load_dimensions(connection, scene)
 
             #rebuild label data in case label schema changed
-            # todo: should use git to check for changes before rebuilding
+            # todo: should use git (or check differences in file) to check for changes before rebuilding
             with self._engine.connect() as con:
                 self._build_label_data(
                     connection,

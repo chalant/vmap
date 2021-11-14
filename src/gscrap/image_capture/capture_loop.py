@@ -105,7 +105,7 @@ class CaptureLoop(object):
         handler = self._handler
 
         while not self._stop:
-            # t0 = time.time()
+            t0 = time.time()
             # with self._lock:
             # for handler in self._handlers:
             #     handler.process_image(snapshot(
@@ -134,8 +134,8 @@ class CaptureLoop(object):
                 sleep = 0
             self._stop_evt.wait(sleep)
 
-            fps =  1 / (time.time() - t0)
-            print(fps)
+            # fps =  1 / (time.time() - t0)
+            # print(fps)
 
     # def initialize(self, image):
     #     e1 = self._left
