@@ -81,6 +81,10 @@ class Project(object):
         schema.build_schema(meta)
         meta.create_all(eng)
 
+    @property
+    def working_dir(self):
+        return self.workspace.working_dir
+
     def connect(self):
         return self._engine.connect()
 
