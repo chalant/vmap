@@ -83,7 +83,7 @@ class Project(object):
 
     @property
     def working_dir(self):
-        return self.workspace.working_dir
+        return self.workspace.project_dir
 
     def connect(self):
         return self._engine.connect()
