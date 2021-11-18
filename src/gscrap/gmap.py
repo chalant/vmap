@@ -5,10 +5,12 @@ import tkinter as tk
 from gscrap.mapping import controller as ctl
 
 from gscrap.projects import projects
+from gscrap.projects import workspace
 
 from gscrap.data import paths
 
 from gscrap.tools import window_selection as ws
+
 
 # FONT = ("Mono", 11)
 
@@ -52,7 +54,7 @@ class WindowManager(object):
         self._root.destroy()
 
 class MainWindow(object):
-    def __init__(self, manager, working_dir):
+    def __init__(self, manager, workspace):
         """
         Parameters
         ----------
@@ -63,7 +65,7 @@ class MainWindow(object):
 
         root = manager.container
 
-        projects.set_project(working_dir)
+        projects.set_project(workspace)
         project = projects.get_project()
 
         paths.set_project(project)
@@ -81,7 +83,7 @@ class MainWindow(object):
 
 MANAGER = WindowManager()
 
-def launch(directory=None):
+def launch(project_name, directory=None):
     if directory == None:
         path = os.getcwd()
     else:
@@ -90,4 +92,4 @@ def launch(directory=None):
         else:
             path = os.path.join(os.getcwd(), directory)
 
-    MANAGER.start(path)
+    MANAGER.start(workspace.WorkSpace(path, project_name))

@@ -37,11 +37,11 @@ _ADD_SCENE = text(
 
 _PROJECT = None
 
-def set_project(working_directory):
+def set_project(working_space):
     global _PROJECT
 
     if not _PROJECT:
-        _PROJECT = Project(working_directory)
+        _PROJECT = Project(working_space)
 
 def get_project():
     global _PROJECT
@@ -63,8 +63,8 @@ def make_directory(path):
 class Project(object):
     _instance = None
 
-    def __init__(self, working_directory):
-        self.working_dir = working_directory
+    def __init__(self, workspace):
+        self.workspace = workspace
         self.namespace = {}
 
         self._scenes = {}
@@ -73,7 +73,7 @@ class Project(object):
 
         self._engine = eng = engine.create_engine(
             "sqlite:////{}".format(path.join(
-                self.working_dir,
+                workspace.project_dir,
                 "meta.db")))
 
         self._meta = meta = MetaData()
@@ -107,7 +107,7 @@ class Project(object):
     def create_scene(self, scene_name, schema_name):
 
         scene = scenes.get_scene(self, scene_name)
-        pth = path.join(self.working_dir, 'scenes', scene_name)
+        pth = path.join(self.workspace.project_dir, 'scenes', scene_name)
 
         make_directory(pth)
         make_directory(path.join(pth, 'images'))
@@ -128,7 +128,7 @@ class Project(object):
         return scene
 
     def get_build_function(self, schema_name):
-        schema_path = path.join(self.working_dir, 'schemas', schema_name + '.py')
+        schema_path = path.join(self.workspace.working_dir, 'schemas', schema_name + '.py')
         namespace = self.namespace
 
         with open(schema_path, 'r') as f:
@@ -142,7 +142,7 @@ class Project(object):
             self.get_build_function(schema_name)(bld)
 
     def get_scene_schemas(self):
-        for element in listdir(path.join(self.working_dir, 'schemas')):
+        for element in listdir(path.join(self.workspace.working_dir, 'schemas')):
             if element.endswith(".py"):
                 yield element.split(".")[0]
 
@@ -153,7 +153,7 @@ class Project(object):
     def get_video_metadata(self, connection):
         return vds.get_metadata(connection)
 
-    def __new__(cls, working_directory):
+    def __new__(cls, workspace):
         if cls._instance is None:
             ist = super().__new__(cls)
             cls._instance = ist
