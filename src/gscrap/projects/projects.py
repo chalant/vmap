@@ -146,9 +146,21 @@ class Project(object):
             self.get_build_function(schema_name)(bld)
 
     def get_scene_schemas(self):
-        for element in listdir(path.join(self.workspace.working_dir, 'schemas')):
+        return self._get_schemas(path.join(self.workspace.working_dir, 'schemas'))
+
+    def _get_schemas(self, dir_):
+        for element in listdir(dir_):
             if element.endswith(".py"):
-                yield element.split(".")[0]
+                basename = path.basename(dir_)
+
+                if basename != 'schemas':
+                    yield "{}/{}".format(basename, element.split(".")[0])
+                else:
+                    yield "/{}".format(element.split(".")[0])
+
+            elif path.isdir(path.join(dir_, element)):
+                for element in self._get_schemas(path.join(dir_, element)):
+                    yield element
 
     def get_scene_names(self, connection):
         for res in connection.execute(_GET_SCENES):
