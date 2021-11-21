@@ -1,6 +1,6 @@
 from os import path, listdir, mkdir
 
-from sqlalchemy import text, engine, MetaData
+from sqlalchemy import text, engine, MetaData, exc
 
 from gscrap.projects.scenes import scenes
 from gscrap.projects import schema
@@ -91,22 +91,26 @@ class Project(object):
     def load_scene(self, scene_name):
         scene = scenes.get_scene(self, scene_name)
 
-        #load scene and set dimensions.
-        with scene.connect() as connection:
-            builder.clear(connection)
-            scenes.create_tables(scene)
+        try:
+            #load scene and set dimensions.
+            with scene.connect() as connection:
+                builder.clear(connection)
+                scenes.create_tables(scene)
 
-            scenes.load_dimensions(connection, scene)
+                scenes.load_dimensions(connection, scene)
 
-            #rebuild label data in case label schema changed
-            # todo: should use git (or check differences in file) to check for changes before rebuilding
-            with self._engine.connect() as con:
-                self._build_label_data(
-                    connection,
-                    scene,
-                    get_schema_name(con, scene_name))
+                #rebuild label data in case label schema changed
+                # todo: should use git (or check differences in file) to check for changes before rebuilding
+                with self._engine.connect() as con:
+                    self._build_label_data(
+                        connection,
+                        scene,
+                        get_schema_name(con, scene_name))
 
-        return scene
+            return scene
+
+        except exc.OperationalError:
+            raise ValueError("Scene {} not found".format(scene_name))
 
     def create_scene(self, scene_name, schema_name):
 
