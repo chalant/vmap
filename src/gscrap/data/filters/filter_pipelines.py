@@ -1,4 +1,4 @@
-import filters
+from gscrap.data.filters import filters
 
 class FilterPipelines(object):
     def __init__(self):
