@@ -11,6 +11,7 @@ import pytesseract
 from sqlalchemy import text
 
 from gscrap.samples import source as src
+from gscrap.filtering import filters
 
 _ADD_MODEL = text(
     '''
@@ -126,19 +127,15 @@ class DifferenceMatching(AbstractLabeling):
         best_match_name = ""
 
         for label, image in src.get_samples(self._samples_source):
-
             diff_img = cv2.absdiff(img, image)
 
             diff = int(np.sum(diff_img) / 255)
 
-            if diff < best_match_diff:
+            if diff <= best_match_diff:
                 best_match_diff = diff
                 name = label
 
-        #todo: we need to setup a detection threshold which determines the "tolerance", the lowest
-        # the better. Otherwise, we would get false positives (threshold could be set by user)
-
-        if (best_match_diff < diff_max):
+        if (best_match_diff <= diff_max):
             best_match_name = name
 
         return best_match_name

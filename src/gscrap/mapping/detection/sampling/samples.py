@@ -6,9 +6,14 @@ from gscrap.rectangles import rectangles
 
 from gscrap.sampling import samples as spl
 
-from gscrap.mapping.tools.detection.sampling import image_grid as ig
-from gscrap.mapping.tools.detection import grid as gd
+from gscrap.mapping.detection.sampling import image_grid as ig
+from gscrap.mapping.detection import grid as gd
 
+
+class SampleEvent(object):
+    def __init__(self, click_event, sample_index):
+        self.clicked = click_event
+        self.sample_index = sample_index
 
 class BytesImageBuffer(object):
     def __init__(self, buffer, dimensions):
@@ -50,8 +55,8 @@ class ArrayImageBuffer(object):
     def add_sample(self, sample):
         self._samples.append(sample)
         n = self._n
+        self._indices.append(n)
         n += 1
-        self._indices.append(n-1)
         self._n = n
 
     def set_samples(self, samples):
@@ -96,13 +101,15 @@ class Samples(object):
         def null_callback(event):
             pass
 
-        self._selected_sample = null_callback
+        self._rc_callback = null_callback
+        self._lc_callback = null_callback
 
         self._items = []
         self._image_rectangles = {}
 
         image_grid.on_motion(self._on_motion)
         image_grid.on_left_click(self._on_left_click)
+        image_grid.on_right_click(self._on_right_click)
 
         self._rid = None
         self._prev_rid = None
@@ -178,7 +185,7 @@ class Samples(object):
 
 
 
-        #todo: launch multiple to optimize sample extraction
+        #todo: launch multiple processes or threads to optimize sample extraction
 
         # futures = []
         # res = [[]] * len(capture_zone._siblings)
@@ -232,7 +239,6 @@ class Samples(object):
         #initialize canvas
 
         capture_zone = self._capture_zone
-
 
         if capture_zone:
             image_rectangles = self._image_rectangles
@@ -311,7 +317,19 @@ class Samples(object):
         rid = self._rid
 
         if rid != None:
-            self._selected_sample(self._image_rectangles[rid].image_index)
+            self._lc_callback(SampleEvent(event, self._image_rectangles[rid].image_index))
+
+    def _on_right_click(self, event):
+        rid = self._rid
+
+        if rid != None:
+            self._rc_callback(SampleEvent(event, self._image_rectangles[rid].image_index))
+
+    def on_right_click(self, callback):
+        self._rc_callback = callback
+
+    def on_left_click(self, callback):
+        self._lc_callback = callback
 
     def selected_sample(self, callback):
         self._selected_sample = callback

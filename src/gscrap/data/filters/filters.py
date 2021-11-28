@@ -22,7 +22,6 @@ _REMOVE_LABEL_FROM_GROUP = text(
     DELETE FROM labels_filters
     WHERE labels_filters.label_type =:label_type 
         AND labels_filters.label_name =:label_name 
-        AND labels_filters.filter_group =:group_id
         AND labels_filters.scene_name =:scene_name
     ''')
 

@@ -1,4 +1,4 @@
-from tkinter import *
+# from tkinter import *
 
 # root = Tk()
 #
@@ -125,22 +125,61 @@ from tkinter import ttk
 # res = pytesseract.image_to_string(im)
 # print(res)
 
+# from tkinter import *
+#
+# master = Tk()
+#
+# var = tk.IntVar(master, value=100)
+#
+# i = 1
+#
+# def max_val():
+#     global i
+#     w.config(to=i)
+#     i += 1
+#
+# w = Spinbox(master, from_=0, command=max_val)
+# w.pack()
+#
+# mainloop()
+
+# import tkinter as tk
+#
+# def callback(selection):
+#     print(selection)
+#     options.set(selection)
+#
+# root = tk.Tk()
+# options = tk.StringVar()
+# menu = tk.Menubutton(root, options, 'a', 'b', 'c', command = callback)
+# menu.pack()
+# menu['menu'].add_command(label = 'New Item', command = lambda: callback('New Item'))
+# options.set('a')
+# root.mainloop()
+
 from tkinter import *
 
-master = Tk()
+def callback():
+    print("Hello!")
 
-var = tk.IntVar(master, value=100)
+top = Tk()
 
-i = 1
+mb = Menubutton(top, text="condiments", relief=FLAT)
+mb.grid()
+mb.menu =  menu = Menu(mb, tearoff = 0)
+mb["menu"] = mb.menu
 
-def max_val():
-    global i
-    w.config(to=i)
-    i += 1
+menu.add_command(label="Test", command=callback)
 
-w = Spinbox(master, from_=0, command=max_val)
-w.pack()
+# mayoVar = IntVar()
+# ketchVar = IntVar()
+#
+# mb.menu.add_checkbutton ( label="mayo",
+#                           variable=mayoVar )
+# mb.menu.add_checkbutton ( label="ketchup",
+#                           variable=ketchVar )
 
-mainloop()
+mb.pack()
+top.mainloop()
 
 

@@ -4,7 +4,6 @@ import tkinter as tk
 
 import cv2
 
-from gscrap.projects import projects
 from gscrap.data.filters import filters as flt
 
 from gscrap.rectangles import rectangles as rt
@@ -21,8 +20,9 @@ class FilterRectangle(object):
         rid
         tid
         bbox
-        filter_: filters.Filter
+        filter_: gscrap.data.filters.filters.Filter
         """
+
         self.rid = rid
         self.bbox = bbox
         self._filter = filter_
@@ -75,10 +75,6 @@ class FilterRectangle(object):
     def filter_id(self):
         return self._filter.filter_id
 
-    @property
-    def group_id(self):
-        return self._filter.group_id
-
     def get_parameters_sequence(self):
         return self._filter.get_parameters_sequence()
 
@@ -119,9 +115,12 @@ class FilterRectangle(object):
 
 
 class FRFactory(object):
-    def create_filter_rectangle(self, model, rid, tid, bbox, filter_):
+    def __init__(self, view):
+        self._view = view
+
+    def create_filter_rectangle(self, view, rid, tid, bbox, filter_):
         rct = FilterRectangle(rid, tid, bbox, filter_)
-        model.add_filter(rct)
+        self._view._pipeline.append(rct)
         return rct
 
 
@@ -193,15 +192,14 @@ class FilteringModel(object):
 
         pipeline.clear()
 
-        def loader(connection, group):
-            for filter_ in self._load_filters(
-                connection,
-                group['group_id'],
-                group['parameter_id']):
-                yield filter_
+        for filter in self._load_filters(
+            connection,
+            group['group_id'],
+            group['parameter_id']):
+            pipeline.append(filter)
 
         for obs in self._import_observers:
-            obs.on_filters_import(self, loader(connection, group))
+            obs.on_filters_import(self, pipeline)
             # the samples view observes this as-well and will update if filters are enabled
 
         if self._enabled:  # notify observers if filters are enabled
@@ -234,6 +232,19 @@ class FilteringModel(object):
 
     def add_data_observers(self, observer):
         self._data_observers.append(observer)
+
+    def clear_filters(self):
+        print("CLEARED!")
+
+        self._filter_pipeline.clear()
+
+        for obs in self._data_observers:
+            obs.data_update(self)
+
+        print("FILTERS UPDATE!")
+
+        for obs in self._filters_observers:
+            obs.filters_update(self)
 
     def remove_filter(self, position):
         pipeline = self._filter_pipeline
@@ -305,7 +316,6 @@ class FilteringController(object):
         model: FilteringModel
         """
         self._model = model
-        self._view = FilteringView(self, model)
 
         self._samples = None
         self._data_changed = False
@@ -317,9 +327,6 @@ class FilteringController(object):
         self._parameter_id = ''
 
         self._scene = None
-
-    def view(self):
-        return self._view
 
     def on_filters_import(self, filters, loader):
         '''
@@ -339,7 +346,7 @@ class FilteringController(object):
         self._parameter_id = filters.parameter_id
 
 
-        self._view.save_button["state"] = tk.DISABLED
+        # self._view.save_button["state"] = tk.DISABLED
 
     def set_scene(self, scene):
         self._scene = scene
@@ -347,7 +354,9 @@ class FilteringController(object):
     def data_update(self, model):
         # called any time a filter is created or modified
 
-        self._view.save_button["state"] = tk.NORMAL
+        # self._view.save_button["state"] = tk.NORMAL
+
+        pass
 
     def save(self):
         self._save(self._model)
@@ -394,16 +403,16 @@ class FilteringController(object):
                             parameter_id
                         )
 
-        self._view.save_button["state"] = tk.DISABLED
+        # self._view.save_button["state"] = tk.DISABLED
 
 
 class FilteringView(object):
-    def __init__(self, controller, model):
+    def __init__(self, controller, model, width, height):
         """
 
         Parameters
         ----------
-        controller: FilteringController
+        controller: gscrap.mapping.detection.sampling.sampling.SamplingController
         model: FilteringModel
         """
         self._model = model
@@ -426,22 +435,36 @@ class FilteringView(object):
         self._param_item = None
 
         self._fr_update = FRUpdateFactory()
-        self._fr_create = FRFactory()
+        self._fr_create = FRFactory(self)
+
+        self._width = width
+        self._height = height
+
+        self._pipeline = []
+
+        self.rendered = False
 
     def render(self, container):
         self._frame = frame = tk.LabelFrame(container, text="Filters")
         self._menu_bar = menu = tk.Frame(frame)
 
         self.add_button = add = tk.Menubutton(menu, text="Add")
-
-        self.save_button = save = tk.Button(
+        self.clear_button = clear = tk.Button(
             menu,
-            text="Save",
-            command=self._controller.save,
+            text="Clear",
+            command=self._controller.unmap_label_from_filters,
             bd=0
         )
 
-        save["state"] = tk.DISABLED
+        clear["state"] = tk.DISABLED
+        # self.save_button = save = tk.Button(
+        #     menu,
+        #     text="Save",
+        #     command=self._controller.save,
+        #     bd=0
+        # )
+        #
+        # save["state"] = tk.DISABLED
 
         self._filter_menu = fm = tk.Menu(add, tearoff=0)
 
@@ -460,16 +483,17 @@ class FilteringView(object):
         add.config(menu=fm)
         # save.config(menu=fm)
 
-        self._filter_canvas = cv = tk.Canvas(frame, width=150)
-        self._param_canvas = pv = tk.Canvas(frame, width=220)
+        self._filter_canvas = cv = tk.Canvas(frame, width=self._width)
+        self._param_canvas = pv = tk.Canvas(frame, width=self._width)
 
         frame.pack()
         # m.pack()
         menu.pack(anchor=tk.NW)
 
-        # file_mb.grid(column=0, row=0)
-        save.grid(column=0, row=0)
-        add.grid(column=1, row=0)
+        # # file_mb.grid(column=0, row=0)
+        # save.grid(column=0, row=0)
+        add.grid(column=0, row=0)
+        clear.grid(column=1, row=0)
 
         cv.pack(side=tk.LEFT)
         pv.pack(side=tk.LEFT)
@@ -477,6 +501,20 @@ class FilteringView(object):
         cv.bind("<Button-1>", self._on_left_click)
         cv.bind("<Button-3>", self._on_right_click)
         cv.bind("<Motion>", self._on_motion)  # track mouse motion
+
+        self._filter_canvas.update()
+
+        self._clear(
+            self._filter_canvas,
+            self._rectangles)
+
+        self._draw_filters(
+            self._model.filter_pipeline,
+            self._filter_canvas,
+            self._rectangles,
+            self._fr_create)
+
+        self.rendered = True
 
         return frame
 
@@ -491,12 +529,14 @@ class FilteringView(object):
         -------
 
         '''
-        canvas = self._filter_canvas
-        rectangles = self._rectangles
+        if self.rendered:
+            self.clear_button["state"] = tk.NORMAL
+            canvas = self._filter_canvas
+            rectangles = self._rectangles
 
-        self._clear(canvas, rectangles)
+            self._clear(canvas, rectangles)
 
-        self._draw_filters(loader, canvas, rectangles, self._fr_create)
+            self._draw_filters(loader, canvas, rectangles, self._fr_create)
 
     def on_filters_clear(self):
         self._clear(self._filter_canvas, self._rectangles)
@@ -655,7 +695,7 @@ class FilteringView(object):
 
         self._prev = None
 
-        pipeline = model.get_filters()
+        pipeline = self._pipeline
 
         # canvas.delete(filter_.rid)
         # canvas.delete(filter_.tid)  # remove text

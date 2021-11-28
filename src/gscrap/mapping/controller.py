@@ -10,10 +10,10 @@ import gscrap.mapping.menu as mn
 import gscrap.mapping.view as vw
 
 from gscrap.mapping.tools import tools
-from gscrap.mapping.tools.capture import capture
-from gscrap.mapping.tools.mapping import mapping
-from gscrap.mapping.tools.detection import detection
-from gscrap.mapping.tools.properties import properties
+from gscrap.mapping.capture import capture
+from gscrap.mapping.mapping import mapping
+from gscrap.mapping.detection import detection
+from gscrap.mapping.properties import properties
 
 
 class MappingController(object):

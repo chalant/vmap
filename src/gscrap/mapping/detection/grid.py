@@ -92,7 +92,7 @@ class Grid(object):
         canvas.bind("<Button-5>", self._on_mouse_wheel)
 
         canvas.bind("<Button-1>", self._on_left_click_cb)
-        canvas.bind("<Button-3>", self.on_right_click)
+        canvas.bind("<Button-3>", self._on_right_click)
 
         canvas.bind("<Motion>", self._on_motion)
 
@@ -178,7 +178,7 @@ class Grid(object):
 
         canvas.configure(scrollregion=(0, 0, w, self._scroll_height))
 
-    def _update_position(self, event):
+    def _adjust_mouse_position(self, event):
         # x = event.x + canvas.xview()[0] * (self._x)
         # x = event.x
         # y = event.y + canvas.yview()[0] * self._height
@@ -195,13 +195,13 @@ class Grid(object):
             canvas.yview_scroll(-1, "units")
 
     def _on_right_click(self, event):
-        self._on_right_click_cb(self._update_position(event))
+        self._on_right_click_cb(self._adjust_mouse_position(event))
 
     def _on_left_click(self, event):
-        self._on_left_click_cb(self._update_position(event))
+        self._on_left_click_cb(self._adjust_mouse_position(event))
 
     def _on_motion(self, event):
-        self._on_motion_callback(self._update_position(event))
+        self._on_motion_callback(self._adjust_mouse_position(event))
 
     def on_motion(self, callback):
         # if not self._on_motion_bind:

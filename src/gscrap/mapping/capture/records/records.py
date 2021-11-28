@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from gscrap.data.images import videos as vds
 
-from gscrap.mapping.tools.capture.records import loading
+from gscrap.mapping.capture.records import loading
 
 class VideoParams(object):
     def __init__(self, fps):

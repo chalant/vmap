@@ -5,7 +5,7 @@ from collections import defaultdict
 from gscrap.data import io
 from gscrap.data.rectangles import rectangles as rct_data, rectangle_labels as rct_labels
 
-from gscrap.mapping.tools.mapping import mapping_states as states
+from gscrap.mapping.mapping import mapping_states as states
 
 from gscrap.rectangles import rectangles, utils as rectangle_utils
 

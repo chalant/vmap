@@ -88,15 +88,29 @@ class SamplingView(object):
         """
         self._controller = controller
 
+        self._frame = None
+        self._canvas_frame = None
+        self._menu_frame = None
+
         self._sampling_frame = None
         self._label_frame = None
         self._label = None
         self._label_options = None
 
+        self._label_type = None
+        self._label_class = None
+        self._label_instance = None
+
+        self.label_type = None
+        self.label_class = None
+        self.label_instance = None
+
+        self.label_instance_options = None
+        self.label_type_options = None
+        self.label_class_options = None
+
         self.save_button = None
         self.detect_button = None
-
-        self.label_instance = None
 
         self.preview = Preview(80, 80)
 
@@ -117,14 +131,14 @@ class SamplingView(object):
 
         nav = self.preview.render(canvas_frame)
 
-        self._label_frame = label_frame = tk.Frame(sampling_frame)
+        self._label_frame = label_frame = tk.Frame(canvas_frame)
         self._label_type = label_type = tk.Label(label_frame, text="Type")
         self._label_class = label_class = tk.Label(label_frame, text="Class")
         self._label_instance = label_instance = tk.Label(label_frame, text="Label")
 
         self.label_type = label_type_var = tk.StringVar(label_frame, "N/A")
         self.label_class = label_class_var = tk.StringVar(label_frame, "N/A")
-        self.label_instance = label_instance_var = tk.StringVar(label_frame, "N/A")
+        self.label_instance = label_instance_var = tk.StringVar(label_frame, "")
 
         self.label_instance_options = lio = ttk.Combobox(
             label_frame, values=("N/A",),
@@ -181,9 +195,25 @@ class SamplingView(object):
             bd=0
         )
 
+        self.bin_button = bin_button = tk.Button(
+            menu_frame,
+            text = "Bin",
+            command=controller.display_sample_bin,
+            bd=0
+        )
+
+        self.filters_button = filters_button = tk.Button(
+            menu_frame,
+            text = "Filters",
+            command=controller.display_filters,
+            bd=0
+        )
+
         save_button["state"] = tk.DISABLED
         # detect_button["state"] = tk.DISABLED
         clear_button["state"] = tk.DISABLED
+        bin_button["state"] = tk.DISABLED
+        filters_button["state"] = tk.DISABLED
 
         self._threshold_label = tlb = tk.Label(label_frame, text="Threshold")
 
@@ -208,7 +238,7 @@ class SamplingView(object):
         # cv.grid(row=0, column=0)
         nav.grid(row=0, column=0, sticky=tk.NW)
 
-        label_frame.grid(row=1, column=1, sticky=tk.NW)
+        label_frame.grid(row=0, column=1, sticky=tk.NW)
 
         # image.grid(row=0, column=0)
         # cmd.grid(row=0, column=0, sticky=tk.NW)
@@ -218,6 +248,8 @@ class SamplingView(object):
         save_button.grid(row=0, column=0)
         # detect_button.grid(row=0, column=1)
         clear_button.grid(row=0, column=2)
+        bin_button.grid(row=0, column=3)
+        filters_button.grid(row=0, column=4)
 
         # save_button.config(menu=menu)
 
@@ -235,11 +267,11 @@ class SamplingView(object):
         self._add_form_row(label_instance, lio)
 
         # samples image grid
-        samples = tk.LabelFrame(frame, text="Samples")
+        samples = tk.LabelFrame(sampling_frame, text="Samples")
 
         self._image_grid.render(samples)
 
-        samples.grid(row=1, column=0)
+        samples.grid(row=2, column=0)
 
         menu_frame.grid(row=0, sticky=tk.NW)
 

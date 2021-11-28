@@ -17,11 +17,11 @@ from gscrap.mapping.tools import tools
 from gscrap.mapping.tools import display
 from gscrap.mapping.tools import interaction
 
-from gscrap.mapping.tools.properties import views
-from gscrap.mapping.tools.properties import models
-from gscrap.mapping.tools.properties import value_generators
-from gscrap.mapping.tools.properties import controller
-from gscrap.mapping.tools.properties import menu_bar
+from gscrap.mapping.properties import views
+from gscrap.mapping.properties import models
+from gscrap.mapping.properties import value_generators
+from gscrap.mapping.properties import controller
+from gscrap.mapping.properties import menu_bar
 
 
 class Properties(tools.Tool):

@@ -2,7 +2,7 @@ import tkinter as tk
 
 from PIL import Image, ImageTk
 
-from gscrap.mapping.tools.detection import grid
+from gscrap.mapping.detection import grid
 
 def update_photo_image(photo_image, image):
     photo_image.paste(image)

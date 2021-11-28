@@ -1,6 +1,6 @@
 from gscrap.mapping.tools import tools, navigation
-from gscrap.mapping.tools.capture import recording
-from gscrap.mapping.tools.capture.records import records
+from gscrap.mapping.capture import recording
+from gscrap.mapping.capture.records import records
 
 from gscrap.windows import windows, factory
 

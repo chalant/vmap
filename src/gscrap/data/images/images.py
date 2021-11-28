@@ -118,8 +118,7 @@ class ImageMetadata(object):
     def delete_image(self, connection):
         connection.execute(
             _DELETE_IMAGE_METADATA,
-            image_id=self._id,
-            scene_name=self._scene.name)
+            image_id=self._id)
 
         try:
             #remove image from disk

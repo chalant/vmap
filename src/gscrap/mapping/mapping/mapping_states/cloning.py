@@ -106,7 +106,7 @@ class Cloning(object):
         if res:
             self._container = self._mapper.get_rectangle(res[-1])
 
-        #copy the cz and draw it
+        #copy the rectangle and draw it
         self._mapper.cloned = rid
         self._copy(rid, x, y)
 

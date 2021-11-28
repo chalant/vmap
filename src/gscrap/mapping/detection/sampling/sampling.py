@@ -19,14 +19,18 @@ from gscrap.data import io
 from gscrap.data.filters import filters
 from gscrap.data.images import images as im
 
-from gscrap.mapping.tools.detection import grid as gd
-from gscrap.mapping.tools.detection.sampling import view as vw
-from gscrap.mapping.tools.detection.sampling import image_grid as ig
-from gscrap.mapping.tools.detection.sampling import samples as spl
+from gscrap.mapping.detection import grid as gd
+
+from gscrap.mapping.detection.filtering import filtering
+
+from gscrap.mapping.detection.sampling import view as vw
+from gscrap.mapping.detection.sampling import image_grid as ig
+from gscrap.mapping.detection.sampling import samples as spl
+from gscrap.mapping.detection.sampling import samples_grid as spg
 
 
 class SamplingController(object):
-    def __init__(self, filtering_model, width, height, on_label_set=None):
+    def __init__(self, container, width, height, on_label_set=None):
         """
 
         Parameters
@@ -36,7 +40,14 @@ class SamplingController(object):
 
         self.scene = None
 
-        self._filtering_model = filtering_model
+        self._filtering_window_active = False
+        self._filtering_model = filtering_model = filtering.FilteringModel()
+        self._filtering = filtering.FilteringController(filtering_model)
+        self._filtering_view = filtering_view = filtering.FilteringView(self, filtering_model, 300, 400)
+
+        filtering_model.add_filters_import_observer(filtering_view)
+        filtering_model.add_filter_observer(self)
+
         self._filter_group = None
         self._parameter_id = None
 
@@ -67,9 +78,17 @@ class SamplingController(object):
             width,
             height)
 
-        self._samples_grid = samples_grid = spl.Samples(buffer, image_grid)
+        self._samples_view = samples_view = spl.Samples(buffer, image_grid)
 
-        samples_grid.selected_sample(self._selected_sample)
+        self._samples_grid = spg.SamplesGrid(buffer, 600, 400)
+
+        self._sample_source = None
+
+        self._bin_window_active = False
+        self._draw_info = None
+
+        samples_view.on_left_click(self._selected_sample)
+        samples_view.on_right_click(self._on_right_click)
 
         self._sampling_view = view = vw.SamplingView(self, image_grid)
 
@@ -95,9 +114,109 @@ class SamplingController(object):
         self._max_threshold = 0
         self._model_name = ''
 
-    def _selected_sample(self, index):
+        self._container = container
+
+    def _get_reverse_image_index(self, image_buffer, sample_index):
+        for i, j in enumerate(image_buffer.indices):
+            if j == sample_index:
+                yield i, j
+
+    def unmap_label_from_filters(self):
+        with self.scene.connect() as connection:
+            filters.remove_label_from_group(
+                connection,
+                self._label_class,
+                self._label_type,
+                self.scene.name)
+
+    def display_filters(self):
+        def on_closing():
+            self._filters_window_active = False
+            self._filtering_view.rendered = False
+
+            top.destroy()
+            view.filters_button["state"] = tk.NORMAL
+
+        top = tk.Toplevel(self._container)
+
+        top.protocol("WM_DELETE_WINDOW", on_closing)
+        top.attributes('-topmost', True)
+
+        view = self._sampling_view
+
+        view.filters_button["state"] = tk.DISABLED
+
+        self._filtering_view.render(top)
+
+    def display_sample_bin(self):
+        def on_closing():
+            self._bin_window_active = False
+            top.destroy()
+            view.bin_button["state"] = tk.NORMAL
+
+        view = self._sampling_view
+
+        view.bin_button["state"] = tk.DISABLED
+
+        top = tk.Toplevel(self._container)
+
+        top.protocol("WM_DELETE_WINDOW", on_closing)
+        top.attributes('-topmost', True)
+
+        sample_index = self._sample_index
+        samples_grid = self._samples_grid
+
+        samples_grid.render(top)
+
+        self._draw_info = info = spg.DrawInfo()
+
+        indices = []
+
+        capture_zone = self._capture_zone
+
+        for i, j in self._get_reverse_image_index(self._image_buffer, sample_index):
+            indices.append(i)
+            item = ig.Item(capture_zone.dimensions)
+            info.items.append(item)
+            item.image_index = i
+
+        samples_grid.draw(info, indices)
+
+        self._bin_window_active = True
+
+    def _on_right_click(self, event):
+        pass
+
+    def _selected_sample(self, event):
         p_idx = self._selected_image_index
         view = self._sampling_view
+
+        if self._filtering_window_active:
+            view.filters_button["state"] = tk.DISABLED
+            self._filtering_model.clear_filters()
+            self._filtering_view.add_button["state"] = tk.DISABLED
+
+        if not self._bin_window_active:
+            view.bin_button["state"] = tk.NORMAL
+
+        else:
+            samples_grid = self._samples_grid
+            self._draw_info = info = spg.DrawInfo()
+
+            indices = []
+
+            capture_zone = self._capture_zone
+
+            for i, j in self._get_reverse_image_index(self._image_buffer, event.sample_index):
+                indices.append(i)
+                item = ig.Item(capture_zone.dimensions)
+                info.items.append(item)
+                item.image_index = i
+
+            samples_grid.draw(info, indices)
+
+        self._clicked = event.clicked
+        self._sample_index = index = event.sample_index
 
         if p_idx != index:
             view.label_class_options["state"] = tk.DISABLED
@@ -107,11 +226,12 @@ class SamplingController(object):
             view.clear_button["state"] = tk.DISABLED
 
         self._selected_image_index = index
-        self._preview.display(self._samples_grid.get_sample(index))
+        self._preview.display(self._samples_view.get_sample(index))
 
         view.label_type_options["state"] = tk.ACTIVE
 
     def set_scene(self, scene):
+        self._filtering.set_scene(scene)
         self.scene = scene
 
     def view(self):
@@ -122,14 +242,23 @@ class SamplingController(object):
 
     def clear_sample(self):
         with self.scene.connect() as connection:
+            image_metadata = self._image_metadata
+
             view = self._sampling_view
-            self._image_metadata.delete_image(connection)
 
             view.label_class_options["state"] = tk.DISABLED
             view.label_instance_options["state"] = tk.DISABLED
-            view.label_instance.set("N/A")
+            view.label_instance.set("")
             view.save_button["state"] = tk.DISABLED
             view.clear_button["state"] = tk.DISABLED
+
+            self._filtering_model.clear_filters()
+
+            if self._filtering_window_active:
+                self._filtering_view.add_button["state"] = tk.DISABLED
+
+            sc.delete_sample(self._sample_source, image_metadata.label['instance_name'])
+            image_metadata.delete_image(connection)
 
     def save(self):
         with self.scene.connect() as connection:
@@ -146,8 +275,9 @@ class SamplingController(object):
                         "label_type": self._label_type,
                         "instance_name": label
                     },
-                    connection,
-                )
+                    connection)
+
+            self._filtering.save()
 
             self._save_filters_mappings(connection, self._filtering_model)
 
@@ -159,6 +289,8 @@ class SamplingController(object):
             view.save_button["state"] = tk.DISABLED
             view.clear_button["state"] = tk.NORMAL
             view.label_instance_options["state"] = tk.DISABLED
+
+            sc.load_samples(self._sample_source, connection, self.scene)
 
     def _save_filters_mappings(self, connection, filter_model):
         label_class = self._label_class
@@ -180,7 +312,7 @@ class SamplingController(object):
             if group_id != pgr or parameter_id != ppr:
                 # if group has changed, remove the label from previous group
 
-                # filters.remove_label_from_group()
+                filters.remove_label_from_group(connection, label_class, label_type, scene_name)
 
                 # note: label per project is always mapped to ONE group_id and parameter_id pair.
                 filters.update_filter_labels_group(
@@ -221,130 +353,144 @@ class SamplingController(object):
         view.save_button["state"] = tk.NORMAL
 
     def set_label_class(self, *args):
-
         view = self._sampling_view
         label_type = self._label_type
         capture_zone = self._capture_zone
 
-        self._label_class = label_class = view.label_class.get()
+        scene = self.scene
+
+        label_class = view.label_class.get()
+
+        labeler = self._labeler
 
         # todo: do nothing if this raises a stop iteration error
         label_group = next((l for l in self._labels[label_type] if l.label_name == label_class))
 
-        # todo: once the label class and label type have been set, do a callback to observers
-        # ex: the we load filters associated with the label.
-
-        fm = self._filtering_model
-
-        # todo: should separate sampling from detection.
-
-        labeling = None
-
-        scene = self.scene
-
-        # try loading labeling model
         with scene.connect() as connection:
-            meta = mdl.load_labeling_model_metadata(
-                connection,
-                label_group,
-                capture_zone.scene_name)
 
-            if meta:
-                model_name = meta['model_name']
-                labeling = mdl.get_labeling_model(meta['model_type'], label_type).load(
+            # filters.remove_label_from_group(connection, label_class, label_type, scene.name)
+
+            if label_class != self._label_class or self._label_class == None:
+
+                self._label_class = label_class
+
+                # todo: once the label class and label type have been set, do a callback to observers
+                # ex: the we load filters associated with the label.
+
+                fm = self._filtering_model
+
+                # todo: should separate sampling from detection.
+
+                labeling = None
+
+                # try loading labeling model
+                meta = mdl.load_labeling_model_metadata(
                     connection,
-                    model_name)
+                    label_group,
+                    capture_zone.scene_name)
 
-                self._model_name = meta['model_name']
+                if meta:
+                    model_name = meta['model_name']
+                    labeling = mdl.get_labeling_model(meta['model_type'], label_type).load(
+                        connection,
+                        model_name)
 
-            filter_group = filters.get_filter_group(
-                connection,
-                label_class,
-                label_type,
-                capture_zone.scene_name)
+                    self._model_name = meta['model_name']
 
-            if filter_group:
-                self._filter_group = filter_group['group_id']
-                # this will be displayed on the filters canvas.
-                fm.import_filters(
+                filter_group = filters.get_filter_group(
                     connection,
-                    filter_group)
-
-            self._parameter_id = fm.parameter_id
-
-            if label_group.classifiable:
-                sample_source = sc.SampleSource(
-                    capture_zone.scene_name,
-                    label_type,
                     label_class,
-                    capture_zone.dimensions,
-                    fm.filter_pipeline
-                )
-
-                # load samples into the sample source
-                sc.load_samples(sample_source, connection, scene)
-
-                # comparator = self._dlc
-                self._labeling = lb = mdl.get_labeling_model(
-                    'difference_matching',
-                    label_group.label_type) if not labeling else labeling
-
-                threshold = lb.threshold
-
-                view.threshold['state'] = tk.NORMAL
-                view.threshold.config(to=self._max_threshold)
-                view.threshold.set(threshold)
-
-                self.set_threshold(threshold)
-
-                lb.set_samples_source(sample_source)
-
-                self._save_sample = True
-
-            else:
-                # can't save an unclassifiable element
-                # view.threshold['state'] = tk.DISABLED
-                self._labeling = lb = mdl.get_labeling_model(
-                    'tesseract',
-                    label_group.label_type) if not labeling else labeling
-
-                self._save_sample = False
-
-            labeler = self._labeler
-
-            # set labeling model
-            labeler.labeling = lb
-
-            # store mappings if its a new model...
-            if not labeling:
-                # map model to label and store
-                self._model_name = model_name = uuid4().hex
-
-                mdl.add_model(
-                    connection,
-                    model_name,
-                    lb.model_type)
-
-                lb.store(
-                    connection,
-                    model_name)
-
-                mdl.store_label_model(
-                    connection,
-                    model_name,
                     label_type,
-                    label_class,
-                    capture_zone.scene_name
-                )
+                    capture_zone.scene_name)
 
-            labeler.set_filter_pipeline(fm.filter_pipeline)
+                if filter_group:
+                    self._filter_group = filter_group['group_id']
+                    # this will be displayed on the filters canvas.
+                    fm.import_filters(
+                        connection,
+                        filter_group)
+
+                if not self._filtering_window_active:
+                    view.filters_button["state"] = tk.NORMAL
+                else:
+                    self._filtering_view.add_button["state"] = tk.NORMAL
+
+                self._parameter_id = fm.parameter_id
+
+                if label_group.classifiable:
+                    if self._sample_source:
+                        self._sample_source.samples.clear()
+
+                    self._sample_source = sample_source = sc.DynamicSampleSource(
+                        capture_zone.scene_name,
+                        label_type,
+                        label_class,
+                        capture_zone.dimensions,
+                        fm.filter_pipeline
+                    )
+
+                    # load samples into the sample source
+                    sc.load_samples(sample_source, connection, scene)
+
+                    # comparator = self._dlc
+                    self._labeling = lb = mdl.get_labeling_model(
+                        'difference_matching',
+                        label_group.label_type) if not labeling else labeling
+
+                    threshold = lb.threshold
+
+                    view.threshold['state'] = tk.NORMAL
+                    view.threshold.config(to=self._max_threshold)
+                    view.threshold.set(threshold)
+
+                    self.set_threshold(threshold)
+
+                    lb.set_samples_source(sample_source)
+
+                    self._save_sample = True
+
+                else:
+                    # can't save an unclassifiable element
+                    # view.threshold['state'] = tk.DISABLED
+                    self._labeling = lb = mdl.get_labeling_model(
+                        'tesseract',
+                        label_group.label_type) if not labeling else labeling
+
+                    self._save_sample = False
+
+                # set labeling model
+                labeler.labeling = lb
+
+                # store mappings if its a new model...
+                if not labeling:
+                    # map model to label and store
+                    self._model_name = model_name = uuid4().hex
+
+                    mdl.add_model(
+                        connection,
+                        model_name,
+                        lb.model_type)
+
+                    lb.store(
+                        connection,
+                        model_name)
+
+                    mdl.store_label_model(
+                        connection,
+                        model_name,
+                        label_type,
+                        label_class,
+                        capture_zone.scene_name
+                    )
+
+                labeler.set_filter_pipeline(fm.filter_pipeline)
 
             label = self._detect(labeler, capture_zone.dimensions)
 
             view.label_instance_options["state"] = tk.ACTIVE
             view.save_button["state"] = tk.NORMAL
 
-            if label == "N/A":
+            if not label:
                 view.label_instance_options['values'] = tuple([
                     instance['instance_name'] for instance in
                     capture_zone.get_label_instances(
@@ -381,7 +527,7 @@ class SamplingController(object):
 
     def _detect(self, labeler, dimensions):
         return lbl.label(labeler, np.frombuffer(
-            self._samples_grid.get_sample(
+            self._samples_view.get_sample(
                 self._selected_image_index),
             np.uint8).reshape(dimensions[1], dimensions[0], 3))
 
@@ -466,7 +612,7 @@ class SamplingController(object):
             self._capture_zone = capture_zone
 
     def _load_samples(self, view, meta, capture_zone):
-        grid = self._samples_grid
+        grid = self._samples_view
         grid.clear()
 
         grid.load_samples(meta, capture_zone, True)
@@ -485,7 +631,7 @@ class SamplingController(object):
         # update threshold and re-compress elements
         self._threshold = v = float(value)
 
-        grid = self._samples_grid
+        grid = self._samples_view
 
         grid.compress_samples(
             self._filtering_model,
@@ -500,6 +646,24 @@ class SamplingController(object):
 
         if model and self._save_sample:
             self._labeling.threshold = v
+
+        if self._bin_window_active:
+            sample_index = self._sample_index
+            samples_grid = self._samples_grid
+
+            self._draw_info = info = spg.DrawInfo()
+
+            indices = []
+
+            capture_zone = self._capture_zone
+
+            for i, j in self._get_reverse_image_index(self._image_buffer, sample_index):
+                indices.append(i)
+                item = ig.Item(capture_zone.dimensions)
+                info.items.append(item)
+                item.image_index = i
+
+            samples_grid.draw(info, indices)
 
     def get_max_threshold(self):
         return self._max_threshold
@@ -519,7 +683,7 @@ class SamplingController(object):
         # idx = self._selected_image_index
         # preview = self._preview
 
-        grid = self._samples_grid
+        grid = self._samples_view
 
         # buffer = self._image_buffer
 
@@ -533,7 +697,8 @@ class SamplingController(object):
         else:
             grid.disable_filters()
 
-        self._labeler.filter_pipeline = filters.filter_pipeline
+        self._labeler.set_filter_pipeline(filters.filter_pipeline)
+        self._sample_source.filter_pipeline = filters.filter_pipeline
 
     def _apply_filters(self, filters, image):
         if filters.filters_enabled:
@@ -574,4 +739,4 @@ class SamplingController(object):
                 meta, cz)
 
     def clear_data(self):
-        self._samples_grid.clear()
+        self._samples_view.clear()

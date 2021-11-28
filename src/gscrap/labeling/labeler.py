@@ -50,7 +50,7 @@ def create_labeler(connection, scene, label, rectangle, filter_pipeline):
             meta['model_name'])
 
 
-        sample_source = source.SampleSource(
+        sample_source = source.BakedSampleSource(
             scene.name,
             label.label_type,
             label.label_name,
@@ -59,7 +59,7 @@ def create_labeler(connection, scene, label, rectangle, filter_pipeline):
         )
 
         labeling_model.set_samples_source(sample_source)
-        source.load_samples(sample_source, connection)
+        source.load_samples(sample_source, connection, scene)
 
     elif model_type == 'tesseract':
 

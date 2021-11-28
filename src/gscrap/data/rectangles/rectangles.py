@@ -65,7 +65,7 @@ _GET_RECTANGLE_WITH_LABEL = text(
 _ADD_META_COMPONENT = text(
     """
     INSERT OR IGNORE INTO rectangle_meta_components(rectangle_id, component_id)
-    VALUE(:rectangle_id, :component_id)
+    VALUES (:rectangle_id, :component_id)
     """
 )
 
