@@ -118,9 +118,10 @@ class FRFactory(object):
     def __init__(self, view):
         self._view = view
 
-    def create_filter_rectangle(self, view, rid, tid, bbox, filter_):
+    def create_filter_rectangle(self, model, rid, tid, bbox, filter_):
         rct = FilterRectangle(rid, tid, bbox, filter_)
         self._view._pipeline.append(rct)
+
         return rct
 
 
@@ -137,6 +138,8 @@ class FilteringModel(object):
         self._import_observers = []
 
         self._filters_observers = []
+        self._new_filter_observers = []
+
         self._filter_pipeline = []
 
         self._data_observers = []
@@ -223,6 +226,9 @@ class FilteringModel(object):
             obs.filters_update(self)
 
         return filter_
+
+    def on_new_filter(self, observer):
+        self._new_filter_observers.append(observer)
 
     def add_filter_observer(self, observer):
         self._filters_observers.append(observer)
@@ -623,8 +629,12 @@ class FilteringView(object):
         canvas = self._filter_canvas
         rectangles = self._rectangles
 
+        model.add_filter(filter_)
+
         x, y = self._add_filter_inner(
-            model, filter_, x, y,
+            model,
+            filter_,
+            x, y,
             canvas,
             rectangles,
             canvas.winfo_width(),
@@ -717,6 +727,7 @@ class FilteringView(object):
             canvas.delete(flt.tid)
 
         model.remove_filter(k)
+        pipeline.pop(k)
 
         self._draw_filters(pipeline, canvas, rectangles, self._fr_update)
 

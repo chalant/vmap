@@ -71,7 +71,9 @@ _ADD_META_COMPONENT = text(
 
 _GET_META_COMPONENTS = text(
     """
-    SELECT * FROM rectangle_meta_components
+    SELECT * FROM rectangles
+    INNER JOIN rectangle_meta_components
+        ON rectangle_meta_components.component_id = rectangles.rectangle_id
     WHERE rectangle_meta_components.rectangle_id=:rectangle_id
     """
 )
@@ -353,7 +355,9 @@ class Rectangle(object):
             instance.delete(connection)
 
         for cmp in get_rectangle_components(connection, self._scene, self):
-            cmp.delete(connection)
+            #avoids infinit recursion
+            if cmp.id != self.id:
+                cmp.delete(connection)
 
         connection.execute(
             _DELETE_RECTANGLE,

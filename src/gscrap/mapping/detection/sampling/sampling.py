@@ -379,8 +379,6 @@ class SamplingController(object):
 
                 fm = self._filtering_model
 
-                # todo: should separate sampling from detection.
-
                 labeling = None
 
                 # try loading labeling model
