@@ -252,7 +252,7 @@ class SamplingController(object):
             view.save_button["state"] = tk.DISABLED
             view.clear_button["state"] = tk.DISABLED
 
-            self._filtering_model.clear_filters()
+            # self._filtering_model.clear_filters()
 
             if self._filtering_window_active:
                 self._filtering_view.add_button["state"] = tk.DISABLED
