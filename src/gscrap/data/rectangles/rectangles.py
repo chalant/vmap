@@ -78,6 +78,13 @@ _GET_META_COMPONENTS = text(
     """
 )
 
+_DELETE_META_COMPONENT = text(
+    """
+    DELETE FROM rectangle_meta_components
+    WHERE rectangle_meta_components.rectangle_id=:rectangle_id
+    """
+)
+
 _SELECT_RECTANGLES = text(
     """
     SELECT * FROM rectangles;
@@ -354,10 +361,14 @@ class Rectangle(object):
         for instance in get_rectangle_instances(connection, self):
             instance.delete(connection)
 
-        for cmp in get_rectangle_components(connection, self._scene, self):
-            #avoids infinit recursion
-            if cmp.id != self.id:
-                cmp.delete(connection)
+        #todo: unmap instead of delete components
+
+        # for cmp in get_rectangle_components(connection, self._scene, self):
+        #     #avoids infinit recursion
+        #     if cmp.id != self.id:
+        #         cmp.delete(connection)
+
+        unmap_rectangle_from_components(connection, self)
 
         connection.execute(
             _DELETE_RECTANGLE,
@@ -468,6 +479,12 @@ def get_rectangle_components(connection, scene, rectangle):
             rectangle_id=rectangle.id):
         yield Rectangle(res['rectangle_id'], scene, res["width"], res["height"])
 
+
+def unmap_rectangle_from_components(connection, rectangle):
+    connection.execute(
+        _DELETE_META_COMPONENT,
+        rectangle_id=rectangle.id
+    )
 
 def get_rectangle_instance(connection, rectangle, instance_id):
     res = connection.execute(

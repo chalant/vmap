@@ -510,6 +510,8 @@ class FilteringView(object):
 
         self._filter_canvas.update()
 
+        self._pipeline.clear()
+
         self._clear(
             self._filter_canvas,
             self._rectangles)
@@ -541,6 +543,7 @@ class FilteringView(object):
             rectangles = self._rectangles
 
             self._clear(canvas, rectangles)
+            self._pipeline.clear()
 
             self._draw_filters(loader, canvas, rectangles, self._fr_create)
 

@@ -290,7 +290,8 @@ class SamplingController(object):
             view.clear_button["state"] = tk.NORMAL
             view.label_instance_options["state"] = tk.DISABLED
 
-            sc.load_samples(self._sample_source, connection, self.scene)
+            if self._sample_source:
+                sc.load_samples(self._sample_source, connection, self.scene)
 
     def _save_filters_mappings(self, connection, filter_model):
         label_class = self._label_class
@@ -308,9 +309,12 @@ class SamplingController(object):
         scene_name = capture_zone.scene_name
         # if the filter_labels already belonged to a group, update the group and parameter
 
-        if parameter_id and group_id and pgr and ppr:
-            if group_id != pgr or parameter_id != ppr:
+        if pgr and ppr:
+            if group_id != pgr:
                 # if group has changed, remove the label from previous group
+
+                #todo: remove
+                # or parameter_id != ppr
 
                 filters.remove_label_from_group(connection, label_class, label_type, scene_name)
 
@@ -323,13 +327,21 @@ class SamplingController(object):
                     group_id,
                 )
 
-                if parameter_id != ppr:
-                    filters.update_filter_labels_parameter_id(
-                        connection,
-                        label_class,
-                        label_type,
-                        scene_name,
-                        parameter_id)
+            if parameter_id != ppr:
+                # filters.remove_label_from_parameters(
+                #     connection,
+                #     label_class,
+                #     label_type,
+                #     scene_name
+                # )
+
+                #todo: remove parameter_id
+                filters.update_filter_labels_parameter_id(
+                    connection,
+                    label_class,
+                    label_type,
+                    scene_name,
+                    parameter_id)
 
         elif parameter_id and group_id:
             # if did not belong to any group, add it to database
@@ -401,12 +413,16 @@ class SamplingController(object):
                     label_type,
                     capture_zone.scene_name)
 
+                self._filter_group = None
+                self._parameter_id = None
+
                 if filter_group:
                     self._filter_group = filter_group['group_id']
                     # this will be displayed on the filters canvas.
                     fm.import_filters(
                         connection,
                         filter_group)
+
 
                 if not self._filtering_window_active:
                     view.filters_button["state"] = tk.NORMAL
@@ -614,6 +630,7 @@ class SamplingController(object):
         grid.clear()
 
         grid.load_samples(meta, capture_zone, True)
+
         grid.compress_samples(
             self._filtering_model,
             self._image_equal)
@@ -696,7 +713,9 @@ class SamplingController(object):
             grid.disable_filters()
 
         self._labeler.set_filter_pipeline(filters.filter_pipeline)
-        self._sample_source.filter_pipeline = filters.filter_pipeline
+
+        if self._sample_source:
+            self._sample_source.filter_pipeline = filters.filter_pipeline
 
     def _apply_filters(self, filters, image):
         if filters.filters_enabled:

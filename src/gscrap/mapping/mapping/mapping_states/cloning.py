@@ -82,11 +82,11 @@ class Cloning(object):
         if self._container:
             cont_id = self._container.rid
 
-        for instance in rectangles.copy(
+        for iid in rectangles.copy(
                 self._mapper.instances,
                 rct, dx, dy, self._mapper, cont_id):
             # store copies elements so that we can undo copy action.
-            instances.append(instance.rid)
+            instances.append(iid)
 
     def _on_done(self):
         self._unbind()

@@ -22,6 +22,20 @@ def overlapping(bbox1, bbox2):
 
     return x0 <= rx1 and rx0 <= x1 and y0 <= ry1 and y1 >= ry0
 
+def enclosed(bbox1, bbox2):
+    # returns true if the left rectangle is enclosed in the right rectangle
+
+    x0, y0, x1, y1 = bbox1
+
+    if x1 < x0:
+        x0, x1 = swap(x0, x1)
+    if y1 < y0:
+        y0, y1 = swap(y0, y1)
+
+    rx0, ry0, rx1, ry1 = bbox2
+
+    return x0 > rx0 and y0 > ry0 and x1 < rx1 and y1 < ry1
+
 def collision_point(x, y, dx, dy, t):
     return x + t * dx, y + t * dy
 
@@ -79,6 +93,10 @@ class DrawingCollision(object):
         rx0, ry0, rx1, ry1 = bbox2
 
         return x0 <= rx1 and rx0 <= x1 and y0 <= ry1 and y1 >= ry0
+
+    def enclosed(self, bbox1, bbox2):
+        #returns true if the left rectangle is enclosed in the right rectangle
+        return enclosed(bbox1, bbox2)
 
     def _normal(self, nx, ny, dx, dy):
         if ny > nx:
@@ -145,6 +163,23 @@ class BoxCollision(object):
         rx0, ry0, rx1, ry1 = bbox2
 
         return x0 <= rx1 and rx0 <= x1 and y0 <= ry1 and y1 >= ry0
+
+    def enclosed(self, bbox1, bbox2):
+        # returns true if the left rectangle is enclosed in the right rectangle
+
+        x0, y0, x1, y1 = bbox1
+
+        if x1 < x0:
+            x0, x1 = swap(x0, x1)
+        if y1 < y0:
+            y0, y1 = swap(y0, y1)
+
+        rx0, ry0, rx1, ry1 = bbox2
+
+        if x0 > rx0 and y0 > ry0 and x1 < rx1 and y1 < ry1:
+            return True
+
+        return False
 
     def _normal(self, nx, ny, dx, dy):
         if ny < nx:

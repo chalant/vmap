@@ -97,7 +97,7 @@ class Tesseract(AbstractLabeling):
 
     def label(self, img):
         text = pytesseract.image_to_string(
-            cv2.resize(img, None, fx=1 * 3, fy=1 * 3, interpolation=cv2.INTER_LINEAR),
+            cv2.resize(img, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC),
             config='--psm 6 --oem 1')
 
         characters = self._character_set

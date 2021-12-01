@@ -1,7 +1,5 @@
 import tkinter as tk
 
-from collections import defaultdict
-
 from gscrap.data import io
 from gscrap.data.rectangles import rectangles as rct_data, rectangle_labels as rct_labels
 
@@ -139,6 +137,9 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
     def add_component(self, rid, comp_rid):
         rectangles.add_component(self._all_instances, rid, comp_rid)
+
+    def remove_component(self, rid, comp_id):
+        rectangles.remove_component(self._all_instances, rid, comp_id)
 
     def add_rectangle(self, bbox, container_id=None):
         x0, y0, x1, y1 = bbox
@@ -280,25 +281,36 @@ class MappingTool(rectangle_utils.RectangleFactory):
         #         del all_instances[rct.rid]
         #         rct.delete(connection)
 
-        dct = defaultdict(int)
-
-        #count the number of instances of a rectangle
-        for inst in all_instances.values():
-            dct[inst.rectangle] += 1
+        #todo: don't delete components, just un-map them from the container
 
         with self.scene.connect() as conn:
-            for rct in rectangles.remove_rectangle(all_instances, rid):
-                id_ = rct.rid
-                canvas.delete(id_)
-                rct.delete(conn)
-                del all_instances[id_]
+            ist = all_instances.pop(rid)
+            canvas.delete(rid)
+            ist.delete(conn)
 
-                dct[rct.rectangle] -= 1
+            for cid in ist.components:
+                all_instances[cid].container = None
+
+            # for rct in rectangles.remove_rectangle(all_instances, rid):
+            #     id_ = rct.rid
+            #     canvas.delete(id_)
+            #     rct.delete(conn)
+            #     del all_instances[id_]
+
+
+            num_instances = 0
+
+            # count the number of instances of a rectangle
+            for inst in all_instances.values():
+                if inst.rectangle == ist.rectangle:
+                    num_instances += 1
+
+            num_instances -= 1
 
             #delete rectangle, labels and samples if there are no more instances.
-            for rectangle, num_instances in dct.items():
-                if num_instances == 0:
-                    rct_data.delete_rectangle(conn, rectangle)
+            # for rectangle, num_instances in dct.items():
+            if num_instances == 0:
+                rct_data.delete_rectangle(conn, ist.rectangle)
 
 
     def unselect_rectangle(self):

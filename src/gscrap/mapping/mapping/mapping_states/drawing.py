@@ -2,6 +2,7 @@ import tkinter as tk
 
 from gscrap.tools import collision as cl
 
+from gscrap.rectangles import rectangles
 
 class RectDrawer(object):
     def __init__(self, manager):
@@ -30,6 +31,9 @@ class RectDrawer(object):
         self._lines = []
         self._points = []
 
+        self._components = {}
+        self._to_unmap = []
+
         self._nry = 0
         self._nrx = 0
 
@@ -39,6 +43,8 @@ class RectDrawer(object):
         x0, y0 = start
         x1, y1 = end
 
+        components = self._components
+        to_unmap = self._to_unmap
         collision = self._collision
         canvas = self.canvas
 
@@ -89,38 +95,57 @@ class RectDrawer(object):
 
 
         for r in self._mapper.get_rectangles(container):
-            rx0, ry0, rx1, ry1 = r.bbox
+            # rx0, ry0, rx1, ry1 = r.bbox
 
             col, t, nrx, nry = collision.collision_info(px, py, dx, dy, r.bbox)
                 # print(nx, "NX", ny, "NY")
-            col_ptx, col_pty = cl.collision_point(px, py, dx, dy, t)
+            # col_ptx, col_pty = cl.collision_point(px, py, dx, dy, t)
 
-            if nrx is None:
-                nrx = self._nrx
-
-            if nry is None:
-                nry = self._nry
+            # if nrx is None:
+            #     nrx = self._nrx
+            #
+            # if nry is None:
+            #     nry = self._nry
 
             if col:
-                if collision.overlapping((x0, y0, x1, y1), r.bbox):
-                    if nrx < 0:
-                        x1 = rx0 - 2
-                    elif nrx > 0:
-                        x1 = rx1 + 2
-                    elif nry < 0:
-                        y1 = ry0 - 2
-                    elif nry > 0:
-                        y1 = ry1 + 2
-                    elif nrx == 0 and nry == 0:
-                        x1 = px
-                        y1 = py
-                    
-                if collision.overlapping((x0, y0, x1, y1), r.bbox):
-                    x1 = px
-                    y1 = py
+                subject = (x0, y0, x1, y1)
 
-            points.append(self.canvas.create_oval(col_ptx - 3, col_pty - 3, col_ptx + 3, col_pty + 3, fill="blue"))
-            lines.append(self.canvas.create_line(col_ptx, col_pty, col_ptx+nrx*15, col_pty + nry*15, fill="red"))
+                #check if the rectangle is not enclosed by the rectangle it is colliding with
+
+                if collision.overlapping(subject, r.bbox) and not collision.enclosed(subject, r.bbox):
+
+                    if r.rid not in components:
+                        #unmap to container
+                        if r.container:
+                            to_unmap.append((r.container, r.rid))
+                            r.container = None
+
+                        components[r.rid] = r
+
+                        # print("Adding!", r.rid)
+
+                    # if nrx < 0:
+                    #     x1 = rx0 - 2
+                    # elif nrx > 0:
+                    #     x1 = rx1 + 2
+                    # elif nry < 0:
+                    #     y1 = ry0 - 2
+                    # elif nry > 0:
+                    #     y1 = ry1 + 2
+                    # elif nrx == 0 and nry == 0:
+                    #     x1 = px
+                    #     y1 = py
+
+                else:
+                    if r.rid in components:
+                        components.pop(r.rid)
+                    
+                # if collision.overlapping((x0, y0, x1, y1), r.bbox):
+                #     x1 = px
+                #     y1 = py
+
+            # points.append(self.canvas.create_oval(col_ptx - 3, col_pty - 3, col_ptx + 3, col_pty + 3, fill="blue"))
+            # lines.append(self.canvas.create_line(col_ptx, col_pty, col_ptx+nrx*15, col_pty + nry*15, fill="red"))
 
         self._prev = x1, y1
 
@@ -177,14 +202,29 @@ class RectDrawer(object):
         x0, y0 = self._start
         x1, y1 = event.x, event.y
 
-        coords = self.canvas.coords(self.item)
+        components = self._components
+        to_unmap = self._to_unmap
 
-        if abs(x1 - x0) > 2 and abs(y1 - y0) > 2:
+        coords = self.canvas.coords(self.item)
+        mapper = self._mapper
+
+        #check if rectangle is at least 25 pixel square
+
+        if abs(x1 - x0) > 5 and abs(y1 - y0) > 5:
             rid = self._manager.add_rectangle(tuple(map(int, coords)))
+
+            for cid, id_ in to_unmap:
+                mapper.remove_component(cid, id_)
 
             if self._cid:
                 # add component if the cz is in the container
-                self._mapper.add_component(self._cid, rid)
+                mapper.add_component(self._cid, rid)
+
+            for cid in components.keys():
+                mapper.add_component(rid, cid)
+
+            components.clear()
+            to_unmap.clear()
 
         self._start = None
 

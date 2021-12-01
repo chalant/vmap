@@ -108,6 +108,9 @@ class RectangleWrapper(object):
     def add_component(self, rid):
         self._components.append(rid)
 
+    def remove_component(self, rid):
+        self._components.remove(rid)
+
     def submit(self, connection):
         #submit labels and instances
         self._instance.submit(connection)

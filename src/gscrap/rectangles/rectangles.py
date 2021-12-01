@@ -100,6 +100,15 @@ def add_component(instances, rid, comp_rid):
     cont.add_component(comp_rid)
     comp.instance.container_id = cont.instance.id
 
+def remove_component(instances, rid, comp_id):
+    comp = instances[comp_id]
+    comp.container = None
+    cont = instances[rid]
+
+    comp.instance.container_id = None
+
+    cont.remove_component(comp_id)
+
 def copy(instances, rectangle, dx, dy, factory, container_id=None):
     '''
 
@@ -135,14 +144,15 @@ def copy(instances, rectangle, dx, dy, factory, container_id=None):
         except StopIteration:
             x0, y0, x1, y1 = rct.bbox
 
-            x = x0 + dx
-            y = y0 + dy
+            # x = x0 + dx
+            # y = y0 + dy
 
-            # we create a new instance of the cz.
-            rectangle = factory.create_rectangle(rct.instance.create_instance(x, y), x, y)
-            nid = rectangle.rid
-
-            instances[nid] = rectangle
+            nid = factory.add_rectangle((x0 + dx, y0 + dy, x1 + dx, y1 + dy))
+            # # we create a new instance of the cz.
+            # rectangle = factory.create_rectangle(rct.instance.create_instance(x, y), x, y)
+            # nid = rectangle.rid
+            #
+            # instances[nid] = rectangle
 
             stack.pop()
 
@@ -153,7 +163,7 @@ def copy(instances, rectangle, dx, dy, factory, container_id=None):
             ls -= 1
             last = nid
 
-            yield rectangle
+            yield nid
 
     if container_id:
         add_component(instances, container_id, last)
