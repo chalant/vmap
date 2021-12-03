@@ -6,14 +6,17 @@ from gscrap.projects.scenes import scenes
 
 from gscrap.image_capture import capture_loop as cl
 
+from gscrap.mapping import capture_selection
+
 import gscrap.mapping.menu as mn
 import gscrap.mapping.view as vw
 
 from gscrap.mapping.tools import tools
 from gscrap.mapping.capture import capture
 from gscrap.mapping.mapping import mapping
-from gscrap.mapping.detection import detection
 from gscrap.mapping.properties import properties
+from gscrap.mapping.sampling import sampling
+from gscrap.mapping.detection import detection
 
 
 class MappingController(object):
@@ -34,11 +37,21 @@ class MappingController(object):
         self._mapping_active = False
 
         self._tools = tls = tools.ToolsController(mv.right_frame)
-        self._detection_tool = dtc = detection.DetectionTool(mv)
+
+        self._sampling_tool = dtc = capture_selection.CaptureSelectionTool(
+            mv,
+            sampling.SamplingController(mv, 360, 400))
+
+        self._detection_tool = dtt = capture_selection.CaptureSelectionTool(
+            mv,
+            detection.DetectionController(mv, 360, 400)
+        )
+
         self._capture_tool = cpt = capture.CaptureTool(mv, self, project)
         self._properties_tool = ppt = properties.Properties(mv)
 
-        tls.add_tool(dtc, "Detection")
+        tls.add_tool(dtc, "Sampling")
+        tls.add_tool(dtt, "Detection")
         tls.add_tool(ppt, "Properties")
         tls.add_tool(cpt, "Capture")
 
@@ -67,14 +80,12 @@ class MappingController(object):
 
             menu.enable_menu()
 
-            #todo: code smell!
             #todo: instead of reloading everything, we could just pass
             # the mapping dict to the detection tool dict and reload from memory
             # instead of files.
-            self._detection_tool.clear_tool()
-            self._detection_tool.start_tool(self._scene)
 
-
+            self._sampling_tool.clear_tool()
+            self._sampling_tool.start_tool(self._scene)
 
             #todo: reload capture zones (tools -> reload)
 
@@ -125,7 +136,7 @@ class MappingController(object):
         with scene.connect() as connection:
             scenes.load_dimensions(connection, scene)
 
-        self._tools.set_scene(scene)
+        # self._tools.set_scene(scene)
         mapping_tool.set_scene(scene)
 
         view.window_selection["state"] = tk.NORMAL
@@ -136,14 +147,14 @@ class MappingController(object):
         self._template.paste(image)
 
     def _video_update(self, video_meta):
-        self._detection_tool.enable_read(video_meta)
+        self._sampling_tool.enable_read(video_meta)
 
     def stop(self):
         #todo save everything before closing...
         #todo: overwrite previous template?
         self._mapping_tool.stop()
         self._capture_tool.stop()
-        self._detection_tool.stop()
+        self._sampling_tool.stop()
 
     def new_scene(self):
         # todo:

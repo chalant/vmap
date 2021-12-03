@@ -12,7 +12,8 @@ class Interaction(object):
             pass
 
         self._left_click_callback = null_callback
-        self._prev = None
+        self._rid = None
+
 
     def start(self, instances):
         canvas = self._canvas
@@ -49,19 +50,22 @@ class Interaction(object):
 
         if res:
             rid = res[0]
-            if res != self._prev:
+
+            if rid != self._rid:
                 self._unbind(canvas)
 
-            rct = rt.get_rectangle(instances, rid)
-            canvas.itemconfigure(rct.id, outline="red")
-            self._prev = rct.id
+            # rct = rt.get_rectangle(instances, rid)
+            # print(rid)
+            canvas.itemconfigure(rid, outline="red")
+
             self._rid = rid
         else:
             self._unbind(canvas)
-            self._rid = None
 
     def _unbind(self, canvas):
-        prev = self._prev
+        prev = self._rid
 
         if prev:
             canvas.itemconfigure(prev, outline="black")
+
+            self._rid = None

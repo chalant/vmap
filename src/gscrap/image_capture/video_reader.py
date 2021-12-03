@@ -6,6 +6,34 @@ import numpy as np
 
 import ffmpeg
 
+class ReadProcess(object):
+    def __init__(self, process, video_metadata, crop=None):
+        self._process = process
+
+        if crop:
+            x0, y0, x1, y1 = crop
+            x, y, w, h = (x0, y0, x1 - x0, y1 - y0)
+
+            dims = np.array((w, h))
+        else:
+            dims = np.array(video_metadata.dimensions)
+
+        self._dims = dims
+
+    def read(self):
+        dims = self._dims
+        process = self._process
+
+        while True:
+            bytes_ = process.stdout.read(np.prod(dims) * 3)
+            if not bytes_:
+                break
+            else:
+                yield bytes_
+
+    def terminate(self):
+        self._process.terminate()
+
 def read_video_params(path: str, stream_number: int = 0):
     """
     Read resolution and frame rate of the video
@@ -83,6 +111,50 @@ class FrameSeeker(object):
         )
 
         return process.communicate()[0]
+
+def create_read_process(video_metadata, from_=0, crop=None):
+    meta = video_metadata
+    start_time = from_ / meta.fps
+
+    if crop:
+        x0, y0, x1, y1 = crop
+        x, y, w, h = (x0, y0, x1 - x0, y1 - y0)
+
+        command = [
+            "ffmpeg",
+            "-nostdin",
+            "-ss", "{}".format(start_time),
+            "-i", "{}".format(meta.path),
+            "-filter:v", "crop={}:{}:{}:{}".format(w, h, x, y),
+            "-pix_fmt", "rgb24",
+            "-f", "rawvideo",
+            "pipe:"]
+    else:
+        command = [
+            "ffmpeg",
+            "-nostdin",
+            "-ss", "{}".format(start_time),
+            "-i", "{}".format(meta.path),
+            "-pix_fmt", "rgb24",
+            "-f", "rawvideo",
+            "pipe:"
+        ]
+
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+
+    return ReadProcess(process, meta, crop)
+
+def read_from_process(process, dims):
+    while True:
+        bytes_ = process.stdout.read(np.prod(dims) * 3)
+        if not bytes_:
+            break
+        else:
+            yield bytes_
 
 def read(video_metadata, from_=0, crop=None):
     meta = video_metadata

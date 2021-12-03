@@ -19,14 +19,14 @@ from gscrap.data import io
 from gscrap.data.filters import filters
 from gscrap.data.images import images as im
 
-from gscrap.mapping.detection import grid as gd
+from gscrap.mapping.sampling import grid as gd
 
-from gscrap.mapping.detection.filtering import filtering
+from gscrap.mapping.sampling.filtering import filtering
 
-from gscrap.mapping.detection.sampling import view as vw
-from gscrap.mapping.detection.sampling import image_grid as ig
-from gscrap.mapping.detection.sampling import samples as spl
-from gscrap.mapping.detection.sampling import samples_grid as spg
+from gscrap.mapping.sampling import view as vw
+from gscrap.mapping.sampling import image_grid as ig
+from gscrap.mapping.sampling import samples as spl
+from gscrap.mapping.sampling import samples_grid as spg
 
 
 class SamplingController(object):
@@ -83,6 +83,9 @@ class SamplingController(object):
         self._samples_grid = spg.SamplesGrid(buffer, 600, 400)
 
         self._sample_source = None
+
+        self._batch_index = 0
+        self._max_samples = 200
 
         self._bin_window_active = False
         self._draw_info = None
@@ -267,17 +270,18 @@ class SamplingController(object):
             label = self._label
 
             if image_idx != None and label != 'N/A' and self._save_sample:
-                st.add_sample(
-                    self._samples_data,
-                    self._image_buffer.get_image(image_idx),
-                    {
-                        "label_name": self._label_class,
-                        "label_type": self._label_type,
-                        "instance_name": label
-                    },
-                    connection)
+                if label:
+                    st.add_sample(
+                        self._samples_data,
+                        self._image_buffer.get_image(image_idx),
+                        {
+                            "label_name": self._label_class,
+                            "label_type": self._label_type,
+                            "instance_name": label
+                        },
+                        connection)
 
-            self._filtering.save()
+            self._filtering.save(connection)
 
             self._save_filters_mappings(connection, self._filtering_model)
 
@@ -310,11 +314,8 @@ class SamplingController(object):
         # if the filter_labels already belonged to a group, update the group and parameter
 
         if pgr and ppr:
-            if group_id != pgr:
+            if group_id != pgr or parameter_id != ppr:
                 # if group has changed, remove the label from previous group
-
-                #todo: remove
-                # or parameter_id != ppr
 
                 filters.remove_label_from_group(connection, label_class, label_type, scene_name)
 
@@ -325,23 +326,24 @@ class SamplingController(object):
                     label_type,
                     scene_name,
                     group_id,
+                    parameter_id
                 )
 
-            if parameter_id != ppr:
-                # filters.remove_label_from_parameters(
-                #     connection,
-                #     label_class,
-                #     label_type,
-                #     scene_name
-                # )
-
-                #todo: remove parameter_id
-                filters.update_filter_labels_parameter_id(
-                    connection,
-                    label_class,
-                    label_type,
-                    scene_name,
-                    parameter_id)
+            # if parameter_id != ppr:
+            #     # filters.remove_label_from_parameters(
+            #     #     connection,
+            #     #     label_class,
+            #     #     label_type,
+            #     #     scene_name
+            #     # )
+            #
+            #     #todo: remove parameter_id
+            #     filters.update_filter_labels_parameter_id(
+            #         connection,
+            #         label_class,
+            #         label_type,
+            #         scene_name,
+            #         parameter_id)
 
         elif parameter_id and group_id:
             # if did not belong to any group, add it to database
@@ -413,8 +415,8 @@ class SamplingController(object):
                     label_type,
                     capture_zone.scene_name)
 
-                self._filter_group = None
-                self._parameter_id = None
+                # self._filter_group = None
+                # self._parameter_id = None
 
                 if filter_group:
                     self._filter_group = filter_group['group_id']
@@ -589,7 +591,7 @@ class SamplingController(object):
 
             dims = (capture_zone.width, capture_zone.height)
 
-            self._max_threshold = mt = 2000
+            self._max_threshold = mt = 1000
 
             self._samples_data = st.SampleData(
                 capture_zone.scene,
@@ -607,7 +609,12 @@ class SamplingController(object):
 
             if pcz and meta:
                 if capture_zone.rectangle_id != pcz.rectangle_id:
-                    io.submit(self._load_samples, sv, meta, capture_zone)
+                    self._batch_index = 0
+
+                    self._load_samples(sv, meta, capture_zone, self._max_samples)
+
+                    self._batch_index = 1
+
                     self._threshold = 0
                     sv.threshold.set(0)
 
@@ -621,19 +628,33 @@ class SamplingController(object):
                     sv.label_instance_options["state"] = tk.DISABLED
 
             elif meta:
-                io.submit(self._load_samples, sv, meta, capture_zone)
+                self._batch_index = 0
+
+                # io.submit(self._load_samples, sv, meta, capture_zone, self._max_samples)
+
+                self._load_samples(sv, meta, capture_zone, self._max_samples)
+
+                self._batch_index = 1
+
+                sv.next_button["state"] = tk.NORMAL
+                sv.previous_button["state"] = tk.DISABLED
 
             self._capture_zone = capture_zone
 
-    def _load_samples(self, view, meta, capture_zone):
+    def _load_samples(self, view, meta, capture_zone, max_samples):
         grid = self._samples_view
         grid.clear()
 
-        grid.load_samples(meta, capture_zone, True)
+        grid.load_samples(
+            meta,
+            capture_zone,
+            from_=self._batch_index,
+            max_elements=max_samples, draw=True)
 
         grid.compress_samples(
             self._filtering_model,
             self._image_equal)
+
         grid.draw()
 
         view.threshold["state"] = tk.NORMAL
@@ -734,10 +755,21 @@ class SamplingController(object):
 
         cz = self._capture_zone
         if cz:
-            io.submit(
-                self._load_samples,
-                self._sampling_view,
-                video_meta, cz)
+            self._batch_index = 0
+
+            view = self._sampling_view
+
+            # io.submit(
+            #     self._load_samples,
+            #     view,
+            #     video_meta, cz, self._max_samples)
+
+            self._load_samples(view, video_meta, cz, self._max_samples)
+
+            self._batch_index = 1
+
+            view.next_button["state"] = tk.NORMAL
+
 
     def disable_video_read(self):
         self._video_metadata = None
@@ -754,6 +786,44 @@ class SamplingController(object):
                 self._load_samples,
                 self._sampling_view,
                 meta, cz)
+
+    def load_next_batch(self):
+        sampling_view = self._sampling_view
+
+        meta = self._video_metadata
+
+        frames = meta.frames
+
+        max_samples = self._max_samples
+
+        nxt = self._batch_index + max_samples
+
+        sampling_view.previous_button["state"] = tk.NORMAL
+
+        if nxt > frames:
+            max_samples = frames - nxt
+            sampling_view.next_button["state"] = tk.DISABLED
+
+        else:
+            self._batch_index = nxt - 1
+
+        self._load_samples(sampling_view, meta, self._capture_zone, max_samples)
+
+    def load_previous_batch(self):
+        sampling_view = self._sampling_view
+
+        max_samples = self._max_samples
+        nxt = self._batch_index - max_samples
+
+        sampling_view.next_button["state"] = tk.NORMAL
+
+        if nxt < 0:
+            max_samples = self._batch_index
+            sampling_view.previous_button["state"] = tk.DISABLED
+        else:
+            self._batch_index = nxt
+
+        self._load_samples(sampling_view, self._video_metadata, self._capture_zone, max_samples)
 
     def clear_data(self):
         self._samples_view.clear()

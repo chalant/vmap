@@ -94,6 +94,10 @@ class CaptureZone(display.DisplayItem):
         return self._scene
 
     @property
+    def siblings(self):
+        return self._siblings[self.rectangle_id]
+
+    @property
     def all_bbox(self):
         for sibling in self._siblings[self.rectangle_id]:
             yield sibling.bbox

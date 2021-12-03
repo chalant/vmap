@@ -364,10 +364,10 @@ class FilteringController(object):
 
         pass
 
-    def save(self):
-        self._save(self._model)
+    def save(self, connection):
+        self._save(self._model, connection)
 
-    def _save(self, filters):
+    def _save(self, filters, connection):
         parameter_id = filters.parameter_id
         group_id = filters.group_id
 
@@ -378,36 +378,35 @@ class FilteringController(object):
         if parameter_id and group_id:
             #only save when filters have changed.
             if parameter_id != ppid or group_id != pgid:
-                with self._scene.connect() as connection:
-                    #only store when the either filter group or parameter does not exist.
-                    #if it exists then the filter pipeline already exists.
+                #only store when the either filter group or parameter does not exist.
+                #if it exists then the filter pipeline already exists.
 
-                    group_exists = flt.filter_group_exists(connection, group_id)
-                    parameter_exists = flt.parameters_exists(connection, parameter_id)
+                group_exists = flt.filter_group_exists(connection, group_id)
+                parameter_exists = flt.parameters_exists(connection, parameter_id)
 
-                    if not group_exists:
-                        flt.store_filter_group(
-                            connection,
-                            group_id)
+                if not group_exists:
+                    flt.store_filter_group(
+                        connection,
+                        group_id)
 
-                    if not parameter_exists:
-                        flt.add_parameter_id(
-                            connection,
-                            parameter_id)
+                if not parameter_exists:
+                    flt.add_parameter_id(
+                        connection,
+                        parameter_id)
 
-                    # todo: delete previously stored values
-                    filters.delete_filters(
+                # todo: delete previously stored values
+                filters.delete_filters(
+                    connection,
+                    group_id,
+                    parameter_id
+                )
+
+                if not group_exists or not parameter_exists:
+                    filters.store_filters(
                         connection,
                         group_id,
                         parameter_id
                     )
-
-                    if not group_exists or not parameter_exists:
-                        filters.store_filters(
-                            connection,
-                            group_id,
-                            parameter_id
-                        )
 
         # self._view.save_button["state"] = tk.DISABLED
 

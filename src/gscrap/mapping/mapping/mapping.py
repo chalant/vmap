@@ -161,6 +161,16 @@ class MappingTool(rectangle_utils.RectangleFactory):
 
         return wrapper.rid
 
+    def copy_rectangle(self, instance, x, y):
+        instances = self._all_instances
+
+        wrapper = self.create_rectangle(self._create_instance(instance, x, y), x, y)
+
+        # self._new_instances[rid] = wrapper
+        instances[wrapper.rid] = wrapper
+
+        return wrapper.rid
+
     def _create_instance(self, rct, x, y, container_id=None):
         if container_id:
             instance = rct.create_instance(x, y, self._all_instances[container_id].instance)

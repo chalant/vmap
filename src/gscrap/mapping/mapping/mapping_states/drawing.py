@@ -25,11 +25,11 @@ class RectDrawer(object):
 
         self._rid = None
         self._rct = None
-        self._line = None
-        self._point = None
+        # self._line = None
+        # self._point = None
 
-        self._lines = []
-        self._points = []
+        # self._lines = []
+        # self._points = []
 
         self._components = {}
         self._to_unmap = []
@@ -46,7 +46,7 @@ class RectDrawer(object):
         components = self._components
         to_unmap = self._to_unmap
         collision = self._collision
-        canvas = self.canvas
+        # canvas = self.canvas
 
         # make sure the drawn point is within the canvas
         x1, y1 = self._mapper.adjust_point(x1, y1, 0, 0)
@@ -76,22 +76,22 @@ class RectDrawer(object):
         dy = y1 - py
 
         # get the closest cz that intersects with he line
-        if self._line:
-            canvas.delete(self._line)
-        self._line = canvas.create_line(px, py, px + 25*dx, py + 25*dy, dash=(6,4))
+        # if self._line:
+        #     canvas.delete(self._line)
+        # self._line = canvas.create_line(px, py, px + 25*dx, py + 25*dy, dash=(6,4))
 
-        lines = self._lines
-        points = self._points
-
-        if lines:
-            for l in lines:
-                canvas.delete(l)
-            lines.clear()
-
-        if points:
-            for p in points:
-                canvas.delete(p)
-            points.clear()
+        # lines = self._lines
+        # points = self._points
+        #
+        # if lines:
+        #     for l in lines:
+        #         canvas.delete(l)
+        #     lines.clear()
+        #
+        # if points:
+        #     for p in points:
+        #         canvas.delete(p)
+        #     points.clear()
 
 
         for r in self._mapper.get_rectangles(container):
@@ -235,16 +235,16 @@ class RectDrawer(object):
         self._prev_col = None
         self._container = None
 
-        self.canvas.delete(self._line)
+        # self.canvas.delete(self._line)
 
-        for l in self._lines:
-            self.canvas.delete(l)
+        # for l in self._lines:
+        #     self.canvas.delete(l)
+        #
+        # for p in self._points:
+        #     self.canvas.delete(p)
 
-        for p in self._points:
-            self.canvas.delete(p)
-
-        self._lines.clear()
-        self._points.clear()
+        # self._lines.clear()
+        # self._points.clear()
 
 class Drawing(object):
     def __init__(self, manager):

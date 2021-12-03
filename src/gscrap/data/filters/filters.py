@@ -49,11 +49,9 @@ _GET_GROUP_ID = text(
 
 _UPDATE_LABEL_FILTERS_GROUP = text(
     '''
-    UPDATE labels_filters
-    SET filter_group=:group_id
-    WHERE labels_filters.label_name=:label_name
-        AND labels_filters.label_type=:label_type
-        AND labels_filters.scene_name=:scene_name
+    INSERT OR REPLACE INTO labels_filters (filter_group, parameter_id, label_name, label_type, scene_name)
+    VALUES (:filter_group, :parameter_id, :label_name, :label_type, :scene_name)
+    
     ''')
 
 _GET_GROUPS = text(
@@ -198,14 +196,17 @@ def update_filter_labels_group(
         label_name,
         label_type,
         scene_name,
-        group_id):
+        group_id,
+        parameter_id):
 
     connection.execute(
         _UPDATE_LABEL_FILTERS_GROUP,
         label_name=label_name,
         label_type=label_type,
         scene_name=scene_name,
-        group_id=group_id)
+        filter_group=group_id,
+        parameter_id=parameter_id
+    )
 
 def remove_label_from_group(connection, label_name, label_type, scene_name):
     return connection.execute(

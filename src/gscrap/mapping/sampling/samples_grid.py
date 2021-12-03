@@ -1,5 +1,5 @@
-from gscrap.mapping.detection import grid
-from gscrap.mapping.detection.sampling import image_grid
+from gscrap.mapping.sampling import grid
+from gscrap.mapping.sampling import image_grid
 
 class DrawInfo(object):
     def __init__(self):

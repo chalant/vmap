@@ -147,7 +147,7 @@ def copy(instances, rectangle, dx, dy, factory, container_id=None):
             # x = x0 + dx
             # y = y0 + dy
 
-            nid = factory.add_rectangle((x0 + dx, y0 + dy, x1 + dx, y1 + dy))
+            nid = factory.copy_rectangle(rct.instance, x0 + dx, y0 + dy)
             # # we create a new instance of the cz.
             # rectangle = factory.create_rectangle(rct.instance.create_instance(x, y), x, y)
             # nid = rectangle.rid

@@ -1,7 +1,7 @@
 from gscrap.image_capture import video_reader as vr
 from gscrap.sampling import utils
 
-def load_samples(video_metadata, bbox):
+def load_samples(video_metadata, bbox, from_=0, max_frames=200):
 
     #todo: problem: this might get really big
     # might need to use memory mapping, or some from of compression
@@ -9,15 +9,20 @@ def load_samples(video_metadata, bbox):
     # dict for tracking already sampled elements
     samples = {}
 
-    for bytes_ in vr.read(video_metadata, crop=bbox):
-        i = 0
+    read_process = vr.create_read_process(video_metadata, from_, bbox)
 
+    i = 0
+
+    for bytes_ in read_process.read():
         if bytes_ not in samples:
             samples[bytes_] = i
 
             i += 1
 
-            yield bytes_
+            if i <= max_frames:
+                yield bytes_
+            else:
+                read_process.terminate()
 
 def compress_samples(samples, num_samples, equal_fn=None):
     uf = utils.UnionFind(num_samples)

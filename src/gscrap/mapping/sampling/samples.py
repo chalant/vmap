@@ -1,3 +1,5 @@
+import math
+
 from PIL import Image
 
 import numpy as np
@@ -6,8 +8,8 @@ from gscrap.rectangles import rectangles
 
 from gscrap.sampling import samples as spl
 
-from gscrap.mapping.detection.sampling import image_grid as ig
-from gscrap.mapping.detection import grid as gd
+from gscrap.mapping.sampling import image_grid as ig
+from gscrap.mapping.sampling import grid as gd
 
 
 class SampleEvent(object):
@@ -175,7 +177,7 @@ class Samples(object):
         # return np.asarray(Image.frombytes("RGB", dimensions, image))
         return np.frombuffer(image, np.uint8).reshape(dimensions[1], dimensions[0], 3)
 
-    def load_samples(self, video_metadata, capture_zone, draw=False):
+    def load_samples(self, video_metadata, capture_zone, from_=0, max_elements=200, draw=False):
         #draw samples into the image grid.
         buffer = self._samples_buffer
         items = self._items
@@ -210,14 +212,16 @@ class Samples(object):
             ig.clear_canvas(grid, grid.canvas, image_rectangles.values())
             image_rectangles.clear()
 
-        idx = 0
-
         # for samples in res:
 
         self._dimensions = dimensions = capture_zone.dimensions
 
+        samples_per_bbox = math.floor(max_elements/len(capture_zone.siblings))
+
+        idx = 0
+
         for bbox in capture_zone.all_bbox:
-            for sample in spl.load_samples(video_metadata, bbox):
+            for sample in spl.load_samples(video_metadata, bbox, from_, samples_per_bbox):
                 item = ig.Item(dimensions)
                 item.image_index = idx
 

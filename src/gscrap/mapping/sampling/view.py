@@ -126,6 +126,7 @@ class SamplingView(object):
 
         self._sampling_frame = sampling_frame = tk.Frame(frame)
         self._menu_frame = menu_frame = tk.Frame(sampling_frame, width=300)
+        self._navigation_frame = navigation_frame = tk.LabelFrame(sampling_frame, text="Navigation")
 
         self._canvas_frame = canvas_frame = tk.Frame(sampling_frame)
 
@@ -224,6 +225,23 @@ class SamplingView(object):
 
         tsb["state"] = tk.DISABLED
 
+        self.previous_button = prev_button = tk.Button(
+            navigation_frame,
+            text="Prev",
+            command=controller.load_previous_batch
+        )
+
+        self.next_button = next_button = tk.Button(
+            navigation_frame,
+            text="Next",
+            command=controller.load_next_batch
+        )
+
+        prev_button.pack(side=tk.LEFT)
+        next_button.pack(side=tk.LEFT)
+
+        prev_button["state"] = tk.DISABLED
+        next_button["state"] = tk.DISABLED
 
         # menu.add_command(label="Save", command=controller.save)
         # menu.add_command(label="Detect", command=controller.detect)
@@ -271,9 +289,10 @@ class SamplingView(object):
 
         self._image_grid.render(samples)
 
-        samples.grid(row=2, column=0)
-
         menu_frame.grid(row=0, sticky=tk.NW)
+
+        navigation_frame.grid(row=2, column=0)
+        samples.grid(row=3, column=0)
 
         return frame
 
