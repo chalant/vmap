@@ -9,7 +9,7 @@ def update_photo_image(photo_image, image):
 
 def clear_canvas(grid, canvas, image_rectangles):
     for ir in image_rectangles:
-        canvas.delete(ir.rectangle_id)
+        canvas.delete(ir.rid)
         canvas.delete(ir.image_id)
 
     grid.reset()
@@ -25,13 +25,15 @@ class Item(grid.AbstractItem):
 
 class ImageRectangle(grid.GridElement):
     __slots__ = [
-        'rectangle_id',
+        'rid',
         'image_id',
         'image_index',
         'photo_image',
         'bbox',
         'top_left',
-        'dimensions'
+        'dimensions',
+        'center',
+        'base_outline'
     ]
 
     def __init__(
@@ -46,13 +48,20 @@ class ImageRectangle(grid.GridElement):
 
         super(ImageRectangle, self).__init__(width, height)
 
-        self.rectangle_id = rectangle_id
+        self.rid = rectangle_id
         self.image_id = image_id
         self.image_index = image_index
         self.photo_image = photo_image
         self.bbox = bbox
-        self.top_left = (bbox[0], bbox[1])
+
+        x0, y0, x1, y1 = bbox
+
+        self.top_left = (x0, y0)
+        self.center = (int((x1 - x0)/2), int((y1 - y0)/2))
+
         self.dimensions = (width, height)
+
+        self.base_outline = "black"
 
 class ImageRectangleFactory(grid.ElementFactory):
     def __init__(self, image_buffer):

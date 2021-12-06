@@ -4,12 +4,11 @@ from PIL import Image
 
 import numpy as np
 
-from gscrap.rectangles import rectangles
+from gscrap.mapping.tools import interaction
 
 from gscrap.sampling import samples as spl
 
 from gscrap.mapping.sampling import image_grid as ig
-from gscrap.mapping.sampling import grid as gd
 
 
 class SampleEvent(object):
@@ -83,6 +82,10 @@ class ArrayImageBuffer(object):
     def indices(self, values):
         self._indices = values
 
+    @property
+    def samples(self):
+        return self._samples
+
     def __iter__(self):
         return iter(self._indices)
 
@@ -108,10 +111,13 @@ class Samples(object):
 
         self._items = []
         self._image_rectangles = {}
+        self._rectangle_instances = {}
 
         image_grid.on_motion(self._on_motion)
         image_grid.on_left_click(self._on_left_click)
         image_grid.on_right_click(self._on_right_click)
+
+        self._interaction = None
 
         self._rid = None
         self._prev_rid = None
@@ -122,6 +128,9 @@ class Samples(object):
 
     def get_sample(self, index):
         return self._samples_buffer.get_image(index)
+
+    def get_image_rectangle(self, idx):
+        return self._image_rectangles[idx]
 
     def apply_filters(self, filters):
         self._filters_on = True
@@ -207,6 +216,7 @@ class Samples(object):
 
         grid = self._image_grid
         image_rectangles = self._image_rectangles
+        rectangle_instances = self._rectangle_instances
 
         if draw:
             ig.clear_canvas(grid, grid.canvas, image_rectangles.values())
@@ -216,7 +226,12 @@ class Samples(object):
 
         self._dimensions = dimensions = capture_zone.dimensions
 
-        samples_per_bbox = math.floor(max_elements/len(capture_zone.siblings))
+        num_siblings = len(capture_zone.siblings)
+
+        if num_siblings > 0:
+            samples_per_bbox = math.floor(max_elements/num_siblings)
+        else:
+            samples_per_bbox = max_elements
 
         idx = 0
 
@@ -229,15 +244,24 @@ class Samples(object):
                 buffer.add_sample(sample)
 
                 if draw:
-                    image_rectangles[idx] = grid.add_item(item)
+                    element = grid.add_item(item)
+
+                    image_rectangles[idx] = element
+
+                    rectangle_instances[element.rid] = element
 
                 idx += 1
 
         grid.update()
 
+        self._interaction = interaction.Interaction(grid.canvas, grid.width, grid.height)
+
     def _load_task(self, res_array, video_metadata, bbox):
         for sample in spl.load_samples(video_metadata, bbox):
             res_array.append(sample)
+
+    def highlight_sample(self, idx):
+        self._interaction.set_base_outline(self._image_rectangles[idx])
 
     def draw(self):
         #initialize canvas
@@ -246,12 +270,14 @@ class Samples(object):
 
         if capture_zone:
             image_rectangles = self._image_rectangles
+            rectangle_instances = self._rectangle_instances
 
             grid = self._image_grid
 
             ig.clear_canvas(grid, grid.canvas, image_rectangles.values())
 
             image_rectangles.clear()
+            rectangle_instances.clear()
 
             indices = list(set(self._samples_buffer.indices))
             indices.sort()
@@ -260,7 +286,10 @@ class Samples(object):
 
             for i in indices:
                 item = items[i]
-                image_rectangles[item.image_index] = grid.add_item(item)
+                element = grid.add_item(item)
+                image_rectangles[item.image_index] = element
+                rectangle_instances[element.rid] = element
+
 
             grid.update()
 
@@ -287,47 +316,22 @@ class Samples(object):
             yield image_rectangles[i]
 
     def _on_motion(self, event):
-        image_rectangles = self._image_rectangles
-
-        res = rectangles.find_closest_enclosing(
-            image_rectangles,
-            event.x, event.y)
-
-        canvas = gd.get_canvas(self._image_grid)
-
-        if res:
-            rid = res[-1]
-
-            element = image_rectangles[rid]
-
-            pid = self._rid
-
-            if pid != None:
-                pel = image_rectangles[pid]
-                canvas.itemconfigure(pel.rectangle_id, outline="black")
-
-            canvas.itemconfigure(element.rectangle_id, outline="red")
-
-            self._rid = rid
-
-        else:
-            rid = self._rid
-
-            if rid != None:
-                pel = image_rectangles[rid]
-                canvas.itemconfigure(pel.rectangle_id, outline="black")
+        if self._interaction:
+            self._rid = self._interaction.highlight_outline(
+                self._rectangle_instances,
+                event)
 
     def _on_left_click(self, event):
         rid = self._rid
 
         if rid != None:
-            self._lc_callback(SampleEvent(event, self._image_rectangles[rid].image_index))
+            self._lc_callback(SampleEvent(event, self._rectangle_instances[rid].image_index))
 
     def _on_right_click(self, event):
         rid = self._rid
 
         if rid != None:
-            self._rc_callback(SampleEvent(event, self._image_rectangles[rid].image_index))
+            self._rc_callback(SampleEvent(event, self._rectangle_instances[rid].image_index))
 
     def on_right_click(self, callback):
         self._rc_callback = callback

@@ -13,6 +13,8 @@ class DisplayItem(ABC):
         self.id = id_
         self.rectangle_instance = rectangle_instance
 
+        self.base_outline = "black"
+
     @property
     def bbox(self):
         return self.rectangle_instance.bbox
@@ -20,6 +22,10 @@ class DisplayItem(ABC):
     @property
     def top_left(self):
         return self.rectangle_instance.top_left
+
+    @property
+    def center(self):
+        return self.rectangle_instance.center
 
     def __eq__(self, other):
         if other:

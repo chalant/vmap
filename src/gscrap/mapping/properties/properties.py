@@ -28,7 +28,7 @@ class Properties(tools.Tool):
     def __init__(self, main_view):
         canvas = main_view.canvas
 
-        self._canvas = main_view.canvas
+        self._canvas = canvas
         self._container = main_view
 
         save_button = menu_bar.SAVE_BUTTON
@@ -79,6 +79,8 @@ class Properties(tools.Tool):
 
         instances = self._instances
 
+        instances.clear()
+
         ppt_app_idx = 0
 
         with scene.connect() as connection:
@@ -115,7 +117,8 @@ class Properties(tools.Tool):
                 for rct in rectangles.get_rectangles_with_property(connection, scene, property_):
                     for ist in rectangles.get_rectangle_instances(connection, rct):
 
-                        instances[count + 1] = instance = dsp.draw(ist, fct)
+                        instance = dsp.draw(ist, fct)
+                        instances[instance.id] = instance
 
                         ppt_value = ri.get_property_value(
                             connection,

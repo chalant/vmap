@@ -2,6 +2,8 @@ import tkinter as tk
 
 from abc import ABC, abstractmethod
 
+from gscrap.mapping.tools import interaction
+
 def get_canvas(grid):
     """
 
@@ -64,6 +66,18 @@ class Grid(object):
         self._on_left_bind = False
         self._on_right_bind = False
 
+        self.canvas = None
+
+        self._interaction = None
+        self._rendered = False
+
+    @property
+    def height(self):
+        return self._grid_height
+
+    @property
+    def width(self):
+        return self._grid_width
 
     def render(self, container):
         self._frame = frame = tk.Frame(container,
@@ -186,13 +200,14 @@ class Grid(object):
         return event
 
     def _on_mouse_wheel(self, event):
-        canvas = self.canvas
+        if self._rendered:
+            canvas = self.canvas
 
-        if event.num == 5 or event.delta == -120:
-            canvas.yview_scroll(1, "units")
+            if event.num == 5 or event.delta == -120:
+                canvas.yview_scroll(1, "units")
 
-        elif event.num == 4 or event.delta == 120:
-            canvas.yview_scroll(-1, "units")
+            elif event.num == 4 or event.delta == 120:
+                canvas.yview_scroll(-1, "units")
 
     def _on_right_click(self, event):
         self._on_right_click_cb(self._adjust_mouse_position(event))

@@ -54,10 +54,6 @@ class CaptureZone(display.DisplayItem):
         return self._dimensions
 
     @property
-    def top_left(self):
-        return self._rectangle_instance.top_left
-
-    @property
     def rectangle(self):
         return self._rectangle_instance.rectangle
 
@@ -76,10 +72,6 @@ class CaptureZone(display.DisplayItem):
     @property
     def height(self):
         return self.instance.height
-
-    @property
-    def bbox(self):
-        return self._rectangle_instance.bbox
 
     @property
     def xywh(self):

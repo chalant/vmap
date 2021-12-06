@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import copy
 
 from gscrap.data.properties import properties
-from gscrap.data.rectangles import rectangle_instances as ri
 
 from gscrap.mapping.tools import display
 

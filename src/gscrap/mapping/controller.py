@@ -40,18 +40,18 @@ class MappingController(object):
 
         self._sampling_tool = dtc = capture_selection.CaptureSelectionTool(
             mv,
-            sampling.SamplingController(mv, 360, 400))
+            sampling.SamplingController(root, 360, 400))
 
         self._detection_tool = dtt = capture_selection.CaptureSelectionTool(
             mv,
-            detection.DetectionController(mv, 360, 400)
+            detection.DetectionController(root, 360, 400)
         )
 
         self._capture_tool = cpt = capture.CaptureTool(mv, self, project)
         self._properties_tool = ppt = properties.Properties(mv)
 
         tls.add_tool(dtc, "Sampling")
-        tls.add_tool(dtt, "Detection")
+        # tls.add_tool(dtt, "Detection")
         tls.add_tool(ppt, "Properties")
         tls.add_tool(cpt, "Capture")
 

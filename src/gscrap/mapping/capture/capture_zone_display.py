@@ -16,6 +16,8 @@ class CaptureZoneDisplay(object):
 
     def draw(self, scene):
         capture_zones = self._capture_zones
+        capture_zones.clear()
+
         ins_by_rid = self._instances_by_rectangle_id
         dsp = self._display
 

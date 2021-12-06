@@ -1,15 +1,10 @@
 from collections import defaultdict
 
-from gscrap.data.rectangles import rectangle_labels as rl
-
 from gscrap.windows import windows, factory
 
 from gscrap.mapping.tools import tools
-from gscrap.mapping.tools import display
 from gscrap.mapping.tools import interaction
 
-from gscrap.mapping.sampling import sampling as spg
-from gscrap.mapping.sampling import capture
 
 from gscrap.mapping.capture import capture_zone_display as czp
 

@@ -96,12 +96,29 @@ class Tesseract(AbstractLabeling):
         self._character_set = character_set
 
     def label(self, img):
+        img = cv2.resize(img, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+
+        #todo: should add some white padding to improve detection performance
+
+        # top = int(0.2 * img.shape[0])  # shape[0] = rows
+        # bottom = top
+        # left = int(0.2 * img.shape[1])  # shape[1] = cols
+        # right = left
+
+        # dst = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_REPLICATE)
+
+        #todo: this can only detect numbers.
+
         text = pytesseract.image_to_string(
-            cv2.resize(img, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC),
-            config='--psm 6 --oem 1')
+            img,
+            config='digits --psm 13 --oem 1')
 
         characters = self._character_set
         res = ''
+
+        #todo temporary fix for detecting zero...
+        if len(text) == 1:
+            res = '0'
 
         for i in text:
             if i in characters:

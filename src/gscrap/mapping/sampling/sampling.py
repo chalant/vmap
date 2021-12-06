@@ -28,6 +28,12 @@ from gscrap.mapping.sampling import image_grid as ig
 from gscrap.mapping.sampling import samples as spl
 from gscrap.mapping.sampling import samples_grid as spg
 
+class LabeledImage(object):
+    __slots__ = ['image_idx', 'label']
+
+    def __init__(self, image_idx, label):
+        self.image_idx = image_idx
+        self.label = label
 
 class SamplingController(object):
     def __init__(self, container, width, height, on_label_set=None):
@@ -45,6 +51,8 @@ class SamplingController(object):
         self._filtering = filtering.FilteringController(filtering_model)
         self._filtering_view = filtering_view = filtering.FilteringView(self, filtering_model, 300, 400)
 
+        filtering_model.add_data_observers(self)
+
         filtering_model.add_filters_import_observer(filtering_view)
         filtering_model.add_filter_observer(self)
 
@@ -57,6 +65,7 @@ class SamplingController(object):
         self._label = None
         self._label_class = None
         self._label_type = None
+        self._label_group = None
 
         self._item = None
         self._labels = None
@@ -99,6 +108,8 @@ class SamplingController(object):
 
         self._selected_image_index = None
 
+        self._labeled_images = []
+
         # labeling
 
         self._labeler = labeler = lbl.Labeler()
@@ -134,7 +145,7 @@ class SamplingController(object):
 
     def display_filters(self):
         def on_closing():
-            self._filters_window_active = False
+            self._filtering_window_active = False
             self._filtering_view.rendered = False
 
             top.destroy()
@@ -191,7 +202,7 @@ class SamplingController(object):
         pass
 
     def _selected_sample(self, event):
-        p_idx = self._selected_image_index
+        # p_idx = self._selected_image_index
         view = self._sampling_view
 
         if self._filtering_window_active:
@@ -221,17 +232,52 @@ class SamplingController(object):
         self._clicked = event.clicked
         self._sample_index = index = event.sample_index
 
-        if p_idx != index:
-            view.label_class_options["state"] = tk.DISABLED
-            view.label_instance_options["state"] = tk.DISABLED
-            view.label_instance.set("N/A")
-            view.save_button["state"] = tk.DISABLED
-            view.clear_button["state"] = tk.DISABLED
+        label_group = self._label_group
+        scene = self.scene
+
+        if label_group:
+            with scene.connect() as connection:
+
+                li = self._labeled_images[index]
+                label_type = self._label_type
+                label_class = self._label_class
+                capture_zone = self._capture_zone
+
+                label = li.label
+
+                if not label:
+                    view.label_instance_options['values'] = tuple([
+                        instance['instance_name'] for instance in
+                        capture_zone.get_label_instances(
+                            connection,
+                            label_type,
+                            label_class)])
+
+                    view.label_instance.set("")
+                    view.save_button["state"] = tk.DISABLED
+                    view.clear_button["state"] = tk.DISABLED
+                    view.label_instance_options["state"] = tk.NORMAL
+
+                else:
+                    view.label_instance.set(label)
+                    view.clear_button["state"] = tk.NORMAL
+
+                    if label_group.classifiable:
+                        self._image_metadata = im.get_image(
+                            connection,
+                            scene,
+                            {'label_type': label_type,
+                             'label_class': label_class,
+                             'instance_name': label})
+
+                        view.save_button["state"] = tk.DISABLED
+
+                    view.label_instance_options["state"] = tk.DISABLED
 
         self._selected_image_index = index
         self._preview.display(self._samples_view.get_sample(index))
 
-        view.label_type_options["state"] = tk.ACTIVE
+        # view.label_type_options["state"] = tk.ACTIVE
 
     def set_scene(self, scene):
         self._filtering.set_scene(scene)
@@ -249,8 +295,9 @@ class SamplingController(object):
 
             view = self._sampling_view
 
-            view.label_class_options["state"] = tk.DISABLED
-            view.label_instance_options["state"] = tk.DISABLED
+            # view.label_class_options["state"] = tk.DISABLED
+
+            view.label_instance_options["state"] = tk.NORMAL
             view.label_instance.set("")
             view.save_button["state"] = tk.DISABLED
             view.clear_button["state"] = tk.DISABLED
@@ -262,6 +309,8 @@ class SamplingController(object):
 
             sc.delete_sample(self._sample_source, image_metadata.label['instance_name'])
             image_metadata.delete_image(connection)
+
+            self._detect(self._labeler, self._capture_zone.dimensions)
 
     def save(self):
         with self.scene.connect() as connection:
@@ -378,7 +427,7 @@ class SamplingController(object):
         labeler = self._labeler
 
         # todo: do nothing if this raises a stop iteration error
-        label_group = next((l for l in self._labels[label_type] if l.label_name == label_class))
+        self._label_group = label_group = next((l for l in self._labels[label_type] if l.label_name == label_class))
 
         with scene.connect() as connection:
 
@@ -501,36 +550,10 @@ class SamplingController(object):
 
                 labeler.set_filter_pipeline(fm.filter_pipeline)
 
-            label = self._detect(labeler, capture_zone.dimensions)
+            self._detect(labeler, capture_zone.dimensions)
 
-            view.label_instance_options["state"] = tk.ACTIVE
+            # view.label_instance_options["state"] = tk.ACTIVE
             view.save_button["state"] = tk.NORMAL
-
-            if not label:
-                view.label_instance_options['values'] = tuple([
-                    instance['instance_name'] for instance in
-                    capture_zone.get_label_instances(
-                        connection,
-                        label_type,
-                        label_class)])
-
-                self._label = view.label_instance.get()
-
-            else:
-                view.label_instance.set(label)
-                view.clear_button["state"] = tk.NORMAL
-
-                if label_group.classifiable:
-                    self._image_metadata = im.get_image(
-                        connection,
-                        scene,
-                        {'label_type': label_type,
-                         'label_class': label_class,
-                         'instance_name': label})
-
-                    view.save_button["state"] = tk.DISABLED
-
-                view.label_instance_options["state"] = tk.DISABLED
 
     def set_label(self, *args):
         view = self._sampling_view
@@ -539,13 +562,30 @@ class SamplingController(object):
         # if label == "Unknown":
         #     view.detect_button["state"] = tk.DISABLED
 
+        view.save_button["state"] = tk.NORMAL
+
         self._label = label
 
     def _detect(self, labeler, dimensions):
-        return lbl.label(labeler, np.frombuffer(
-            self._samples_view.get_sample(
-                self._selected_image_index),
-            np.uint8).reshape(dimensions[1], dimensions[0], 3))
+        buffer = self._image_buffer
+        labeled_images = self._labeled_images
+        sv = self._samples_view
+
+        labeled_images.clear()
+
+        for idx in buffer.indices:
+            sample = sv.get_sample(idx)
+
+            label = lbl.label(
+                labeler,
+                np.frombuffer(
+                    sample,
+                    np.uint8).reshape(dimensions[1], dimensions[0], 3))
+
+            if label:
+                sv.highlight_sample(idx)
+
+            labeled_images.append(LabeledImage(idx, label))
 
     def enable_filters(self):
         self._filtering_model.enable_filtering()
@@ -627,6 +667,10 @@ class SamplingController(object):
                     sv.label_class_options["state"] = tk.DISABLED
                     sv.label_instance_options["state"] = tk.DISABLED
 
+                    self._capture_zone = capture_zone
+
+                    sv.label_type_options["state"] = tk.NORMAL
+
             elif meta:
                 self._batch_index = 0
 
@@ -639,7 +683,8 @@ class SamplingController(object):
                 sv.next_button["state"] = tk.NORMAL
                 sv.previous_button["state"] = tk.DISABLED
 
-            self._capture_zone = capture_zone
+                self._capture_zone = capture_zone
+                sv.label_type_options["state"] = tk.NORMAL
 
     def _load_samples(self, view, meta, capture_zone, max_samples):
         grid = self._samples_view
@@ -738,6 +783,8 @@ class SamplingController(object):
         if self._sample_source:
             self._sample_source.filter_pipeline = filters.filter_pipeline
 
+        self._detect(self._labeler, self._capture_zone.dimensions)
+
     def _apply_filters(self, filters, image):
         if filters.filters_enabled:
             return Image.fromarray(filters.apply(image))
@@ -808,6 +855,7 @@ class SamplingController(object):
             self._batch_index = nxt - 1
 
         self._load_samples(sampling_view, meta, self._capture_zone, max_samples)
+        self._detect(self._labeler, self._capture_zone.dimensions)
 
     def load_previous_batch(self):
         sampling_view = self._sampling_view
@@ -824,6 +872,29 @@ class SamplingController(object):
             self._batch_index = nxt
 
         self._load_samples(sampling_view, self._video_metadata, self._capture_zone, max_samples)
+        self._detect(self._labeler, self._capture_zone.dimensions)
 
     def clear_data(self):
         self._samples_view.clear()
+
+    def data_update(self, filters):
+        grid = self._samples_view
+
+        # buffer = self._image_buffer
+
+        grid.compress_samples(
+            filters,
+            self._image_equal)
+        grid.draw()
+
+        if filters.filters_enabled:
+            grid.apply_filters(filters)
+        else:
+            grid.disable_filters()
+
+        self._labeler.set_filter_pipeline(filters.filter_pipeline)
+
+        if self._sample_source:
+            self._sample_source.filter_pipeline = filters.filter_pipeline
+
+        self._detect(self._labeler, self._capture_zone.dimensions)

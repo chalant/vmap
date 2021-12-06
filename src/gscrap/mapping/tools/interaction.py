@@ -14,8 +14,11 @@ class Interaction(object):
         self._left_click_callback = null_callback
         self._rid = None
 
+        self._instances_base_color = None
+
 
     def start(self, instances):
+
         canvas = self._canvas
 
         self._instances = instances
@@ -23,8 +26,26 @@ class Interaction(object):
         canvas.bind("<Motion>", self._on_motion)
         canvas.bind("<Button-1>", self._on_left_click)
 
+    def set_base_outline(self, instance):
+        outline = "blue"
+
+        instance.base_outline = outline
+
+        if self._rid:
+            if instance.rid != self._rid:
+                self._canvas.itemconfigure(instance.rid, outline=outline)
+        else:
+            self._canvas.itemconfigure(instance.rid, outline=outline)
+
+    def reset_base_outline(self, instance):
+        instance.base_outline = "black"
+
+        self._canvas.itemconfigure(instance.rid, outline="black")
+
     def unbind(self):
         canvas = self._canvas
+
+        self._unbind(self._instances, canvas)
 
         canvas.unbind("<Motion>")
         canvas.unbind("<Button-1>")
@@ -39,12 +60,14 @@ class Interaction(object):
             self._left_click_callback(rt.get_rectangle(self._instances, rid))
 
     def _on_motion(self, event):
+        self.highlight_outline(self._instances, event)
+
+    def highlight_outline(self, instances, mouse_event):
+
         canvas = self._canvas
 
-        x = event.x + canvas.xview()[0] * self.width
-        y = event.y + canvas.yview()[0] * self.height
-
-        instances = self._instances
+        x = mouse_event.x + canvas.xview()[0] * self.width
+        y = mouse_event.y + canvas.yview()[0] * self.height
 
         res = rt.find_closest_enclosing(instances, x, y)
 
@@ -52,20 +75,22 @@ class Interaction(object):
             rid = res[0]
 
             if rid != self._rid:
-                self._unbind(canvas)
-
+                self._unbind(instances, canvas)
             # rct = rt.get_rectangle(instances, rid)
             # print(rid)
             canvas.itemconfigure(rid, outline="red")
 
             self._rid = rid
-        else:
-            self._unbind(canvas)
+            return rid
 
-    def _unbind(self, canvas):
+        else:
+            self._unbind(instances, canvas)
+            return
+
+    def _unbind(self, instances, canvas):
         prev = self._rid
 
         if prev:
-            canvas.itemconfigure(prev, outline="black")
+            canvas.itemconfigure(prev, outline=instances[prev].base_outline)
 
             self._rid = None

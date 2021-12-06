@@ -274,12 +274,12 @@ def find_closest_enclosing(instances, x, y):
     for r in instances.values():
         x0, y0, x1, y1 = r.bbox
 
+        dst = math.dist(p, r.top_left)
+
         if m_dist is None:
             if x0 < x and y0 < y and x1 > x and y1 > y:
-                m_dist = math.dist(p, r.top_left)
+                m_dist = dst
             continue
-
-        dst = math.dist(p, r.top_left)
 
         if dst < m_dist and x0 < x and y0 < y and x1 > x and y1 > y:
             m_dist = dst

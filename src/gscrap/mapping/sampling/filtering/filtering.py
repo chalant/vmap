@@ -240,14 +240,10 @@ class FilteringModel(object):
         self._data_observers.append(observer)
 
     def clear_filters(self):
-        print("CLEARED!")
-
         self._filter_pipeline.clear()
 
         for obs in self._data_observers:
             obs.data_update(self)
-
-        print("FILTERS UPDATE!")
 
         for obs in self._filters_observers:
             obs.filters_update(self)
