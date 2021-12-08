@@ -4,11 +4,6 @@ import tkinter as tk
 
 from gscrap.mapping import controller as ctl
 
-from gscrap.projects import projects
-from gscrap.projects import workspace
-
-from gscrap.data import paths
-
 from gscrap.tools import window_selection as ws
 
 
@@ -29,7 +24,7 @@ class WindowManager(object):
     def root(self):
         return self._root
 
-    def start(self, working_dir):
+    def start(self, project):
         self._root = root = tk.Tk()
         root.title("GMAP")
 
@@ -42,7 +37,7 @@ class WindowManager(object):
         # self._root.wm_minsize(800, 500)
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        self._main = MainWindow(self, working_dir)
+        self._main = MainWindow(self, project)
         self._root.mainloop()
 
     def exit(self):
@@ -54,7 +49,7 @@ class WindowManager(object):
         self._root.destroy()
 
 class MainWindow(object):
-    def __init__(self, manager, workspace):
+    def __init__(self, manager, project):
         """
         Parameters
         ----------
@@ -64,11 +59,6 @@ class MainWindow(object):
         self._manager = manager
 
         root = manager.container
-
-        projects.set_project(workspace)
-        project = projects.get_project()
-
-        paths.set_project(project)
 
         self._mapping_controller = ctl.MappingController(
             project,
@@ -82,14 +72,3 @@ class MainWindow(object):
         self._mapping_controller.stop()
 
 MANAGER = WindowManager()
-
-def launch(project_name, directory=None):
-    if directory == None:
-        path = os.getcwd()
-    else:
-        if '~' in directory:
-            path = os.path.expanduser(directory)
-        else:
-            path = os.path.join(os.getcwd(), directory)
-
-    MANAGER.start(workspace.WorkSpace(path, project_name))

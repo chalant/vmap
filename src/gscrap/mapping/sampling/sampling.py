@@ -1,4 +1,5 @@
 from uuid import uuid4
+import math
 
 from collections import defaultdict
 
@@ -14,6 +15,8 @@ from gscrap.samples import store as st
 from gscrap.labeling import labeling as mdl
 from gscrap.labeling import utils as mdl_utils
 from gscrap.labeling import labeler as lbl
+
+from gscrap.sampling import samples
 
 from gscrap.data import io
 from gscrap.data.filters import filters
@@ -95,6 +98,7 @@ class SamplingController(object):
 
         self._batch_index = 0
         self._max_samples = 200
+        self._max_frames = 0
 
         self._bin_window_active = False
         self._draw_info = None
@@ -118,6 +122,8 @@ class SamplingController(object):
 
         self._video_metadata = None
         self._capture_zone = None
+
+        self._instance_samples_sources = []
 
         def null_callback(label):
             pass
@@ -649,52 +655,50 @@ class SamplingController(object):
 
             if pcz and meta:
                 if capture_zone.rectangle_id != pcz.rectangle_id:
+                    sv.previous_button["state"] = tk.DISABLED
+                    sv.next_button["state"] = tk.NORMAL
+
                     self._batch_index = 0
+                    self._capture_zone = capture_zone
 
-                    self._load_samples(sv, meta, capture_zone, self._max_samples)
+                    #reload samples
+                    self._load_instance_samples_sources(capture_zone)
 
-                    self._batch_index = 1
+                    self.load_next_batch()
 
                     self._threshold = 0
                     sv.threshold.set(0)
 
-                    # todo: problem: setting these creates events!!!
-
-                    # sv.label_type_options.set("N/A")
-                    # sv.label_instance_options.set("N/A")
-                    # sv.label_class_options.set("N/A")
                     sv.label_type_options["state"] = tk.DISABLED
                     sv.label_class_options["state"] = tk.DISABLED
                     sv.label_instance_options["state"] = tk.DISABLED
 
-                    self._capture_zone = capture_zone
-
                     sv.label_type_options["state"] = tk.NORMAL
 
             elif meta:
-                self._batch_index = 0
-
-                # io.submit(self._load_samples, sv, meta, capture_zone, self._max_samples)
-
-                self._load_samples(sv, meta, capture_zone, self._max_samples)
-
-                self._batch_index = 1
-
-                sv.next_button["state"] = tk.NORMAL
                 sv.previous_button["state"] = tk.DISABLED
 
+                self._batch_index = 0
                 self._capture_zone = capture_zone
+                # io.submit(self._load_samples, sv, meta, capture_zone, self._max_samples)
+                self._load_instance_samples_sources(capture_zone)
+
+                sv.next_button["state"] = tk.NORMAL
+
+                self.load_next_batch()
+
                 sv.label_type_options["state"] = tk.NORMAL
 
-    def _load_samples(self, view, meta, capture_zone, max_samples):
+    def _load_samples(self, view, instance_samples_sources, capture_zone, from_, to):
         grid = self._samples_view
         grid.clear()
 
         grid.load_samples(
-            meta,
+            instance_samples_sources,
             capture_zone,
-            from_=self._batch_index,
-            max_elements=max_samples, draw=True)
+            from_=from_,
+            to=to,
+            draw=True)
 
         grid.compress_samples(
             self._filtering_model,
@@ -801,7 +805,19 @@ class SamplingController(object):
         self._video_metadata = video_meta
 
         cz = self._capture_zone
+
         if cz:
+            capture_zone = self._capture_zone
+
+            num_siblings = len(capture_zone.siblings)
+
+            max_elements = self._max_samples
+
+            if num_siblings > 0:
+                samples_per_bbox = math.ceil(max_elements / num_siblings)
+            else:
+                samples_per_bbox = max_elements
+
             self._batch_index = 0
 
             view = self._sampling_view
@@ -811,12 +827,30 @@ class SamplingController(object):
             #     view,
             #     video_meta, cz, self._max_samples)
 
-            self._load_samples(view, video_meta, cz, self._max_samples)
+            instance_samples_array = self._load_instance_samples_sources(cz)
 
-            self._batch_index = 1
+            self._load_samples(view, instance_samples_array, cz, 0, self._batch_index + samples_per_bbox)
+            self._batch_index += samples_per_bbox
 
             view.next_button["state"] = tk.NORMAL
 
+    def _load_instance_samples_sources(self, capture_zone):
+        instance_samples_array = self._instance_samples_sources
+
+        instance_samples_array.clear()
+
+        num_samples = 0
+
+        for sb in capture_zone.siblings:
+            ss = samples.get_instance_samples(sb.rectangle_instance)
+            if ss.num_samples > num_samples:
+                num_samples = ss.num_samples
+
+            instance_samples_array.append(ss)
+
+        self._max_frames = num_samples
+
+        return instance_samples_array
 
     def disable_video_read(self):
         self._video_metadata = None
@@ -824,54 +858,85 @@ class SamplingController(object):
     def add_samples_observer(self, observer):
         self._samples_observers.append(observer)
 
-    def load_data(self):
-        meta = self._video_metadata
-        cz = self._capture_zone
-
-        if meta and cz:
-            io.submit(
-                self._load_samples,
-                self._sampling_view,
-                meta, cz)
-
     def load_next_batch(self):
+
+        capture_zone = self._capture_zone
+
+        num_siblings = len(capture_zone.siblings)
+
+        max_elements = self._max_samples
+
+        if num_siblings > 0:
+            samples_per_bbox = math.ceil(max_elements / num_siblings)
+        else:
+            samples_per_bbox = max_elements
+
         sampling_view = self._sampling_view
 
-        meta = self._video_metadata
+        frames = self._max_frames
 
-        frames = meta.frames
-
-        max_samples = self._max_samples
-
-        nxt = self._batch_index + max_samples
-
-        sampling_view.previous_button["state"] = tk.NORMAL
+        nxt = self._batch_index + samples_per_bbox
 
         if nxt > frames:
-            max_samples = frames - nxt
+            nxt = frames
             sampling_view.next_button["state"] = tk.DISABLED
 
-        else:
-            self._batch_index = nxt - 1
+        if nxt >= 2 * samples_per_bbox:
+            sampling_view.previous_button["state"] = tk.NORMAL
 
-        self._load_samples(sampling_view, meta, self._capture_zone, max_samples)
-        self._detect(self._labeler, self._capture_zone.dimensions)
+        self._load_samples(
+            sampling_view,
+            self._instance_samples_sources,
+            self._capture_zone,
+            self._batch_index,
+            nxt)
+
+        self._batch_index = nxt
+
+        self._detect(
+            self._labeler,
+            self._capture_zone.dimensions)
 
     def load_previous_batch(self):
+        capture_zone = self._capture_zone
+
+        num_siblings = len(capture_zone.siblings)
+
+        max_elements = self._max_samples
+
+        if num_siblings > 0:
+            samples_per_bbox = math.ceil(max_elements / num_siblings)
+        else:
+            samples_per_bbox = max_elements
+
         sampling_view = self._sampling_view
 
-        max_samples = self._max_samples
-        nxt = self._batch_index - max_samples
+        dis = self._batch_index - 2 * samples_per_bbox
+
+        if dis <= 0:
+            sampling_view.previous_button["state"] = tk.DISABLED
 
         sampling_view.next_button["state"] = tk.NORMAL
 
-        if nxt < 0:
-            max_samples = self._batch_index
-            sampling_view.previous_button["state"] = tk.DISABLED
-        else:
-            self._batch_index = nxt
+        nxt = self._batch_index - samples_per_bbox
 
-        self._load_samples(sampling_view, self._video_metadata, self._capture_zone, max_samples)
+        if nxt <= samples_per_bbox:
+            from_ = 0
+            nxt = samples_per_bbox
+        else:
+            from_ = self._batch_index - 2 * samples_per_bbox
+            to = self._batch_index - samples_per_bbox
+
+        self._load_samples(
+            sampling_view,
+            self._instance_samples_sources,
+            self._capture_zone,
+            from_,
+            nxt
+        )
+
+        self._batch_index = nxt
+
         self._detect(self._labeler, self._capture_zone.dimensions)
 
     def clear_data(self):

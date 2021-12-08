@@ -42,10 +42,10 @@ class MappingController(object):
             mv,
             sampling.SamplingController(root, 360, 400))
 
-        self._detection_tool = dtt = capture_selection.CaptureSelectionTool(
-            mv,
-            detection.DetectionController(root, 360, 400)
-        )
+        # self._detection_tool = dtt = capture_selection.CaptureSelectionTool(
+        #     mv,
+        #     detection.DetectionController(root, 360, 400)
+        # )
 
         self._capture_tool = cpt = capture.CaptureTool(mv, self, project)
         self._properties_tool = ppt = properties.Properties(mv)
@@ -84,8 +84,11 @@ class MappingController(object):
             # the mapping dict to the detection tool dict and reload from memory
             # instead of files.
 
-            self._sampling_tool.clear_tool()
-            self._sampling_tool.start_tool(self._scene)
+            self._tools.clear_tool()
+            self._tools.start_tool(self._scene)
+
+            # self._sampling_tool.clear_tool()
+            # self._sampling_tool.start_tool(self._scene)
 
             #todo: reload capture zones (tools -> reload)
 

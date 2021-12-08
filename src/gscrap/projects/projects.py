@@ -43,6 +43,8 @@ def set_project(working_space):
     if not _PROJECT:
         _PROJECT = Project(working_space)
 
+    return _PROJECT
+
 def get_project():
     global _PROJECT
 

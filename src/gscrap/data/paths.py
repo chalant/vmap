@@ -59,3 +59,6 @@ def videos():
 
 def tmp():
     return absolute_path(_TMP)
+
+def samples():
+    return absolute_path(join(tmp(), 'samples'))

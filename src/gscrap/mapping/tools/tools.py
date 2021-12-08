@@ -79,3 +79,9 @@ class ToolsController(object):
         if scene:
             #load data etc.
             tools[name].start_tool(scene)
+
+    def start_tool(self, scene):
+        self._tools[self._current_tool].start_tool(scene)
+
+    def clear_tool(self):
+        self._tools[self._current_tool].clear_tool()

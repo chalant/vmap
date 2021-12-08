@@ -1,5 +1,3 @@
-import math
-
 from PIL import Image
 
 import numpy as np
@@ -126,6 +124,12 @@ class Samples(object):
 
         self._dimensions = (0, 0)
 
+        self._batch_index = 0
+
+    @property
+    def batch_index(self):
+        return self._batch_index
+
     def get_sample(self, index):
         return self._samples_buffer.get_image(index)
 
@@ -186,15 +190,13 @@ class Samples(object):
         # return np.asarray(Image.frombytes("RGB", dimensions, image))
         return np.frombuffer(image, np.uint8).reshape(dimensions[1], dimensions[0], 3)
 
-    def load_samples(self, video_metadata, capture_zone, from_=0, max_elements=200, draw=False):
+    def load_samples(self, instance_samples_array, capture_zone, from_=0, to=100, draw=False):
         #draw samples into the image grid.
         buffer = self._samples_buffer
         items = self._items
 
         items.clear()
         buffer.clear()
-
-
 
         #todo: launch multiple processes or threads to optimize sample extraction
 
@@ -226,38 +228,56 @@ class Samples(object):
 
         self._dimensions = dimensions = capture_zone.dimensions
 
-        num_siblings = len(capture_zone.siblings)
-
-        if num_siblings > 0:
-            samples_per_bbox = math.floor(max_elements/num_siblings)
-        else:
-            samples_per_bbox = max_elements
-
         idx = 0
 
-        for bbox in capture_zone.all_bbox:
-            for sample in spl.load_samples(video_metadata, bbox, from_, samples_per_bbox):
-                item = ig.Item(dimensions)
-                item.image_index = idx
+        for ins in instance_samples_array:
+           with ins as source:
 
-                items.append(item)
-                buffer.add_sample(sample)
+            for i in range(from_, to):
+                try:
+                    sample = source.get_sample(i)
 
-                if draw:
-                    element = grid.add_item(item)
+                    item = ig.Item(dimensions)
+                    item.image_index = idx
 
-                    image_rectangles[idx] = element
+                    items.append(item)
+                    buffer.add_sample(sample)
 
-                    rectangle_instances[element.rid] = element
+                    if draw:
+                        element = grid.add_item(item)
 
-                idx += 1
+                        image_rectangles[idx] = element
+
+                        rectangle_instances[element.rid] = element
+
+                        idx += 1
+                except IndexError:
+                    break
+
+        # for bbox in capture_zone.all_bbox:
+        #     for sample in spl.load_samples_with_limit(video_metadata, bbox, from_, samples_per_bbox):
+        #         item = ig.Item(dimensions)
+        #         item.image_index = idx
+        #
+        #         items.append(item)
+        #         buffer.add_sample(sample)
+        #
+        #         if draw:
+        #             element = grid.add_item(item)
+        #
+        #             image_rectangles[idx] = element
+        #
+        #             rectangle_instances[element.rid] = element
+        #
+        #         idx += 1
 
         grid.update()
 
         self._interaction = interaction.Interaction(grid.canvas, grid.width, grid.height)
 
+
     def _load_task(self, res_array, video_metadata, bbox):
-        for sample in spl.load_samples(video_metadata, bbox):
+        for sample in spl.load_samples_with_limit(video_metadata, bbox):
             res_array.append(sample)
 
     def highlight_sample(self, idx):
