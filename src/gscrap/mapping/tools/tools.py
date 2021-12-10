@@ -81,7 +81,13 @@ class ToolsController(object):
             tools[name].start_tool(scene)
 
     def start_tool(self, scene):
-        self._tools[self._current_tool].start_tool(scene)
+        ct = self._current_tool
+
+        if ct:
+            self._tools[ct].start_tool(scene)
 
     def clear_tool(self):
-        self._tools[self._current_tool].clear_tool()
+        ct = self._current_tool
+
+        if ct:
+            self._tools[ct].clear_tool()

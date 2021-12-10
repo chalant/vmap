@@ -74,6 +74,8 @@ class CaptureSelectionTool(tools.Tool):
         self._y = 1
         self._i = 0
 
+        self._video_metadata = None
+
     def get_view(self, container):
         return self._windows_controller.start(container)
 
@@ -100,7 +102,8 @@ class CaptureSelectionTool(tools.Tool):
 
         self._capture_zones = capture_zones = self._display.draw(scene)
 
-        self._load_samples(self._video_metadata)
+        if self._video_metadata:
+            self._load_samples(self._video_metadata)
 
         #if rectangle instance positions have change or rectangle instance have been delete
         # we clear previous samples
