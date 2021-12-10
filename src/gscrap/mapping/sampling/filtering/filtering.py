@@ -167,6 +167,7 @@ class FilteringModel(object):
     def filters_enabled(self):
         return self._enabled
 
+
     def apply(self, img):
         im = img
 
@@ -302,15 +303,14 @@ class FilteringModel(object):
         for obs in self._data_observers:
             obs.data_update(self)
 
-        if self._enabled:
-            for obs in self._filters_observers:
-                obs.filters_update(self)
+        for obs in self._filters_observers:
+            obs.filters_update(self)
 
     def __iter__(self):
         return iter(tuple(self._filter_pipeline))
 
 class FilteringController(object):
-    def __init__(self, model):
+    def __init__(self, view, model):
         """
 
         Parameters
@@ -318,6 +318,7 @@ class FilteringController(object):
         model: FilteringModel
         """
         self._model = model
+        self._view = view
 
         self._samples = None
         self._data_changed = False
@@ -363,6 +364,12 @@ class FilteringController(object):
     def save(self, connection):
         self._save(self._model, connection)
 
+    def clear(self):
+        self._group_id = ''
+        self._parameter_id = ''
+
+        self._model.clear_filters()
+
     def _save(self, filters, connection):
         parameter_id = filters.parameter_id
         group_id = filters.group_id
@@ -390,12 +397,12 @@ class FilteringController(object):
                         connection,
                         parameter_id)
 
-                # todo: delete previously stored values
-                filters.delete_filters(
-                    connection,
-                    group_id,
-                    parameter_id
-                )
+                # # todo: delete previously stored values
+                # filters.delete_filters(
+                #     connection,
+                #     group_id,
+                #     parameter_id
+                # )
 
                 if not group_exists or not parameter_exists:
                     filters.store_filters(

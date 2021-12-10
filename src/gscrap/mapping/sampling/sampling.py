@@ -51,8 +51,8 @@ class SamplingController(object):
 
         self._filtering_window_active = False
         self._filtering_model = filtering_model = filtering.FilteringModel()
-        self._filtering = filtering.FilteringController(filtering_model)
         self._filtering_view = filtering_view = filtering.FilteringView(self, filtering_model, 300, 400)
+        self._filtering = filtering.FilteringController(filtering_view, filtering_model)
 
         filtering_model.add_data_observers(self)
 
@@ -70,8 +70,7 @@ class SamplingController(object):
         self._label_type = None
         self._label_group = None
 
-        self._item = None
-        self._labels = None
+        self._labels = defaultdict(list)
 
         self._filters_on = False
 
@@ -117,6 +116,8 @@ class SamplingController(object):
         # labeling
 
         self._labeler = labeler = lbl.Labeler()
+
+        self._null_labeling = mdl.NullLabeling()
 
         self._labeling = labeler.labeling
 
@@ -568,7 +569,8 @@ class SamplingController(object):
         # if label == "Unknown":
         #     view.detect_button["state"] = tk.DISABLED
 
-        view.save_button["state"] = tk.NORMAL
+        if label:
+            view.save_button["state"] = tk.NORMAL
 
         self._label = label
 
@@ -626,8 +628,9 @@ class SamplingController(object):
 
             sv.save_button["state"] = tk.DISABLED
 
+            labels = self._labels
             # load labels for the capture zone.
-            self._labels = labels = defaultdict(list)
+            labels.clear()
 
             # set sample store for each label type
             for label in capture_zone.get_labels(connection):
@@ -661,11 +664,12 @@ class SamplingController(object):
                     self._batch_index = 0
                     self._capture_zone = capture_zone
 
-                    #reload samples
-                    self._load_instance_samples_sources(capture_zone)
+                    labeler = self._labeler
+                    labeler.labeling = self._null_labeling
 
-                    self.load_next_batch()
+                    self._image_buffer.clear()
 
+                    self._filtering.clear()
                     self._threshold = 0
                     sv.threshold.set(0)
 
@@ -673,9 +677,19 @@ class SamplingController(object):
                     sv.label_class_options["state"] = tk.DISABLED
                     sv.label_instance_options["state"] = tk.DISABLED
 
+                    self._label_class = None
+                    self._label_type = None
+                    self._group_id = None
+                    self._label = None
+
+                    #reload samples
+                    self._load_instance_samples_sources(capture_zone)
+
+                    self.load_next_batch()
+
                     sv.label_type_options["state"] = tk.NORMAL
 
-            elif meta:
+            elif meta and not pcz:
                 sv.previous_button["state"] = tk.DISABLED
 
                 self._batch_index = 0
@@ -937,7 +951,9 @@ class SamplingController(object):
 
         self._batch_index = nxt
 
-        self._detect(self._labeler, self._capture_zone.dimensions)
+        self._detect(
+            self._labeler,
+            self._capture_zone.dimensions)
 
     def clear_data(self):
         self._samples_view.clear()
