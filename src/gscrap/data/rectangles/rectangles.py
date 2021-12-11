@@ -33,10 +33,10 @@ _GET_PROPERTY_VALUE_OF_RECTANGLE_INSTANCE = text(
 
 _GET_COMPONENTS_THAT_ARE_INSTANCES_OF_RECTANGLE = text(
     """
-    SELECT * FROM rectangle_components
-    INNER JOIN rectangle_instances
+    SELECT * FROM rectangle_instances
+    INNER JOIN rectangle_components
         ON rectangle_instances.r_instance_id = rectangle_components.r_instance_id
-    WHERE rectangle_components.r_instance_id =: instance_id
+    WHERE rectangle_components.r_instance_id =:instance_id
     """
 )
 
@@ -530,8 +530,7 @@ def delete_for_scene(connection, scene):
 def get_components_that_are_instances_of_rectangle(connection, rectangle_instance, rectangle):
     for res in connection.execute(
         _GET_COMPONENTS_THAT_ARE_INSTANCES_OF_RECTANGLE,
-        instance_id=rectangle_instance.id,
-        rectangle_id=rectangle.id
+        instance_id=rectangle_instance.id
     ):
         yield RectangleInstance(
             res['r_instance_id'],
@@ -559,6 +558,6 @@ def get_property_value_of_rectangle_instance(connection, rectangle_instance, pro
         property_type=property_.property_type,
         property_name=property_.property_name,
         instance_id=rectangle_instance.id
-    )
+    ).first()
 
     return properties.PropertyValue(property_, res['property_value'])

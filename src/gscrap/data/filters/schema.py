@@ -46,18 +46,18 @@ def build_schema(meta):
     Table(
         "labels_filters",
         meta,
-        Column("filter_group", String, ForeignKey("filter_groups.group_id"), nullable=False),
-        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
-        Column("label_type", String, ForeignKey("labels.label_type"), nullable=False),
-        Column("label_name", String, ForeignKey("labels.label_name"), nullable=False),
-        Column("scene_name", String, ForeignKey("scenes.scene_name"), nullable=False)
+        Column("filter_group", String, ForeignKey("filter_groups.group_id", ondelete="CASCADE"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id", ondelete="CASCADE"), nullable=False),
+        Column("label_type", String, ForeignKey("labels.label_type", ondelete="CASCADE"), nullable=False),
+        Column("label_name", String, ForeignKey("labels.label_name", ondelete="CASCADE"), nullable=False),
+        Column("scene_name", String, ForeignKey("scenes.scene_name", ondelete="CASCADE"), nullable=False)
     )
 
     Table(
         "filters",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
-        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id", ondelete="CASCADE"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id", ondelete="CASCADE"), nullable=False),
         Column("type", String, nullable=False),
         Column("name", String, nullable=False),
         Column("position", Integer, nullable=False)
@@ -66,8 +66,8 @@ def build_schema(meta):
     Table(
         "threshold",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
-        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id", ondelete="CASCADE"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id", ondelete="CASCADE"), nullable=False),
         Column("position", Integer, ForeignKey("filters.position"), nullable=False),
         Column("thresh_value", Integer, nullable=False),
         Column("max_value", Integer, nullable=False),
@@ -77,8 +77,8 @@ def build_schema(meta):
     Table(
         "gaussian_blur",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
-        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id", ondelete="CASCADE"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id", ondelete="CASCADE"), nullable=False),
         Column("position", Integer, ForeignKey("filters.position"), nullable=False),
         Column("ksizeX", Float, nullable=False),
         Column("ksizeY", Float, nullable=False),
@@ -89,8 +89,8 @@ def build_schema(meta):
     Table(
         "average_blur",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
-        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id", ondelete="CASCADE"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id", ondelete="CASCADE"), nullable=False),
         Column("position", Integer, ForeignKey("filters.position"), nullable=False),
         Column("ksizeX", Float, nullable=False),
         Column("ksizeY", Float, nullable=False)
@@ -99,8 +99,8 @@ def build_schema(meta):
     Table(
         "median_blur",
         meta,
-        Column("group_name", String, ForeignKey("filter_groups.group_id"), nullable=False),
-        Column("parameter_id", String, ForeignKey("parameters.parameter_id"), nullable=False),
+        Column("group_name", String, ForeignKey("filter_groups.group_id", ondelete="CASCADE"), nullable=False),
+        Column("parameter_id", String, ForeignKey("parameters.parameter_id", ondelete="CASCADE"), nullable=False),
         Column("position", Integer, ForeignKey("filters.position"), nullable=False),
         Column("ksize", Float, nullable=False)
     )

@@ -602,7 +602,7 @@ class GaussianBlur(Filter):
                 self.sigmaX,
                 sigmaY=self.sigmaY)
 
-        except Exception:
+        except Exception as e:
             return img
 
     def get_parameters_sequence(self):
@@ -671,8 +671,8 @@ class GaussianBlur(Filter):
     def _load_parameters(self, connection, group, parameter_id):
         data = get_filter_parameters(connection, self, group, parameter_id)
 
-        self.ksizeX = data["ksizeX"]
-        self.ksizeY = data["ksizeY"]
+        self.ksizeX = int(data["ksizeX"])
+        self.ksizeY = int(data["ksizeY"])
         self.sigmaX = data["sigmaX"]
         self.sigmaY = data["sigmaY"]
 
@@ -680,16 +680,16 @@ class GaussianBlur(Filter):
         connection.execute(
             text(
                 """
-                INSERT OR REPLACE INTO gaussian_blur (group_name, parameter_id, position, ksizeX, ksizeY, sigmaX, sigmaY) 
+                INSERT OR REPLACE INTO gaussian_blur (group_name, position, ksizeX, ksizeY, sigmaX, sigmaY, parameter_id) 
                 VALUES (:group_name, :position, :ksizeX, :ksizeY, :sigmaX, :sigmaY, :parameter_id) 
                 """),
             group_name=group,
-            parameter_id=parameter_id,
             position=self.position,
             ksizeX=self.ksizeX,
             ksizeY=self.ksizeY,
             sigmaX=self.sigmaX,
-            sigmaY=self.sigmaY
+            sigmaY=self.sigmaY,
+            parameter_id=parameter_id
         )
 
     def _delete_parameters(self, connection, group, position, parameter_id):
