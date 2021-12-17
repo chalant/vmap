@@ -9,6 +9,8 @@ from gscrap.data import io
 from gscrap.data.images import images as img
 from gscrap.data.labels import labels
 from gscrap.data.rectangles import rectangles
+from gscrap.data.rectangles import components
+from gscrap.data.rectangles import rectangle_labels
 
 from gscrap.projects.scenes import schema
 
@@ -307,6 +309,45 @@ class _Scene(object):
 
         self.width = image.width()
         self.height = image.height()
+
+def cleanup(connection, scene):
+    #todo: this is a temporary fix for removing junk data...
+    # normally this data should not exist.
+
+    rct_array = []
+    rct_lbl = []
+    instances = []
+    comp_instances = []
+
+    # remove rectangles with no instances.
+
+    for rct in rectangles.get_rectangles(connection, scene):
+        count = 0
+        for instance in rct.get_instances(connection):
+            count += 1
+
+            instances.append(instance.id)
+
+        if count == 0:
+            rectangles.delete_rectangle(connection, rct)
+
+        rct_array.append(rct.id)
+
+    for lbl in rectangle_labels.get_all_rectangles_labels(connection):
+        rct_lbl.append(lbl["rectangle_id"])
+
+    for rb in set(rct_lbl) - set(rct_array):
+        rectangle_labels.delete_labels_by_rectangle_id(connection, rb)
+        print("Deleting", rb)
+
+    for cmp in rectangles.get_all_instances_components(connection):
+        comp_instances.append(cmp["r_instance_id"])
+
+    #remove instances that do not exist
+    for instance_id in set(comp_instances) - set(instances):
+        components.delete_components_of_instance(connection, instance_id)
+        print("Deleting", instance_id)
+
 
 def create_tables(scene):
     meta = MetaData()

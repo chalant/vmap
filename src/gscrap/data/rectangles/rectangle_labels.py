@@ -14,10 +14,23 @@ _GET_RECTANGLE_LABELS = text(
     """
 )
 
+_GET_ALL_RECTANGLES_LABELS = text(
+    """
+    SELECT * FROM rectangle_labels
+    """
+)
+
 _ADD_LABEL = text(
     """
     INSERT OR REPLACE INTO rectangle_labels (rectangle_id, label_name, label_type)
     VALUES (:rectangle_id, :label_name, :label_type)
+    """
+)
+
+_DELETE_RECTANGLE_LABELS = text(
+    """
+    DELETE FROM rectangle_labels
+    WHERE rectangle_id=:rectangle_id
     """
 )
 
@@ -170,3 +183,13 @@ def delete_rectangle_label(connection, rectangle_label):
 def get_rectangle_labels(connection, rectangle):
     for row in connection.execute(_GET_RECTANGLE_LABELS, rectangle_id=rectangle.id):
         yield RectangleLabel(row, rectangle)
+
+def get_all_rectangles_labels(connection):
+    for row in connection.execute(_GET_ALL_RECTANGLES_LABELS):
+        yield row
+
+def delete_labels_by_rectangle_id(connection, rectangle_id):
+    connection.execute(
+        _DELETE_RECTANGLE_LABELS,
+        rectangle_id=rectangle_id
+    )

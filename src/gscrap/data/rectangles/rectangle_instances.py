@@ -154,3 +154,6 @@ def get_rectangle_instance_components_with_label(connection, rectangle_instance,
         label_name=label.label_name
     ):
         yield res['r_component_id']
+
+def get_rectangle_instance_components(connection, instance):
+    pass

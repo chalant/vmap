@@ -97,6 +97,7 @@ class Project(object):
             #load scene and set dimensions.
             with scene.connect() as connection:
                 builder.clear(connection)
+                scenes.cleanup(connection, scene)
                 scenes.create_tables(scene)
 
                 scenes.load_dimensions(connection, scene)
@@ -111,7 +112,8 @@ class Project(object):
 
             return scene
 
-        except exc.OperationalError:
+        except exc.OperationalError as e:
+            print(e)
             raise ValueError("Scene {} not found".format(scene_name))
 
     def create_scene(self, scene_name, schema_name):

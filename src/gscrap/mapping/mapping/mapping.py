@@ -351,11 +351,11 @@ class MappingTool(rectangle_utils.RectangleFactory):
             all_instances = self._all_instances
 
             with scene.connect() as con:
-                for r in self._rectangles:
-                    r.delete(con)
-
                 for wrapper in all_instances.values():
                     wrapper.delete(con)
+
+                for r in self._rectangles:
+                    r.delete(con)
 
             with scene.connect() as con:
                 for r in self._rectangles:

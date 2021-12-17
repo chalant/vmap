@@ -62,8 +62,7 @@ def create_labeler(connection, scene, label, rectangle, filter_pipeline):
         source.load_samples(sample_source, connection, scene)
 
     elif model_type == 'tesseract':
-
-        return labeling.get_tesseract(label.label_type)
+        labeling_model = labeling.get_tesseract(label.label_type)
     else:
         raise ValueError("No labeling model of type {}".format(model_type))
 

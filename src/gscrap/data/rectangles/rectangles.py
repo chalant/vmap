@@ -34,9 +34,10 @@ _GET_PROPERTY_VALUE_OF_RECTANGLE_INSTANCE = text(
 _GET_COMPONENTS_THAT_ARE_INSTANCES_OF_RECTANGLE = text(
     """
     SELECT * FROM rectangle_instances
-    INNER JOIN rectangle_components
-        ON rectangle_instances.r_instance_id = rectangle_components.r_instance_id
+    JOIN rectangle_components 
+	    ON rectangle_instances.r_instance_id = rectangle_components.r_component_id
     WHERE rectangle_components.r_instance_id =:instance_id
+	    AND rectangle_instances.rectangle_id =:rectangle_id
     """
 )
 
@@ -139,6 +140,12 @@ _GET_RECTANGLE_COMPONENTS = text(
     """
     SELECT * FROM rectangle_components
     WHERE r_instance_id=:r_instance_id
+    """
+)
+
+_GET_ALL_INSTANCES_COMPONENTS = text(
+    """
+    SELECT * FROM rectangle_components
     """
 )
 
@@ -272,14 +279,16 @@ class RectangleInstance(object):
     def delete(self, connection):
         id_ = self._id
 
+        # remove components before the instance, otherwise it won't
+        # delete the components
+
         connection.execute(
-            _DELETE_RECTANGLE_INSTANCE,
+            _DELETE_RECTANGLE_COMPONENT,
             r_instance_id=id_
         )
 
-        # remove components
         connection.execute(
-            _DELETE_RECTANGLE_COMPONENT,
+            _DELETE_RECTANGLE_INSTANCE,
             r_instance_id=id_
         )
 
@@ -351,6 +360,16 @@ class Rectangle(object):
         self._components.append(component)
 
     def get_instances(self, connection):
+        """
+
+        Parameters
+        ----------
+        connection
+
+        Yields
+        -------
+        RectangleInstance
+        """
         return get_rectangle_instances(connection, self)
 
     def create_instance(self, x, y, container=None):
@@ -530,10 +549,11 @@ def delete_for_scene(connection, scene):
 def get_components_that_are_instances_of_rectangle(connection, rectangle_instance, rectangle):
     for res in connection.execute(
         _GET_COMPONENTS_THAT_ARE_INSTANCES_OF_RECTANGLE,
-        instance_id=rectangle_instance.id
-    ):
+        instance_id=rectangle_instance.id,
+        rectangle_id=rectangle.id):
+
         yield RectangleInstance(
-            res['r_instance_id'],
+            res['r_component_id'],
             rectangle,
             res['left'],
             res['top'],
@@ -561,3 +581,8 @@ def get_property_value_of_rectangle_instance(connection, rectangle_instance, pro
     ).first()
 
     return properties.PropertyValue(property_, res['property_value'])
+
+def get_all_instances_components(connection):
+    for res in connection.execute(
+        _GET_ALL_INSTANCES_COMPONENTS):
+        yield res
