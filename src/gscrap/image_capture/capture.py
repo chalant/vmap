@@ -28,7 +28,12 @@ class CaptureHandler(object):
 
         ltwh = l + window.xywh[0], t + window.xywh[1], w, h
 
-        return np.array(Image.frombytes("RGB", (w, h), snapshot(self._display, ltwh), "raw", "BGRX"))
+        return np.array(Image.frombytes(
+            "RGB",
+            (w, h),
+            snapshot(self._display, ltwh),
+            "raw",
+            "BGRX"))
 
 
 class CaptureContext(object):

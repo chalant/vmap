@@ -140,7 +140,7 @@ class Project(object):
         return scene
 
     def get_build_function(self, schema_name):
-        schema_path = path.join(self.workspace.working_dir, 'schemas', path.split(schema_name)[-1] + '.py')
+        schema_path = path.join(self.workspace.working_dir, 'schemas', schema_name + '.py')
         namespace = self.namespace
 
         with open(schema_path, 'r') as f:
